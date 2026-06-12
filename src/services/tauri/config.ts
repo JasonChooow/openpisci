@@ -32,6 +32,8 @@ export interface Settings {
   context_window: number;
   confirm_shell_commands: boolean;
   confirm_file_writes: boolean;
+  /** Tool permission policy: "strict" | "balanced" | "dev". */
+  policy_mode?: string;
   browser_headless: boolean;
   is_configured?: boolean;
   // IM Gateway

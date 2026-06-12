@@ -886,7 +886,7 @@ function TrialMessageBubble({ msg, kois }: { msg: PoolMessage; kois: KoiWithStat
   const isPiscis = msg.sender_id === "piscis";
   const icon = isPiscis ? "🐋" : sender?.icon ?? "🐟";
   const color = isPiscis ? "#7c3aed" : sender?.color ?? "#6b7280";
-  const name = isPiscis ? "Piscis" : sender?.name ?? msg.sender_id;
+  const name = isPiscis ? "小诺" : sender?.name ?? msg.sender_id;
 
   const time = (() => {
     const d = new Date(msg.created_at);

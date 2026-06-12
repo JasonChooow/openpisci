@@ -17,7 +17,7 @@ import PiscisInbox from "../PiscisInbox";
 import PoolMemberPicker from "../PoolMemberPicker";
 import { ideApi, onFileChanged } from "../../../services/tauri/ide";
 import { sameProjectPath } from "../../../utils/projectPath";
-import { openPath } from "../../../services/tauri";
+import { openPath, windowApi } from "../../../services/tauri";
 import { poolApi, koiApi, PoolMessage, KoiWithStats, poolSessionFromWire, type PoolSessionSnapshot } from "../../../services/tauri";
 import { RootState, poolActions, koiActions, boardActions, POOL_DEFAULT_CAPACITY, parseMentions, hasMentions } from "../../../store";
 import { useScrollPrependedHistory } from "../../../hooks/useScrollPrependedHistory";
@@ -121,7 +121,7 @@ function MessageBubble({ msg, kois }: { msg: PoolMessage; kois: KoiWithStats[] }
   const isPiscis = msg.sender_id === "piscis";
   const icon = isPiscis ? "🐋" : sender?.icon ?? "🐟";
   const color = isPiscis ? "#7c3aed" : sender?.color ?? "#6b7280";
-  const name = isPiscis ? "Piscis" : sender?.name ?? msg.sender_id;
+  const name = isPiscis ? "小诺" : sender?.name ?? msg.sender_id;
   const meta = parseMeta(msg.metadata);
 
   return (
@@ -1025,7 +1025,7 @@ export default function Collab({ onNavigateToSchoolKoi, visible = true }: Collab
                   <div className="chatpool-orgspec-body chatpool-participants-body">
                     <div className="chatpool-participant">
                       <span className="chatpool-participant-icon">🐋</span>
-                      <span className="chatpool-participant-name">Piscis</span>
+                      <span className="chatpool-participant-name">小诺</span>
                       <span className="chatpool-participant-badge" title={t("pool.actAsPiscisRole")}>{t("pool.mainAgent") || "Main Agent"}</span>
                     </div>
                     {poolMembers.map((koi) => (
@@ -1294,6 +1294,19 @@ export default function Collab({ onNavigateToSchoolKoi, visible = true }: Collab
             title={t("ide.terminal") || "Terminal"}
           >
             <span className="activity-icon">⌨</span>
+          </button>
+          <button
+            className="collab-right-icon"
+            onClick={() => {
+              void windowApi.openProWindow({
+                view: "ide",
+                projectDir: projectDir ?? undefined,
+                sessionId: activeSessionId ?? undefined,
+              });
+            }}
+            title={t("pro.openHint") || t("pro.open")}
+          >
+            <span className="activity-icon">⧉</span>
           </button>
         </div>
       </div>

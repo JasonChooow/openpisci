@@ -1302,6 +1302,7 @@ fn run_impl() {
             commands::chat::set_session_workspace,
             commands::chat::get_messages,
             commands::chat::list_session_artifacts,
+            commands::chat::list_all_artifacts,
             commands::chat::chat_send,
             commands::chat::chat_cancel,
             commands::journal::journal_list_changes,
@@ -1403,11 +1404,16 @@ fn run_impl() {
             commands::platform::interactive::respond_interactive_ui,
             commands::platform::window::enter_minimal_mode,
             commands::platform::window::exit_minimal_mode,
+            commands::platform::window::open_pro_window,
             commands::platform::window::quit_app,
             commands::platform::window::set_overlay_position,
             commands::platform::window::save_overlay_position,
             commands::platform::window::set_app_theme,
             commands::platform::window::set_window_theme_border,
+            commands::platform::extras::check_update,
+            commands::platform::extras::list_cloud_connectors,
+            commands::platform::extras::get_account,
+            commands::platform::extras::list_team_templates,
         ])
         .run(tauri::generate_context!())
         .expect("error while running OpenPiscis Desktop");

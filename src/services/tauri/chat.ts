@@ -75,6 +75,8 @@ export const sessionsApi = {
 export const artifactsApi = {
   list: (sessionId: string, limit = 100) =>
     invoke<SessionArtifact[]>("list_session_artifacts", { sessionId, limit }),
+  listAll: (limit = 500) =>
+    invoke<SessionArtifact[]>("list_all_artifacts", { limit }),
   onUpdated: (sessionId: string, handler: (artifact: SessionArtifact) => void): Promise<UnlistenFn> =>
     listen<SessionArtifact>(`session_artifacts_updated_${sessionId}`, (event) => handler(event.payload)),
 };
@@ -160,6 +162,8 @@ export type AgentEventType =
       text_delta?: string;
     };
 
+export type ComposerMode = "ask" | "plan" | "craft";
+
 export interface ChatSendOptions {
   attachments?: ChatAttachment[];
   /** @deprecated use attachments */
@@ -167,6 +171,10 @@ export interface ChatSendOptions {
   explicitSkills?: string[];
   personaKoiId?: string;
   clearPlan?: boolean;
+  /** Interaction mode (ask = read-only Q&A, plan = design, craft = full agent). */
+  mode?: ComposerMode;
+  /** Per-turn model override; empty/undefined uses the configured default. */
+  modelOverride?: string;
 }
 
 export const chatApi = {
@@ -182,6 +190,8 @@ export const chatApi = {
       explicitSkills: options?.explicitSkills ?? null,
       personaKoiId: options?.personaKoiId ?? null,
       clearPlan: options?.clearPlan ?? true,
+      mode: options?.mode ?? null,
+      modelOverride: options?.modelOverride ?? null,
     });
   },
   cancel: (sessionId: string) =>

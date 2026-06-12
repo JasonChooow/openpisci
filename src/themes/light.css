@@ -27,6 +27,8 @@
   --sidebar-bg:     #eeeef6;
   --sidebar-border: #d0d0dc;
 
+  --nav-active-bg:  #e3e3ee;
+
   --topbar-bg:         #ececf4;
   --panel-sidebar-bg:  #eeeef6;
 
@@ -81,6 +83,8 @@
 
   --sidebar-bg:     #f2efe8;
   --sidebar-border: #ddd6c8;
+
+  --nav-active-bg:  #e8e2d4;
 
   --topbar-bg:         #f0ece4;
   --panel-sidebar-bg:  #f2efe8;

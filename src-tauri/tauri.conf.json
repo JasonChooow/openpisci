@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OpenPiscis",
+  "productName": "XiaoNuo",
   "mainBinaryName": "piscis-desktop",
   "version": "0.8.64",
   "identifier": "com.piscis.desktop",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "OpenPiscis",
+        "title": "小诺 XiaoNuo",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -26,7 +26,7 @@
       },
       {
         "label": "overlay",
-        "title": "OpenPiscis Overlay",
+        "title": "小诺 Overlay",
         "url": "index.html?overlay=1",
         "width": 280,
         "height": 56,
@@ -66,10 +66,10 @@
     ],
     "resources": [],
     "externalBin": [],
-    "copyright": "Copyright 2025 OpenPiscis Team",
+    "copyright": "Copyright 2025 XiaoNuo Team",
     "category": "Productivity",
-    "shortDescription": "OpenPiscis - Open-source cross-platform AI Agent Desktop",
-    "longDescription": "OpenPiscis is an open-source cross-platform AI agent desktop for Windows, macOS, and Linux. Piscis is the main coordinator agent inside the app — with chat, memory, skills, MCP tools, browser automation, and pool-based multi-agent orchestration, all running locally against the LLM provider of your choice.",
+    "shortDescription": "小诺 XiaoNuo - Open-source cross-platform AI Agent Desktop",
+    "longDescription": "小诺 (XiaoNuo) is an open-source cross-platform AI agent desktop for Windows, macOS, and Linux. 小诺 is the main coordinator agent inside the app — with chat, memory, skills, MCP tools, browser automation, and pool-based multi-agent orchestration, all running locally against the LLM provider of your choice.",
     "windows": {
       "digestAlgorithm": "sha256",
       "webviewInstallMode": {

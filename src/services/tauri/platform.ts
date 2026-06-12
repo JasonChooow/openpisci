@@ -73,6 +73,13 @@ export const systemApi = {
 export const windowApi = {
   enterMinimalMode: () => invoke<void>("enter_minimal_mode"),
   exitMinimalMode: () => invoke<void>("exit_minimal_mode"),
+  /** Open (or focus) the professional features window (light IDE + Git). */
+  openProWindow: (opts?: { view?: string; projectDir?: string; sessionId?: string }) =>
+    invoke<void>("open_pro_window", {
+      view: opts?.view ?? "ide",
+      projectDir: opts?.projectDir ?? null,
+      sessionId: opts?.sessionId ?? null,
+    }),
   quitApp: () => invoke<void>("quit_app"),
   setOverlayPosition: (x: number, y: number) =>
     invoke<void>("set_overlay_position", { x, y }),
@@ -80,6 +87,45 @@ export const windowApi = {
     invoke<void>("save_overlay_position", { x, y }),
   setThemeBorder: (theme: "violet" | "gold") =>
     invoke<void>("set_window_theme_border", { theme }),
+};
+
+// ---------------------------------------------------------------------------
+// XiaoNuo extras: update check / cloud connectors / account / team templates
+// ---------------------------------------------------------------------------
+
+export interface UpdateInfo {
+  current_version: string;
+  latest_version: string;
+  update_available: boolean;
+  notes: string;
+}
+
+export interface CloudConnector {
+  id: string;
+  name: string;
+  provider: string;
+  connected: boolean;
+  available: boolean;
+}
+
+export interface AccountInfo {
+  kind: string;
+  name: string;
+  signed_in: boolean;
+}
+
+export interface TeamTemplate {
+  id: string;
+  name: string;
+  description: string;
+  roles: string[];
+}
+
+export const extrasApi = {
+  checkUpdate: () => invoke<UpdateInfo>("check_update"),
+  listCloudConnectors: () => invoke<CloudConnector[]>("list_cloud_connectors"),
+  getAccount: () => invoke<AccountInfo>("get_account"),
+  listTeamTemplates: () => invoke<TeamTemplate[]>("list_team_templates"),
 };
 
 // ---------------------------------------------------------------------------

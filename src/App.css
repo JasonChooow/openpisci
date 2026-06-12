@@ -192,9 +192,9 @@ body {
 }
 
 .nav-item.active {
-  background: var(--accent-dim);
-  color: var(--accent);
-  font-weight: 500;
+  background: var(--nav-active-bg);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .nav-icon {

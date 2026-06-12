@@ -87,7 +87,7 @@ function MessageBubble({
   const isPiscis = msg.sender_id === "piscis";
   const icon = isPiscis ? "🐋" : sender?.icon ?? "🐟";
   const color = isPiscis ? "#7c3aed" : sender?.color ?? "#6b7280";
-  const name = isPiscis ? "Piscis" : sender?.name ?? msg.sender_id;
+  const name = isPiscis ? "小诺" : sender?.name ?? msg.sender_id;
   const meta = parseMeta(msg.metadata);
 
   return (
@@ -587,7 +587,7 @@ export default function ChatPool() {
           </div>
           <div className="chatpool-participant">
             <span className="chatpool-participant-icon">🐋</span>
-            <span className="chatpool-participant-name">Piscis</span>
+            <span className="chatpool-participant-name">小诺</span>
             <span className="chatpool-participant-badge">{t("pool.mainAgent")}</span>
           </div>
           {poolMembers.map((koi) => (

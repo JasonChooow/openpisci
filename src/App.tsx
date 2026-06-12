@@ -2,42 +2,63 @@ import { Suspense, lazy, useEffect, useState } from "react";
 import { Provider, useDispatch, useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { store, RootState, settingsActions, sessionsActions, chatActions } from "./store";
-import { settingsApi, sessionsApi, windowApi } from "./services/tauri";
+import {
+  Plus,
+  Bot,
+  Fish,
+  Clock,
+  LayoutGrid,
+  FolderOpen,
+  Lightbulb,
+  Cloud,
+  BookOpen,
+  ChevronRight,
+} from "lucide-react";
+import { store, RootState, settingsActions, sessionsActions, chatActions, poolActions } from "./store";
+import { settingsApi, sessionsApi, poolApi, windowApi } from "./services/tauri";
 import { isInternalSession } from "./utils/session";
 import { applyFontScale, getFontScale } from "./utils/fontScale";
 import i18n, { setLanguage } from "./i18n";
 import Chat from "./components/Chat";
 import Toaster from "./components/Toaster";
+import MyFiles from "./components/MyFiles";
+import Inspiration from "./components/Inspiration";
+import CloudFiles from "./components/CloudFiles";
+import TaskList from "./components/Sidebar/TaskList";
+import AccountMenu from "./components/Sidebar/AccountMenu";
+import type { SettingsSubTab } from "./components/SettingsHub";
 import "./theme.css";
 import "./App.css";
+import "./components/Sidebar/Sidebar.css";
 
-const Memory = lazy(() => import("./components/Memory"));
-const Tools = lazy(() => import("./components/Tools"));
 const SchoolPage = lazy(() => import("./components/School"));
 const Pond = lazy(() => import("./components/Pond"));
-const Skills = lazy(() => import("./components/Skills"));
 const Scheduler = lazy(() => import("./components/Scheduler"));
-const Settings = lazy(() => import("./components/Settings"));
-const AuditLog = lazy(() => import("./components/AuditLog"));
-const About = lazy(() => import("./components/About"));
+const SettingsHub = lazy(() => import("./components/SettingsHub"));
 const Onboarding = lazy(() => import("./components/Onboarding"));
 const OverlayApp = lazy(() => import("./components/Overlay"));
-const DebugPanel = lazy(() => import("./components/Debug"));
+const ProWindow = lazy(() => import("./components/ProWindow"));
 
-type Tab = "chat" | "memory" | "tools" | "school" | "pond" | "skills" | "scheduler" | "audit" | "settings" | "about" | "debug";
+type Tab = "chat" | "school" | "pond" | "scheduler" | "myfiles" | "inspiration" | "cloud" | "settings";
 type SchoolSubTab = "fish" | "koi";
+const ICON = 18;
 
 // Detect if we are running in the overlay window
 const IS_OVERLAY = new URLSearchParams(window.location.search).get("overlay") === "1";
+// Detect if we are running in the standalone "professional features" window
+const IS_PRO_WINDOW = Boolean(new URLSearchParams(window.location.search).get("proview"));
 
 function AppContent() {
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const { showOnboarding, settings } = useSelector((s: RootState) => s.settings);
   const pendingMainChatNav = useSelector((s: RootState) => s.sessions.pendingMainChatNav);
+  const activeSessionId = useSelector((s: RootState) => s.sessions.activeSessionId);
+  const activePoolSessionId = useSelector((s: RootState) => s.pool.activeSessionId);
   const [activeTab, setActiveTab] = useState<Tab>("chat");
   const [schoolSubTab, setSchoolSubTab] = useState<SchoolSubTab>("fish");
+  const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>("general");
+  const [moreOpen, setMoreOpen] = useState(false);
   /** Tabs that have been opened at least once — stay mounted to preserve state. */
   const [mountedTabs, setMountedTabs] = useState<Set<Tab>>(() => new Set(["chat"]));
   const [initialized, setInitialized] = useState(false);
@@ -45,7 +66,7 @@ function AppContent() {
     return (localStorage.getItem('piscis-theme') as 'violet' | 'gold') || 'violet';
   });
   const [colorMode, setColorMode] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('piscis-color-mode') as 'light' | 'dark') || 'dark';
+    return (localStorage.getItem('piscis-color-mode') as 'light' | 'dark') || 'light';
   });
 
   useEffect(() => {
@@ -115,6 +136,15 @@ function AppContent() {
         dispatch(sessionsActions.setSessions(sessions));
         const firstVisible = sessions.find((s) => !isInternalSession(s));
         dispatch(sessionsActions.setActiveSession(firstVisible?.id ?? null));
+
+        // Load pool projects so the unified task list can show them
+        // alongside chat sessions without opening Pond first.
+        try {
+          const poolSessions = await poolApi.listSessions();
+          dispatch(poolActions.setPoolSessions(poolSessions));
+        } catch (e) {
+          console.error("Init pool sessions error:", e);
+        }
       } catch (e) {
         console.error("Init error:", e);
       } finally {
@@ -230,68 +260,163 @@ function AppContent() {
     setActiveTab(tab);
   };
 
-  const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: "chat", label: t("nav.chat"), icon: "💬" },
-    { id: "pond", label: t("nav.pond"), icon: "🏊" },
-    { id: "school", label: t("nav.school"), icon: "🐟" },
-    { id: "tools", label: t("nav.tools"), icon: "🔧" },
-    { id: "skills", label: t("nav.skills"), icon: "⚡" },
-    { id: "scheduler", label: t("nav.scheduler"), icon: "⏰" },
-    { id: "memory", label: t("nav.memory"), icon: "💡" },
-    { id: "audit", label: t("nav.audit"), icon: "🔍" },
-    { id: "settings", label: t("nav.settings"), icon: "⚙️" },
-    { id: "about", label: t("nav.about"), icon: "ℹ️" },
-  ];
+  const openSettings = (sub: SettingsSubTab = "general") => {
+    setSettingsSubTab(sub);
+    setActiveTab("settings");
+  };
+
+  const handleNewTask = async () => {
+    try {
+      const session = await sessionsApi.create(t("chat.newChat"));
+      dispatch(sessionsActions.addSession(session));
+      dispatch(sessionsActions.openMainChatView({ filter: "chat", sessionId: session.id }));
+    } catch (e) {
+      console.error("New task error:", e);
+    }
+    setActiveTab("chat");
+  };
+
+  const handleAssistant = () => {
+    dispatch(sessionsActions.openMainChatView({ filter: "im" }));
+    setActiveTab("chat");
+  };
+
+  const handleGuide = () => {
+    dispatch(sessionsActions.openMainChatView({ filter: "chat", composerDraft: t("guide.prompt") }));
+    setActiveTab("chat");
+  };
+
+  const handleMakeSimilar = async (prompt: string) => {
+    try {
+      const session = await sessionsApi.create(t("chat.newChat"));
+      dispatch(sessionsActions.addSession(session));
+      dispatch(sessionsActions.openMainChatView({ filter: "chat", sessionId: session.id, composerDraft: prompt }));
+    } catch (e) {
+      console.error("Make similar error:", e);
+      dispatch(sessionsActions.openMainChatView({ filter: "chat", composerDraft: prompt }));
+    }
+    setActiveTab("chat");
+  };
+
+  const handleSelectChatTask = (id: string) => {
+    dispatch(sessionsActions.openMainChatView({ filter: "chat", sessionId: id }));
+    setActiveTab("chat");
+  };
+
+  const handleSelectPoolTask = (id: string) => {
+    dispatch(poolActions.setActivePoolSession(id));
+    setActiveTab("pond");
+  };
 
   return (
     <div className="app">
       <aside className="sidebar">
         <div className="sidebar-header">
           <div className="sidebar-brand">
-            <img src="/piscis.png" className="logo" alt="OpenPiscis" />
-            <span className="app-name">OpenPiscis</span>
+            <img src="/piscis.png" className="logo" alt="小诺" />
+            <span className="app-name">小诺</span>
           </div>
+        </div>
+
+        <button type="button" className="sidebar-cta" onClick={handleNewTask}>
+          <span className="sidebar-cta-icon"><Plus size={ICON} strokeWidth={2} /></span>
+          {t("nav.newTask")}
+        </button>
+
+        <div className="sidebar-scroll">
+          <button type="button" className="nav-item" onClick={handleAssistant} title={t("nav.assistant")}>
+            <span className="nav-icon"><Bot size={ICON} strokeWidth={1.5} /></span>
+            <span className="nav-label-wrap">
+              <span className="nav-label">{t("nav.assistant")}</span>
+              <span className="nav-sub">{t("nav.assistantSub")}</span>
+            </span>
+          </button>
+
           <button
             type="button"
-            className="color-mode-toggle"
-            title={colorMode === "dark" ? t("nav.colorModeLight") : t("nav.colorModeDark")}
-            aria-label={colorMode === "dark" ? t("nav.colorModeLight") : t("nav.colorModeDark")}
-            onClick={() => setColorMode((m) => (m === "dark" ? "light" : "dark"))}
+            className={`nav-item ${activeTab === "school" ? "active" : ""}`}
+            onClick={() => navigateTab("school", { schoolSubTab: "koi" })}
+            title={t("nav.expert")}
           >
-            {colorMode === "dark" ? "☀️" : "🌙"}
+            <span className="nav-icon"><Fish size={ICON} strokeWidth={1.5} /></span>
+            <span className="nav-label-wrap">
+              <span className="nav-label">{t("nav.expert")}</span>
+              <span className="nav-sub">{t("nav.expertSub")}</span>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className={`nav-item ${activeTab === "scheduler" ? "active" : ""}`}
+            onClick={() => setActiveTab("scheduler")}
+            title={t("nav.automation")}
+          >
+            <span className="nav-icon"><Clock size={ICON} strokeWidth={1.5} /></span>
+            <span className="nav-label">{t("nav.automation")}</span>
+          </button>
+
+          <button
+            type="button"
+            className="nav-item"
+            onClick={() => setMoreOpen((v) => !v)}
+            title={t("nav.more")}
+          >
+            <span className="nav-icon"><LayoutGrid size={ICON} strokeWidth={1.5} /></span>
+            <span className="nav-label">{t("nav.more")}</span>
+            <span className={`nav-chevron ${moreOpen ? "open" : ""}`}><ChevronRight size={15} strokeWidth={2} /></span>
+          </button>
+          {moreOpen && (
+            <div className="nav-subitems">
+              <button
+                type="button"
+                className={`nav-item nav-item-sub ${activeTab === "myfiles" ? "active" : ""}`}
+                onClick={() => setActiveTab("myfiles")}
+              >
+                <span className="nav-icon"><FolderOpen size={16} strokeWidth={1.5} /></span>
+                <span className="nav-label">{t("nav.myFiles")}</span>
+              </button>
+              <button
+                type="button"
+                className={`nav-item nav-item-sub ${activeTab === "inspiration" ? "active" : ""}`}
+                onClick={() => setActiveTab("inspiration")}
+              >
+                <span className="nav-icon"><Lightbulb size={16} strokeWidth={1.5} /></span>
+                <span className="nav-label">{t("nav.inspiration")}</span>
+              </button>
+              <button
+                type="button"
+                className={`nav-item nav-item-sub ${activeTab === "cloud" ? "active" : ""}`}
+                onClick={() => setActiveTab("cloud")}
+              >
+                <span className="nav-icon"><Cloud size={16} strokeWidth={1.5} /></span>
+                <span className="nav-label">{t("nav.cloudFiles")}</span>
+              </button>
+            </div>
+          )}
+
+          <div className="nav-section-label">{t("nav.tasks")}</div>
+          <TaskList
+            activeChatSessionId={activeSessionId}
+            activePoolSessionId={activePoolSessionId}
+            activeTab={activeTab}
+            onSelectChat={handleSelectChatTask}
+            onSelectPool={handleSelectPoolTask}
+          />
+
+          <div className="nav-section-label">{t("nav.space")}</div>
+          <button type="button" className="nav-item" onClick={handleGuide} title={t("nav.guide")}>
+            <span className="nav-icon"><BookOpen size={ICON} strokeWidth={1.5} /></span>
+            <span className="nav-label">{t("nav.guide")}</span>
           </button>
         </div>
-        <nav className="sidebar-nav">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              className={`nav-item ${activeTab === tab.id ? "active" : ""}`}
-              onClick={() => setActiveTab(tab.id)}
-              title={tab.label}
-            >
-              <span className="nav-icon">{tab.icon}</span>
-              <span className="nav-label">{tab.label}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-footer">
-          <button
-            className={`nav-item ${activeTab === "debug" ? "active" : ""}`}
-            title={t("nav.debug")}
-            onClick={() => setActiveTab("debug")}
-          >
-            <span className="nav-icon">🔬</span>
-            <span className="nav-label">{t("nav.debug")}</span>
-          </button>
-          <button
-            className="nav-item minimal-mode-btn"
-            title={t("nav.minimalMode")}
-            onClick={() => windowApi.enterMinimalMode()}
-          >
-            <span className="nav-icon">⚪</span>
-            <span className="nav-label">{t("nav.minimalMode")}</span>
-          </button>
-        </div>
+
+        <AccountMenu
+          colorMode={colorMode}
+          onToggleColorMode={() => setColorMode((m) => (m === "dark" ? "light" : "dark"))}
+          onOpenSettings={() => openSettings("general")}
+          onHelp={handleGuide}
+          onMinimalMode={() => windowApi.enterMinimalMode()}
+        />
       </aside>
       <main className="main-content">
         <Suspense fallback={<div className="loading-screen"><div className="loading-spinner" /><p>{t("common.loadingApp")}</p></div>}>
@@ -299,17 +424,11 @@ function AppContent() {
             <div className="tab-panel" hidden={activeTab !== "chat"}>
               <Chat
                 onNavigateTab={(tab, opts) => {
-                  if (tab === "skills") navigateTab("skills");
+                  if (tab === "skills") openSettings("skills");
                   if (tab === "school") navigateTab("school", { schoolSubTab: opts?.schoolSubTab ?? "koi" });
                 }}
               />
             </div>
-          )}
-          {mountedTabs.has("memory") && (
-            <div className="tab-panel" hidden={activeTab !== "memory"}><Memory /></div>
-          )}
-          {mountedTabs.has("tools") && (
-            <div className="tab-panel" hidden={activeTab !== "tools"}><Tools /></div>
           )}
           {mountedTabs.has("pond") && (
             <div className="tab-panel" hidden={activeTab !== "pond"}>
@@ -324,27 +443,34 @@ function AppContent() {
               <SchoolPage initialSubTab={schoolSubTab} />
             </div>
           )}
-          {mountedTabs.has("skills") && (
-            <div className="tab-panel" hidden={activeTab !== "skills"}>
-              <Skills onNavigateTab={() => setActiveTab("chat")} />
-            </div>
-          )}
           {mountedTabs.has("scheduler") && (
             <div className="tab-panel" hidden={activeTab !== "scheduler"}><Scheduler /></div>
           )}
-          {mountedTabs.has("audit") && (
-            <div className="tab-panel" hidden={activeTab !== "audit"}><AuditLog /></div>
+          {mountedTabs.has("myfiles") && (
+            <div className="tab-panel" hidden={activeTab !== "myfiles"}>
+              <MyFiles visible={activeTab === "myfiles"} />
+            </div>
+          )}
+          {mountedTabs.has("inspiration") && (
+            <div className="tab-panel" hidden={activeTab !== "inspiration"}>
+              <Inspiration onMakeSimilar={handleMakeSimilar} />
+            </div>
+          )}
+          {mountedTabs.has("cloud") && (
+            <div className="tab-panel" hidden={activeTab !== "cloud"}>
+              <CloudFiles visible={activeTab === "cloud"} />
+            </div>
           )}
           {mountedTabs.has("settings") && (
             <div className="tab-panel" hidden={activeTab !== "settings"}>
-              <Settings theme={theme} setTheme={setTheme} onOpenTools={() => setActiveTab("tools")} />
+              <SettingsHub
+                theme={theme}
+                setTheme={setTheme}
+                activeSubTab={settingsSubTab}
+                onSubTabChange={setSettingsSubTab}
+                onNavigateToChat={() => setActiveTab("chat")}
+              />
             </div>
-          )}
-          {mountedTabs.has("about") && (
-            <div className="tab-panel" hidden={activeTab !== "about"}><About /></div>
-          )}
-          {mountedTabs.has("debug") && (
-            <div className="tab-panel" hidden={activeTab !== "debug"}><DebugPanel /></div>
           )}
         </Suspense>
       </main>
@@ -358,6 +484,13 @@ export default function App() {
     return (
       <Suspense fallback={<div className="loading-screen"><div className="loading-spinner" /><p>{i18n.t("common.loadingApp")}</p></div>}>
         <OverlayApp />
+      </Suspense>
+    );
+  }
+  if (IS_PRO_WINDOW) {
+    return (
+      <Suspense fallback={<div className="loading-screen"><div className="loading-spinner" /><p>{i18n.t("common.loadingApp")}</p></div>}>
+        <ProWindow />
       </Suspense>
     );
   }

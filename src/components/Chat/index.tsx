@@ -7,7 +7,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { RootState, chatActions, sessionsActions, skillsActions, ToolStep, StreamingState, PlanTodoItem, ContextUsageSnapshot } from "../../store";
 import { artifactsApi, chatApi, journalApi, sessionsApi, gatewayApi, koiApi, AgentEventType, ChannelInfo, type ChatMessage, type SessionArtifact, type JournalChange, type KoiWithStats } from "../../services/tauri";
-import { settingsApi, skillsApi, type Skill } from "../../services/tauri";
+import { settingsApi, skillsApi, type Skill, type ComposerMode } from "../../services/tauri";
+import SegmentedControl from "../ui/SegmentedControl";
+import RoundedSearch from "../ui/RoundedSearch";
+import { Search, History, Share2, Mic, ChevronLeft, Eye } from "lucide-react";
+import ArtifactPreview from "./ArtifactPreview";
 import { buildAttachmentFromBlob, buildAttachmentFromPath, isImageFilename, type PendingAttachmentItem } from "./composerUtils";
 import type { Settings } from "../../services/tauri";
 import ReactMarkdown from "react-markdown";
@@ -422,7 +426,54 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachmentItem[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<Skill[]>([]);
   const [selectedKoi, setSelectedKoi] = useState<KoiWithStats | null>(null);
-  const [composerMenuOpen, setComposerMenuOpen] = useState<null | "workspace" | "koi" | "skill">(null);
+  const [composerMenuOpen, setComposerMenuOpen] = useState<null | "workspace" | "koi" | "skill" | "permission" | "model">(null);
+  const [composerMode, setComposerMode] = useState<ComposerMode>(
+    () => (localStorage.getItem("piscis-composer-mode") as ComposerMode) || "craft",
+  );
+  const composerModeRef = useRef<ComposerMode>(composerMode);
+  useEffect(() => {
+    composerModeRef.current = composerMode;
+    localStorage.setItem("piscis-composer-mode", composerMode);
+  }, [composerMode]);
+  // Per-turn model override ("" => use configured default model).
+  const [modelOverride, setModelOverride] = useState<string>("");
+  const modelOverrideRef = useRef<string>("");
+  useEffect(() => { modelOverrideRef.current = modelOverride; }, [modelOverride]);
+  const [topbarPanel, setTopbarPanel] = useState<null | "search" | "history">(null);
+  const [convSearch, setConvSearch] = useState("");
+  const [shareNote, setShareNote] = useState("");
+  // Voice dictation (Web Speech API; gracefully hidden when unsupported)
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const voiceSupported =
+    typeof window !== "undefined" &&
+    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+  const toggleVoice = useCallback(() => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch { /* noop */ }
+      recognitionRef.current = null;
+      setListening(false);
+      return;
+    }
+    const rec = new SR();
+    rec.lang = navigator.language || "zh-CN";
+    rec.interimResults = false;
+    rec.continuous = true;
+    rec.onresult = (e: any) => {
+      let text = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) text += e.results[i][0].transcript;
+      }
+      text = text.trim();
+      if (text) setInput((prev) => (prev ? `${prev} ${text}` : text));
+    };
+    rec.onend = () => { setListening(false); recognitionRef.current = null; };
+    rec.onerror = () => { setListening(false); recognitionRef.current = null; };
+    recognitionRef.current = rec;
+    try { rec.start(); setListening(true); } catch { setListening(false); }
+  }, []);
   const reduxSkills = useSelector((state: RootState) => state.skills.skills);
   const installedSkills = useMemo(
     () => composerSelectableSkills(reduxSkills),
@@ -1781,6 +1832,8 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
         explicitSkills: skills.map((s) => s.id),
         personaKoiId: koi?.id,
         clearPlan,
+        mode: composerModeRef.current,
+        modelOverride: modelOverrideRef.current || undefined,
       });
     } catch (e) {
       console.error('[Chat] send error:', e);
@@ -2049,6 +2102,102 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
               </button>
             </div>
           )}
+
+          {displaySessionId && !isImSession && (
+            <div className="chat-topbar-actions">
+              <button
+                type="button"
+                className={`btn-icon ${topbarPanel === "search" ? "active" : ""}`}
+                title={t("chat.searchInConversation")}
+                onClick={() => { setTopbarPanel((p) => (p === "search" ? null : "search")); setConvSearch(""); }}
+              >
+                <Search size={16} strokeWidth={1.5} />
+              </button>
+              <button
+                type="button"
+                className={`btn-icon ${topbarPanel === "history" ? "active" : ""}`}
+                title={t("chat.history")}
+                onClick={() => setTopbarPanel((p) => (p === "history" ? null : "history"))}
+              >
+                <History size={16} strokeWidth={1.5} />
+              </button>
+              <button
+                type="button"
+                className="btn-icon"
+                title={t("chat.share")}
+                onClick={async () => {
+                  const md = activeMessages
+                    .map((m) => `**${m.role === "user" ? t("chat.you") : t("chat.piscis")}**:\n\n${m.content}`)
+                    .join("\n\n---\n\n");
+                  try {
+                    await navigator.clipboard.writeText(md);
+                    setShareNote(t("chat.shareCopied"));
+                  } catch {
+                    setShareNote(t("chat.shareFailed"));
+                  }
+                  setTimeout(() => setShareNote(""), 2200);
+                }}
+              >
+                <Share2 size={16} strokeWidth={1.5} />
+              </button>
+              {shareNote && <span className="chat-topbar-toast">{shareNote}</span>}
+              {topbarPanel && (
+                <div className="chat-topbar-panel">
+                  {topbarPanel === "search" && (
+                    <div className="chat-topbar-panel-head">
+                      <RoundedSearch
+                        value={convSearch}
+                        onChange={setConvSearch}
+                        placeholder={t("chat.searchInConversation")}
+                        size="sm"
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                  <div className="chat-topbar-results">
+                    {(() => {
+                      const q = convSearch.trim().toLowerCase();
+                      const list = (topbarPanel === "history"
+                        ? activeMessages.filter((m) => m.role === "user")
+                        : q
+                          ? activeMessages.filter((m) => (m.content || "").toLowerCase().includes(q))
+                          : activeMessages.filter((m) => m.role === "user")
+                      );
+                      if (list.length === 0) {
+                        return <div className="chat-topbar-empty">{t("ide.noResults")}</div>;
+                      }
+                      return list
+                        .slice()
+                        .reverse()
+                        .map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            className={`chat-topbar-result chat-topbar-result-${m.role}`}
+                            onClick={() => {
+                              const el = document.getElementById(`chatmsg-${m.id}`);
+                              if (el) {
+                                el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                el.classList.add("message-flash");
+                                setTimeout(() => el.classList.remove("message-flash"), 1600);
+                              }
+                              setTopbarPanel(null);
+                            }}
+                          >
+                            <span className="chat-topbar-result-role">
+                              {m.role === "user" ? t("chat.you") : t("chat.piscis")}
+                            </span>
+                            <span className="chat-topbar-result-text">
+                              {(m.content || "").replace(/\s+/g, " ").trim().slice(0, 80) || "—"}
+                            </span>
+                          </button>
+                        ));
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {isDragging && !isImSession && (
@@ -2150,7 +2299,7 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
                   }
                 }
                 return (
-                  <div key={msg.id} className={`message message-${msg.role}`}>
+                  <div key={msg.id} id={`chatmsg-${msg.id}`} className={`message message-${msg.role}`}>
                     <div className="message-role">
                       {msg.role === "user" ? t("chat.you") : t("chat.piscis")}
                     </div>
@@ -2327,6 +2476,18 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
                 disabled={running}
               />
               <div className="input-actions">
+                <SegmentedControl
+                  className="composer-mode"
+                  size="sm"
+                  aria-label={t("chat.modeLabel")}
+                  value={composerMode}
+                  onChange={(m) => setComposerMode(m as ComposerMode)}
+                  items={[
+                    { id: "ask", label: t("chat.modeAsk") },
+                    { id: "plan", label: t("chat.modePlan") },
+                    { id: "craft", label: t("chat.modeCraft") },
+                  ]}
+                />
                 <div className="composer-selectors">
                   <div className="composer-selector workspace-selector">
                     <ComposerDropdown
@@ -2378,11 +2539,97 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
                       placement="above"
                     />
                   </div>
+                  <div className="composer-selector permission-selector">
+                    {(() => {
+                      const currentPolicy = settings?.policy_mode || "balanced";
+                      const policyMeta: Record<string, { icon: string; label: string }> = {
+                        strict: { icon: "🔒", label: t("chat.permStrict") },
+                        balanced: { icon: "⚖️", label: t("chat.permBalanced") },
+                        dev: { icon: "🔓", label: t("chat.permDev") },
+                      };
+                      const meta = policyMeta[currentPolicy] || policyMeta.balanced;
+                      return (
+                        <ComposerDropdown
+                          menuId="permission"
+                          icon={meta.icon}
+                          triggerLabel={meta.label}
+                          triggerTitle={t("chat.permLabel")}
+                          items={Object.entries(policyMeta).map(([id, m]) => ({
+                            id,
+                            label: m.label,
+                            icon: m.icon,
+                            selected: id === currentPolicy,
+                          }))}
+                          open={composerMenuOpen === "permission"}
+                          onOpenChange={(open) => setComposerMenuOpen(open ? "permission" : null)}
+                          onSelect={async (id) => {
+                            if (id === currentPolicy) return;
+                            try {
+                              await settingsApi.save({ policy_mode: id });
+                              const updated = await settingsApi.get();
+                              dispatch({ type: "settings/setSettings", payload: updated });
+                            } catch (e) {
+                              console.error("[Chat] policy update error:", e);
+                            }
+                          }}
+                          disabled={running}
+                          placement="above"
+                        />
+                      );
+                    })()}
+                  </div>
+                  <div className="composer-selector model-selector">
+                    {(() => {
+                      const providers = settings?.llm_providers ?? [];
+                      const defaultLabel = settings?.model
+                        ? `${t("chat.modelDefault")} · ${settings.model}`
+                        : t("chat.modelDefault");
+                      const current = modelOverride
+                        ? providers.find((p) => p.model === modelOverride)?.label || modelOverride
+                        : t("chat.modelDefault");
+                      const items: ComposerMenuItem[] = [
+                        { id: "", label: defaultLabel, icon: "✨", selected: !modelOverride },
+                        ...providers.map((p) => ({
+                          id: p.model,
+                          label: p.label ? `${p.label} · ${p.model}` : p.model,
+                          icon: "🧠",
+                          selected: modelOverride === p.model,
+                        })),
+                      ];
+                      return (
+                        <ComposerDropdown
+                          menuId="model"
+                          icon="🧠"
+                          triggerLabel={current}
+                          triggerTitle={t("chat.modelLabel")}
+                          items={items}
+                          open={composerMenuOpen === "model"}
+                          onOpenChange={(open) => setComposerMenuOpen(open ? "model" : null)}
+                          onSelect={(id) => setModelOverride(id)}
+                          disabled={running}
+                          searchPlaceholder={t("chat.modelLabel")}
+                          emptyLabel={t("ide.noResults")}
+                          placement="above"
+                        />
+                      );
+                    })()}
+                  </div>
                 </div>
                 <ContextUsageRing
                   usage={displaySessionId ? contextUsage[displaySessionId] : undefined}
                   t={t}
                 />
+                {voiceSupported && (
+                  <button
+                    type="button"
+                    className={`btn-icon ${listening ? "voice-active" : ""}`}
+                    onClick={toggleVoice}
+                    disabled={running}
+                    title={listening ? t("chat.voiceStop") : t("chat.voiceStart")}
+                  >
+                    <Mic size={16} strokeWidth={1.5} />
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-icon"
@@ -2436,7 +2683,7 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
               </div>
             )}
             <div className="empty-state-icon">
-              <img src="/piscis.png" alt="OpenPiscis" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 14, opacity: 0.7 }} />
+              <img src="/piscis.png" alt="小诺" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 14, opacity: 0.7 }} />
             </div>
             <div className="empty-state-title">{t("chat.welcome")}</div>
             <div className="empty-state-desc">{t("chat.welcomeDesc")}</div>
@@ -2939,10 +3186,34 @@ function isWebUri(value: string): boolean {
 }
 
 function ArtifactsPanel({ artifacts }: { artifacts: SessionArtifact[] }) {
+  const { t } = useTranslation();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = selectedId ? artifacts.find((a) => a.id === selectedId) ?? null : null;
+
+  if (selected) {
+    return (
+      <div className="artifacts-panel artifacts-panel-preview">
+        <button type="button" className="artifacts-back" onClick={() => setSelectedId(null)}>
+          <ChevronLeft size={15} strokeWidth={1.5} /> {t("preview.backToList")}
+        </button>
+        <div className="artifacts-preview-host">
+          <ArtifactPreview artifact={selected} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="artifacts-panel">
       {artifacts.map((artifact) => (
-        <div key={artifact.id} className="artifact-card">
+        <div
+          key={artifact.id}
+          className="artifact-card artifact-card-clickable"
+          role="button"
+          tabIndex={0}
+          onClick={() => setSelectedId(artifact.id)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setSelectedId(artifact.id); }}
+        >
           <div className="artifact-icon" aria-hidden="true">{artifactIcon(artifact.artifact_type)}</div>
           <div className="artifact-main">
             <div className="artifact-title-row">
@@ -2954,11 +3225,11 @@ function ArtifactsPanel({ artifacts }: { artifacts: SessionArtifact[] }) {
             )}
             {artifact.uri && (
               isWebUri(artifact.uri) ? (
-                <a className="artifact-uri" href={artifact.uri} target="_blank" rel="noreferrer">
+                <a className="artifact-uri" href={artifact.uri} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
                   {artifact.uri}
                 </a>
               ) : (
-                <button className="artifact-uri artifact-uri-button" onClick={() => openPath(artifact.uri!)}>
+                <button className="artifact-uri artifact-uri-button" onClick={(e) => { e.stopPropagation(); openPath(artifact.uri!); }}>
                   {artifact.uri}
                 </button>
               )
@@ -2966,6 +3237,7 @@ function ArtifactsPanel({ artifacts }: { artifacts: SessionArtifact[] }) {
             <div className="artifact-meta">
               {artifact.source_tool && <span>{artifact.source_tool}</span>}
               <span>{formatArtifactTime(artifact.created_at)}</span>
+              <span className="artifact-preview-hint"><Eye size={12} strokeWidth={1.5} /> {t("preview.preview")}</span>
             </div>
           </div>
         </div>

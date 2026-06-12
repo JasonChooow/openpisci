@@ -1,0 +1,133 @@
+.inspiration {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.inspiration-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px 28px;
+}
+
+.inspiration-intro {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.inspiration-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.inspiration-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.inspiration-cat {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.inspiration-cat:hover {
+  border-color: var(--accent, var(--text-secondary));
+  color: var(--text-primary);
+}
+
+.inspiration-cat.active {
+  background: var(--nav-active-bg, var(--bg-hover));
+  color: var(--text-primary);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.inspiration-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.inspiration-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl, 14px);
+  background: var(--bg-elevated, var(--bg-secondary));
+  overflow: hidden;
+  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+}
+
+.inspiration-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+  border-color: var(--accent, var(--border));
+}
+
+.inspiration-card-bar {
+  height: 4px;
+  width: 100%;
+}
+
+.inspiration-card-body {
+  flex: 1;
+  padding: 14px 16px 8px;
+}
+
+.inspiration-card-title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.inspiration-card-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.inspiration-make {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 12px 14px;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--nav-active-bg, var(--bg-hover));
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s;
+  align-self: flex-start;
+}
+
+.inspiration-make:hover {
+  background: var(--accent, var(--bg-hover));
+  color: #fff;
+}
+
+.inspiration-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 16px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}

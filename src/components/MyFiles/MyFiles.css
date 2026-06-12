@@ -1,0 +1,137 @@
+.myfiles {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.myfiles-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px 28px;
+}
+
+.myfiles-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.myfiles-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.myfiles-type-chip {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.myfiles-type-chip:hover {
+  border-color: var(--accent, var(--text-secondary));
+  color: var(--text-primary);
+}
+
+.myfiles-type-chip.active {
+  background: var(--nav-active-bg, var(--bg-hover));
+  color: var(--text-primary);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.myfiles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.myfiles-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl, 12px);
+  background: var(--bg-elevated, var(--bg-secondary));
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+
+.myfiles-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent, var(--border));
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.myfiles-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--nav-active-bg, var(--bg-hover));
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.myfiles-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.myfiles-card-source {
+  font-size: 11px;
+  color: var(--text-tertiary, var(--text-secondary));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.myfiles-empty {
+  padding: 48px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.myfiles-preview {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 20px 20px;
+}
+
+.myfiles-preview-host {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl, 12px);
+  overflow: hidden;
+  background: var(--bg-elevated, var(--bg-secondary));
+}
+
+.spin {
+  animation: myfiles-spin 0.9s linear infinite;
+}
+
+@keyframes myfiles-spin {
+  to { transform: rotate(360deg); }
+}

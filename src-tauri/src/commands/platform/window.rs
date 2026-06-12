@@ -330,3 +330,48 @@ pub async fn save_overlay_position(
 pub fn quit_app(app: AppHandle) {
     shutdown::request_app_exit(app);
 }
+
+/// Open (or focus) a dedicated "professional features" window hosting the
+/// light IDE + Git workspace for a given project directory. Reuses a single
+/// `pro-ide` window: if it already exists we just focus it.
+///
+/// `view` selects the initial pane ("ide" | "git" | "search"); `project_dir`
+/// is the workspace root to open; `session_id` is the originating pool session.
+#[tauri::command]
+pub async fn open_pro_window(
+    app: AppHandle,
+    view: Option<String>,
+    project_dir: Option<String>,
+    session_id: Option<String>,
+) -> Result<(), String> {
+    use tauri::{WebviewUrl, WebviewWindowBuilder};
+
+    // Focus the existing pro window if one is already open.
+    if let Some(existing) = app.get_webview_window("pro-ide") {
+        let _ = existing.show();
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+
+    let view = view.unwrap_or_else(|| "ide".to_string());
+    let mut query = format!("proview={}", urlencoding::encode(&view));
+    if let Some(dir) = project_dir.as_deref().filter(|d| !d.is_empty()) {
+        query.push_str(&format!("&project={}", urlencoding::encode(dir)));
+    }
+    if let Some(sid) = session_id.as_deref().filter(|s| !s.is_empty()) {
+        query.push_str(&format!("&session={}", urlencoding::encode(sid)));
+    }
+
+    let url = format!("index.html?{}", query);
+    let window = WebviewWindowBuilder::new(&app, "pro-ide", WebviewUrl::App(url.into()))
+        .title("小诺 · 专业功能")
+        .inner_size(1280.0, 820.0)
+        .min_inner_size(900.0, 560.0)
+        .resizable(true)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let _ = window.set_focus();
+    info!("Opened pro window: view={}", view);
+    Ok(())
+}

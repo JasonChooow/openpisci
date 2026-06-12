@@ -350,7 +350,7 @@ export default function AssistantPanel({
   return (
     <div className="ide-terminal-panel ide-assistant-panel" style={height ? { height } : undefined}>
       <div className="ide-terminal-header">
-        <span className="term-title">{t("ide.assistantTitle") || "Piscis Assistant"}</span>
+        <span className="term-title">{t("ide.assistantTitle") || "小诺 助手"}</span>
         <div style={{ flex: 1 }} />
         <button
           className="ide-assistant-open-main"

@@ -1003,6 +1003,16 @@ pub async fn list_session_artifacts(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn list_all_artifacts(
+    state: State<'_, AppState>,
+    limit: Option<i64>,
+) -> Result<Vec<SessionArtifact>, String> {
+    let db = state.db.lock().await;
+    db.list_all_artifacts(limit.unwrap_or(500).clamp(1, 5000))
+        .map_err(|e| e.to_string())
+}
+
 /// Send a user message and run the agent loop.
 /// Streams AgentEvents to the frontend via Tauri events.
 #[tauri::command]
@@ -1018,15 +1028,26 @@ pub async fn chat_send(
     // If false, preserve the existing plan (continue previous tasks).
     // If true or None (default), clear the plan before starting a new turn.
     clear_plan: Option<bool>,
+    // Composer interaction mode: "ask" | "plan" | "craft" (None => craft/full agent).
+    mode: Option<String>,
+    // Per-turn model override (None/empty => use the configured default model).
+    model_override: Option<String>,
 ) -> Result<(), String> {
     let merged_attachments = merge_frontend_attachments(attachment, attachments);
+    let composer_mode = mode
+        .as_deref()
+        .map(|m| m.trim().to_lowercase())
+        .filter(|m| !m.is_empty())
+        .unwrap_or_else(|| "craft".to_string());
     tracing::info!(
-        "chat_send called: session={} content_len={} attachments={} explicit_skills={:?} persona_koi={:?}",
+        "chat_send called: session={} content_len={} attachments={} explicit_skills={:?} persona_koi={:?} mode={} model_override={:?}",
         session_id,
         content.len(),
         merged_attachments.len(),
         explicit_skills,
         persona_koi_id,
+        composer_mode,
+        model_override,
     );
 
     // Load settings
@@ -1038,7 +1059,7 @@ pub async fn chat_send(
         workspace_root,
         mut max_tokens,
         context_window,
-        policy_mode,
+        mut policy_mode,
         tool_rate_limit_per_minute,
         tool_settings,
         max_iterations,
@@ -1116,6 +1137,24 @@ pub async fn chat_send(
                 }
             }
         }
+    }
+
+    // Per-turn model override (composer model picker). Takes precedence over the
+    // configured default and any koi-provider model for this single turn.
+    if let Some(m) = model_override
+        .as_deref()
+        .map(str::trim)
+        .filter(|m| !m.is_empty())
+    {
+        tracing::info!("chat_send: applying per-turn model override: {}", m);
+        model = m.to_string();
+    }
+
+    // Map the composer interaction mode onto the tool policy. "ask" is the most
+    // restrictive read-only-leaning profile; "plan" stays balanced but is steered
+    // by the system-prompt directive below; "craft" keeps the configured policy.
+    if composer_mode == "ask" {
+        policy_mode = "strict".to_string();
     }
 
     tracing::info!(
@@ -1282,7 +1321,7 @@ pub async fn chat_send(
         llm_read_timeout_secs,
     );
 
-    let prompt_artifacts = build_chat_prompt_artifacts(
+    let mut prompt_artifacts = build_chat_prompt_artifacts(
         &app,
         &state,
         &session_id,
@@ -1297,6 +1336,22 @@ pub async fn chat_send(
         persona_koi_id.as_deref(),
     )
     .await?;
+
+    // Steer the turn according to the composer interaction mode. The directive is
+    // appended to the system prompt so it applies on top of the persona/base prompt.
+    let mode_directive = match composer_mode.as_str() {
+        "ask" => Some(
+            "\n\n[交互模式: 询问 / Ask]\n当前为只读问答模式。请仅进行解释、分析与回答,不要修改文件、运行有副作用的命令或提交更改。如需改动,先说明建议再请用户切换到「执行」模式。",
+        ),
+        "plan" => Some(
+            "\n\n[交互模式: 规划 / Plan]\n请先产出清晰的方案与分步计划(目标、步骤、影响范围、风险)。在获得用户确认前,不要执行有副作用的修改或写入文件。",
+        ),
+        _ => None,
+    };
+    if let Some(directive) = mode_directive {
+        prompt_artifacts.system_prompt.push_str(directive);
+    }
+
     let bound_pool_id = prompt_artifacts.bound_pool_id.clone();
     let registry = prompt_artifacts.registry.clone();
 

@@ -206,7 +206,8 @@ strip = true
 # robotz-automation = { path = "../../RobotZ/crates/robotz-automation" }
 # robotz-browser = { path = "../../RobotZ/crates/robotz-browser" }
 
-# Local path override for engine hacking:
-# [patch."https://github.com/njbinbin-piscis/piscis-engine.git"]
-# piscis-core = { path = "../../piscis-engine/piscis-core" }
-# piscis-kernel = { path = "../../piscis-engine/piscis-kernel" }
+# Local path override for engine hacking (xiaonuo branch):
+[patch."https://github.com/njbinbin-piscis/piscis-engine.git"]
+piscis-core = { path = "../../piscis-engine/piscis-core" }
+piscis-kernel = { path = "../../piscis-engine/piscis-kernel" }
+piscis-ide-tools = { path = "../../piscis-engine/piscis-ide-tools" }
