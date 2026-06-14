@@ -949,10 +949,7 @@ async fn registry_search(
             format!("{base}/api/v1/skills?sort=stars&limit={limit}&offset={offset}"),
             false,
         ),
-        RegistryBrowseMode::SkillsList => (
-            build_registry_search_url(base, &q, limit, 0),
-            true,
-        ),
+        RegistryBrowseMode::SkillsList => (build_registry_search_url(base, &q, limit, 0), true),
     };
     info!("{} search: {}", registry_label, url);
 
@@ -1032,9 +1029,7 @@ async fn registry_search(
                     })
                     .unwrap_or_default();
 
-                let skill_url = Some(format!(
-                    "{base}/api/v1/skills/{slug}/file?path=SKILL.md"
-                ));
+                let skill_url = Some(format!("{base}/api/v1/skills/{slug}/file?path=SKILL.md"));
                 let zip_url = Some(format!("{base}/api/v1/download?slug={slug}"));
 
                 Some(ClawHubSkill {
@@ -1091,9 +1086,7 @@ async fn registry_install(
         .filter(|ver| !ver.is_empty() && *ver != "latest" && *ver != "null");
 
     let file_url = if let Some(ver) = normalized_version {
-        format!(
-            "{base}/api/v1/skills/{slug}/file?path=SKILL.md&version={ver}"
-        )
+        format!("{base}/api/v1/skills/{slug}/file?path=SKILL.md&version={ver}")
     } else {
         format!("{base}/api/v1/skills/{slug}/file?path=SKILL.md")
     };
@@ -1235,15 +1228,7 @@ pub async fn clawhub_install(
     slug: String,
     version: Option<String>,
 ) -> Result<SkillCatalogItem, String> {
-    registry_install(
-        &state,
-        CLAWHUB_API,
-        "ClawHub",
-        "clawhub",
-        slug,
-        version,
-    )
-    .await
+    registry_install(&state, CLAWHUB_API, "ClawHub", "clawhub", slug, version).await
 }
 
 /// Install a skill from SkillHub by slug.
@@ -1253,15 +1238,7 @@ pub async fn skillhub_install(
     slug: String,
     version: Option<String>,
 ) -> Result<SkillCatalogItem, String> {
-    registry_install(
-        &state,
-        SKILLHUB_API,
-        "SkillHub",
-        "skillhub",
-        slug,
-        version,
-    )
-    .await
+    registry_install(&state, SKILLHUB_API, "SkillHub", "skillhub", slug, version).await
 }
 
 /// Extract SKILL.md text from a zip archive bytes.

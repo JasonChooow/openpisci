@@ -104,7 +104,8 @@ fn join_webdav_url(base: &str, rel: &str) -> String {
 }
 
 fn parse_propfind_entries(xml: &str, base_path: &str) -> Vec<WebDavEntry> {
-    let response_re = Regex::new(r"(?is)<(?:[a-z0-9]+:)?response>(.*?)</(?:[a-z0-9]+:)?response>").unwrap();
+    let response_re =
+        Regex::new(r"(?is)<(?:[a-z0-9]+:)?response>(.*?)</(?:[a-z0-9]+:)?response>").unwrap();
     let href_re = Regex::new(r"(?i)<(?:[a-z0-9]+:)?href>([^<]+)</(?:[a-z0-9]+:)?href>").unwrap();
     let mut entries = Vec::new();
     for cap in response_re.captures_iter(xml) {
@@ -121,7 +122,12 @@ fn parse_propfind_entries(xml: &str, base_path: &str) -> Vec<WebDavEntry> {
         let decoded = urlencoding::decode(href)
             .map(|s| s.into_owned())
             .unwrap_or_else(|_| href.to_string());
-        let name = decoded.trim_end_matches('/').rsplit('/').next().unwrap_or("").to_string();
+        let name = decoded
+            .trim_end_matches('/')
+            .rsplit('/')
+            .next()
+            .unwrap_or("")
+            .to_string();
         if name.is_empty() {
             continue;
         }
@@ -165,7 +171,10 @@ pub async fn list_webdav_files(
         .map_err(|e| e.to_string())?;
 
     let resp = client
-        .request(reqwest::Method::from_bytes(b"PROPFIND").map_err(|e| e.to_string())?, &target)
+        .request(
+            reqwest::Method::from_bytes(b"PROPFIND").map_err(|e| e.to_string())?,
+            &target,
+        )
         .header("Depth", "1")
         .header("Content-Type", "application/xml; charset=utf-8")
         .basic_auth(&store.username, Some(&store.password))
@@ -183,7 +192,9 @@ pub async fn list_webdav_files(
 }
 
 /// Refresh cloud connector list — marks WebDAV connected when credentials exist.
-pub async fn list_cloud_connectors(app: AppHandle) -> Result<Vec<super::extras::CloudConnector>, String> {
+pub async fn list_cloud_connectors(
+    app: AppHandle,
+) -> Result<Vec<super::extras::CloudConnector>, String> {
     let webdav = load_webdav_store(&app).ok();
     let webdav_connected = webdav
         .as_ref()

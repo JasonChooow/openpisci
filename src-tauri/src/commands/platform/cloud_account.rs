@@ -182,7 +182,11 @@ pub async fn cloud_sign_in(
         access_token: access,
         refresh_token: parsed.refresh_token.unwrap_or_default(),
         user_id: user.id,
-        username: if user.username.is_empty() { username } else { user.username },
+        username: if user.username.is_empty() {
+            username
+        } else {
+            user.username
+        },
         email: user.email,
     };
     save_store(&app, &store)?;
@@ -192,7 +196,11 @@ pub async fn cloud_sign_in(
         kind: "cloud".into(),
         signed_in: true,
         name: store.username.clone(),
-        email: if store.email.is_empty() { None } else { Some(store.email.clone()) },
+        email: if store.email.is_empty() {
+            None
+        } else {
+            Some(store.email.clone())
+        },
         base_url: Some(store.base_url.clone()),
         balance,
     })
@@ -228,8 +236,16 @@ pub async fn cloud_account_status(app: AppHandle) -> Result<CloudAccountInfo, St
     Ok(CloudAccountInfo {
         kind: "cloud".into(),
         signed_in: true,
-        name: if store.username.is_empty() { "云账户".into() } else { store.username.clone() },
-        email: if store.email.is_empty() { None } else { Some(store.email.clone()) },
+        name: if store.username.is_empty() {
+            "云账户".into()
+        } else {
+            store.username.clone()
+        },
+        email: if store.email.is_empty() {
+            None
+        } else {
+            Some(store.email.clone())
+        },
         base_url: Some(store.base_url.clone()),
         balance,
     })
@@ -237,7 +253,10 @@ pub async fn cloud_account_status(app: AppHandle) -> Result<CloudAccountInfo, St
 
 async fn fetch_balance(client: &reqwest::Client, store: &CloudAccountStore) -> Option<f64> {
     let resp = client
-        .get(format!("{}/api/auth/user/balance", trim_base(&store.base_url)))
+        .get(format!(
+            "{}/api/auth/user/balance",
+            trim_base(&store.base_url)
+        ))
         .bearer_auth(&store.access_token)
         .send()
         .await
@@ -294,7 +313,11 @@ pub async fn sync_cloud_llm_config(
         max_tokens: 0,
     };
 
-    match settings.llm_providers.iter_mut().find(|p| p.id == CLOUD_PROVIDER_ID) {
+    match settings
+        .llm_providers
+        .iter_mut()
+        .find(|p| p.id == CLOUD_PROVIDER_ID)
+    {
         Some(existing) => *existing = cfg,
         None => settings.llm_providers.push(cfg),
     }
@@ -337,7 +360,11 @@ pub async fn authed_get_json(app: &AppHandle, path: &str) -> Option<serde_json::
         return None;
     }
     let client = http_client().ok()?;
-    let url = format!("{}/{}", trim_base(&store.base_url), path.trim_start_matches('/'));
+    let url = format!(
+        "{}/{}",
+        trim_base(&store.base_url),
+        path.trim_start_matches('/')
+    );
     let resp = client
         .get(url)
         .bearer_auth(&store.access_token)

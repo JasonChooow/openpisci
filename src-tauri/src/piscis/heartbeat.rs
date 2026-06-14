@@ -263,7 +263,11 @@ async fn dispatch_single_pool_attention(
     ensure_heartbeat_session(
         state,
         &attention.session_id,
-        &format!("{} · {}", crate::brand_generated::DISPLAY_NAME_ZH, attention.pool_name),
+        &format!(
+            "{} · {}",
+            crate::brand_generated::DISPLAY_NAME_ZH,
+            attention.pool_name
+        ),
         HEARTBEAT_POOL_SOURCE,
     )
     .await?;
@@ -391,7 +395,10 @@ pub async fn dispatch_heartbeat(
             None,
             channel,
             Some(HeadlessRunOptions {
-                session_title: Some(format!("{} Heartbeat", crate::brand_generated::DISPLAY_NAME_ZH)),
+                session_title: Some(format!(
+                    "{} Heartbeat",
+                    crate::brand_generated::DISPLAY_NAME_ZH
+                )),
                 session_source: Some(HEARTBEAT_SOURCE.into()),
                 scene_kind: Some(SceneKind::HeartbeatSupervisor),
                 ..HeadlessRunOptions::default()

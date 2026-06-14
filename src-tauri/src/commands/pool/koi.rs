@@ -289,7 +289,11 @@ pub async fn update_koi(
             let _ = ensure_heartbeat_session(
                 &st,
                 &session_id_clone,
-                &format!("{} · {}", crate::brand_generated::DISPLAY_NAME_ZH, pool_name_clone),
+                &format!(
+                    "{} · {}",
+                    crate::brand_generated::DISPLAY_NAME_ZH,
+                    pool_name_clone
+                ),
                 SESSION_SOURCE_PISCIS_POOL,
             )
             .await;
@@ -305,7 +309,11 @@ pub async fn update_koi(
                         "用户手动调整了团队成员配置，请根据当前项目状态决定是否需要重新协调工作。"
                             .to_string(),
                     ),
-                    session_title: Some(format!("{} · {}", crate::brand_generated::DISPLAY_NAME_ZH, pool_name_clone)),
+                    session_title: Some(format!(
+                        "{} · {}",
+                        crate::brand_generated::DISPLAY_NAME_ZH,
+                        pool_name_clone
+                    )),
                     session_source: Some(SESSION_SOURCE_PISCIS_POOL.to_string()),
                     scene_kind: Some(SceneKind::PoolCoordinator),
                     ..HeadlessRunOptions::default()
@@ -431,7 +439,11 @@ pub async fn delete_koi(
             let _ = ensure_heartbeat_session(
                 &st,
                 &session_id_clone,
-                &format!("{} · {}", crate::brand_generated::DISPLAY_NAME_ZH, pool_name_clone),
+                &format!(
+                    "{} · {}",
+                    crate::brand_generated::DISPLAY_NAME_ZH,
+                    pool_name_clone
+                ),
                 SESSION_SOURCE_PISCIS_POOL,
             )
             .await;
@@ -447,7 +459,11 @@ pub async fn delete_koi(
                         "用户解雇了一名团队成员，请根据当前项目状态决定是否需要重新分配工作。"
                             .to_string(),
                     ),
-                    session_title: Some(format!("{} · {}", crate::brand_generated::DISPLAY_NAME_ZH, pool_name_clone)),
+                    session_title: Some(format!(
+                        "{} · {}",
+                        crate::brand_generated::DISPLAY_NAME_ZH,
+                        pool_name_clone
+                    )),
                     session_source: Some(SESSION_SOURCE_PISCIS_POOL.to_string()),
                     scene_kind: Some(SceneKind::PoolCoordinator),
                     ..HeadlessRunOptions::default()
@@ -558,7 +574,11 @@ pub async fn set_koi_active(
                 let _ = ensure_heartbeat_session(
                     &st,
                     &session_id_clone,
-                    &format!("{} · {}", crate::brand_generated::DISPLAY_NAME_ZH, pool_name_clone),
+                    &format!(
+                        "{} · {}",
+                        crate::brand_generated::DISPLAY_NAME_ZH,
+                        pool_name_clone
+                    ),
                     SESSION_SOURCE_PISCIS_POOL,
                 )
                 .await;
@@ -573,7 +593,11 @@ pub async fn set_koi_active(
                         extra_system_context: Some(
                             "团队成员回归上班，请检查是否有工作需要重新安排。".to_string(),
                         ),
-                        session_title: Some(format!("{} · {}", crate::brand_generated::DISPLAY_NAME_ZH, pool_name_clone)),
+                        session_title: Some(format!(
+                            "{} · {}",
+                            crate::brand_generated::DISPLAY_NAME_ZH,
+                            pool_name_clone
+                        )),
                         session_source: Some(SESSION_SOURCE_PISCIS_POOL.to_string()),
                         scene_kind: Some(SceneKind::PoolCoordinator),
                         ..HeadlessRunOptions::default()
@@ -671,7 +695,11 @@ pub async fn set_koi_active(
                 let _ = ensure_heartbeat_session(
                     &st,
                     &session_id_clone,
-                    &format!("{} · {}", crate::brand_generated::DISPLAY_NAME_ZH, pool_name_clone),
+                    &format!(
+                        "{} · {}",
+                        crate::brand_generated::DISPLAY_NAME_ZH,
+                        pool_name_clone
+                    ),
                     SESSION_SOURCE_PISCIS_POOL,
                 )
                 .await;
@@ -687,7 +715,11 @@ pub async fn set_koi_active(
                             "团队成员进入休假，请根据当前项目状态决定是否需要重新分配工作。"
                                 .to_string(),
                         ),
-                        session_title: Some(format!("{} · {}", crate::brand_generated::DISPLAY_NAME_ZH, pool_name_clone)),
+                        session_title: Some(format!(
+                            "{} · {}",
+                            crate::brand_generated::DISPLAY_NAME_ZH,
+                            pool_name_clone
+                        )),
                         session_source: Some(SESSION_SOURCE_PISCIS_POOL.to_string()),
                         scene_kind: Some(SceneKind::PoolCoordinator),
                         ..HeadlessRunOptions::default()

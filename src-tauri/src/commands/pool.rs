@@ -137,7 +137,8 @@ pub async fn create_team_task_bundle(
         return Err("Project directory is required".into());
     }
 
-    std::fs::create_dir_all(project_dir).map_err(|e| format!("Failed to create project dir: {e}"))?;
+    std::fs::create_dir_all(project_dir)
+        .map_err(|e| format!("Failed to create project dir: {e}"))?;
 
     let (chat_session, pool_session) = {
         let db = state.db.lock().await;

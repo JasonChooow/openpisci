@@ -162,7 +162,10 @@ async fn fetch_text(url: &str) -> Result<String, String> {
 
 fn skill_md_url_from_manifest_url(manifest_url: &str) -> String {
     if manifest_url.ends_with("/manifest.json") {
-        format!("{}/SKILL.md", manifest_url.trim_end_matches("/manifest.json"))
+        format!(
+            "{}/SKILL.md",
+            manifest_url.trim_end_matches("/manifest.json")
+        )
     } else if manifest_url.ends_with("manifest.json") {
         manifest_url.replace("manifest.json", "SKILL.md")
     } else {
@@ -176,7 +179,9 @@ fn dedup_key(source: &str, id: &str) -> String {
 
 #[tauri::command]
 pub async fn fetch_marketplace_index(url: Option<String>) -> Result<MarketIndex, String> {
-    let url = url.filter(|s| !s.trim().is_empty()).unwrap_or_else(default_market_url);
+    let url = url
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(default_market_url);
     fetch_json(&url).await
 }
 
@@ -206,7 +211,11 @@ struct CloudMarketIndex {
 }
 
 fn cloud_asset_url(base: &str, id: &str) -> String {
-    format!("{}/api/marketplace/asset/{}", base.trim_end_matches('/'), id)
+    format!(
+        "{}/api/marketplace/asset/{}",
+        base.trim_end_matches('/'),
+        id
+    )
 }
 
 /// Aggregate the marketplace from multiple sources:
@@ -358,18 +367,10 @@ pub async fn install_market_skill(
 
     let _manifest: MarketSkillManifest = fetch_json(manifest_url).await?;
     let skill_md_url = skill_md_url_from_manifest_url(manifest_url);
-    let content = fetch_text(&skill_md_url).await.map_err(|e| {
-        format!(
-            "Failed to fetch SKILL.md from {}: {}",
-            skill_md_url, e
-        )
-    })?;
+    let content = fetch_text(&skill_md_url)
+        .await
+        .map_err(|e| format!("Failed to fetch SKILL.md from {}: {}", skill_md_url, e))?;
 
-    install_skill_from_content_sourced(
-        &state,
-        content,
-        "openpisci-market",
-        Some(skill_md_url),
-    )
-    .await
+    install_skill_from_content_sourced(&state, content, "openpisci-market", Some(skill_md_url))
+        .await
 }

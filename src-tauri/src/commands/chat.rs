@@ -1203,7 +1203,11 @@ pub async fn chat_send(
     {
         let db = state.db.lock().await;
         if let Ok(Some(session)) = db.get_session(&session_id) {
-            apply_session_settings_overrides(&session, &mut policy_mode, &mut allow_outside_workspace);
+            apply_session_settings_overrides(
+                &session,
+                &mut policy_mode,
+                &mut allow_outside_workspace,
+            );
         }
     }
 

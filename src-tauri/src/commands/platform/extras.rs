@@ -59,7 +59,9 @@ pub async fn check_update() -> Result<UpdateInfo, String> {
         .map_err(|e| e.to_string())?;
 
     let resp = client
-        .get(format!("https://api.github.com/repos/{GITHUB_REPO}/releases/latest"))
+        .get(format!(
+            "https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+        ))
         .header("Accept", "application/vnd.github+json")
         .send()
         .await
