@@ -87,7 +87,7 @@ robotz-automation = { git = "https://github.com/njbinbin-piscis/RobotZ.git", rev
 robotz-browser = { git = "https://github.com/njbinbin-piscis/RobotZ.git", rev = "v0.1.2", features = ["piscis-kernel"] }
 
 # Tauri
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"

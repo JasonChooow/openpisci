@@ -18,13 +18,13 @@ const CLAWHUB_API: &str = "https://clawhub.ai";
 
 fn validate_koi_name(name: &str) -> anyhow::Result<()> {
     if name.trim().is_empty() {
-        anyhow::bail!("Koi name cannot be empty.");
+        anyhow::bail!("Expert name cannot be empty.");
     }
     if name.chars().any(char::is_whitespace) {
-        anyhow::bail!("Koi name cannot contain spaces or other whitespace characters.");
+        anyhow::bail!("Expert name cannot contain spaces or other whitespace characters.");
     }
     if name.chars().any(is_disallowed_koi_name_char) {
-        anyhow::bail!("Koi name cannot contain emoji or other pictographic characters.");
+        anyhow::bail!("Expert name cannot contain emoji or other pictographic characters.");
     }
     Ok(())
 }
@@ -1447,7 +1447,7 @@ impl AppControlTool {
             .as_str()
             .map(str::trim)
             .filter(|s| !s.is_empty())
-            .unwrap_or("Piscis")
+            .unwrap_or(crate::brand_generated::DISPLAY_NAME_ZH)
             .to_string();
         let level_raw = input["level"].as_str().map(str::trim).unwrap_or("info");
         let level = match NotificationLevel::parse_lenient(level_raw) {

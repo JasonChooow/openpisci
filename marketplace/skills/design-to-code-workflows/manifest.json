@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/design-to-code-workflows@1.0.0",
+  "name": "design-to-code-workflows",
+  "description": "将 Figma 设计和截图转换为生产就绪的代码组件，内置无障碍性支持",
+  "plugin": "design-to-code",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/design-to-code-workflows"
+}

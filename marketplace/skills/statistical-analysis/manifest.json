@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/statistical-analysis@1.0.0",
+  "name": "statistical-analysis",
+  "description": "Apply statistical methods including descriptive stats, trend analysis, outlier detection, and hypothesis testing. Use when analyzing distributions, testing for significance, detecting anomalies, computing correlations, or interpreting statistical results.",
+  "plugin": "data",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/statistical-analysis"
+}

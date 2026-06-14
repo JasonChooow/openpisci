@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/ppt-implement@1.0.0",
+  "name": "ppt-implement",
+  "description": "implement ppt(powerpoint) project with best practices, start's with \"ppt\" template. Trigger keywords include \"web ppt\", \"网页ppt\", \"html ppt\", \"生成ppt\", \"制作ppt\", \"制作教案\", \"write a ppt about\", or any request to create presentations on specific topics.",
+  "plugin": "ppt-implement",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/ppt-implement"
+}

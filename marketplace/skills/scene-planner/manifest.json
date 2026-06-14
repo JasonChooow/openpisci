@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/scene-planner@1.0.0",
+  "name": "Scene Planner",
+  "description": "Creates detailed video storyboards and scene breakdowns for Remotion video generation. Analyzes user requirements, determines video type, selects appropriate template, and outputs structured scene plans with visual specifications, timing, animation details, and asset requirements. Use when planning video structure before code generation.",
+  "plugin": "remotion-video-generator",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/scene-planner"
+}

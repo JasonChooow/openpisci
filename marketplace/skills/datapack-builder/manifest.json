@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/datapack-builder@1.0.0",
+  "name": "datapack-builder",
+  "description": "Build professional financial services data packs from various sources including CIMs, offering memorandums, SEC filings, web search, or MCP servers. Extract, normalize, and standardize financial data into investment committee-ready Excel workbooks with consistent structure, proper formatting, and documented assumptions. Use for M&A due diligence, private equity analysis, investment committee materials, and standardizing financial reporting across portfolio companies. Do not use for simple financial calculations or working with already-completed data packs.",
+  "plugin": "investment-banking",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/datapack-builder"
+}

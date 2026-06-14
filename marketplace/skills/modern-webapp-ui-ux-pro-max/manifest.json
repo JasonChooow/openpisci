@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/modern-webapp-ui-ux-pro-max@1.0.0",
+  "name": "ui-ux-pro-max",
+  "description": "UI/UX design intelligence with searchable database",
+  "plugin": "modern-webapp",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/modern-webapp-ui-ux-pro-max"
+}

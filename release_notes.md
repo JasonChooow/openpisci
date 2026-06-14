@@ -1,3 +1,19 @@
+## v0.8.64 - DimWork rebrand, marketplace, and release polish
+
+### Highlights
+
+- **DimWork branding**: App icon (transparent), dock/tray icon refresh, chat empty-state 3D hero, settings tools page CSS fix
+- **Marketplace**: Unified DimWork market, cloud account gateway, lazy-loaded catalog
+- **Cross-platform release**: Windows (NSIS/MSI), Linux (deb/AppImage), macOS universal binary (Intel + Apple Silicon)
+
+### Bug Fixes
+
+- Linux dock icon now loads latest `icons/icon.png` at startup
+- Pagination lazy-load cap (`visibleCount` vs `total`)
+- CI: TypeScript, vitest, and clippy fixes
+
+### Previous releases
+
 ## v0.5.23 - Release asset upload fix
 
 ### Bug Fixes

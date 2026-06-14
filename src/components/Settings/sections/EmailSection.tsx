@@ -49,7 +49,7 @@ export default function EmailSection() {
       
                       <div className="form-group">
                         <label className="label">{t("settings.smtpFromName")} <span style={{ fontSize: 11, color: "var(--text-muted)" }}>({t("common.optional")})</span></label>
-                        <input className="input" value={form.smtp_from_name} onChange={(e) => update("smtp_from_name", e.target.value)} placeholder="Piscis Agent" />
+                        <input className="input" value={form.smtp_from_name} onChange={(e) => update("smtp_from_name", e.target.value)} placeholder="DimWork Agent" />
                       </div>
       
                       <div style={{ borderTop: "1px solid var(--border)", margin: "12px 0" }} />

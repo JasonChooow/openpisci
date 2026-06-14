@@ -5,6 +5,7 @@ import { RootState, skillsActions, sessionsActions } from "../../store";
 import {
   skillsApi,
   clawHubApi,
+  skillHubApi,
   claudePluginsApi,
   openaiSkillsApi,
   builtinToolsApi,
@@ -12,7 +13,6 @@ import {
   skillEvolutionApi,
   parseSkillConfig,
   SkillCatalogItem,
-  ClawHubSkill,
   ClaudePluginListItem,
   ClaudePluginDetail,
   OpenAISkillListItem,
@@ -25,6 +25,9 @@ import ConfirmDialog from "../ConfirmDialog";
 import type { SyncSkillsResult } from "../../services/tauri";
 import i18n from "../../i18n";
 import { buildSkillAdaptationPrompt, type SkillAdaptationTarget } from "../../utils/skillAdaptation";
+import RegistrySkillPanel from "./RegistrySkillPanel";
+import OpenpisciMarketPanel from "./OpenpisciMarketPanel";
+import { SkillMarketTabIcon, skillTabLabelKey, type SkillPanelTab } from "./SkillMarketTabIcon";
 import "../ExpertHub/ExpertHub.css";
 
 interface SkillsProps {
@@ -33,10 +36,9 @@ interface SkillsProps {
   hubScope?: "market" | "installed";
 }
 
-const ALL_SKILL_TABS = ["local", "evolution", "hub", "official", "openai"] as const;
-type SkillPanelTab = (typeof ALL_SKILL_TABS)[number];
+const ALL_SKILL_TABS: SkillPanelTab[] = ["local", "evolution", "openpisci", "hub", "skillhub", "official", "openai"];
 const INSTALLED_SKILL_TABS: SkillPanelTab[] = ["local", "evolution"];
-const MARKET_SKILL_TABS: SkillPanelTab[] = ["hub", "official", "openai"];
+const MARKET_SKILL_TABS: SkillPanelTab[] = ["openpisci", "hub", "skillhub", "official", "openai"];
 
 export default function Skills({ onNavigateTab, embedded = false, hubScope = "installed" }: SkillsProps = {}) {
   const { t } = useTranslation();
@@ -61,13 +63,7 @@ export default function Skills({ onNavigateTab, embedded = false, hubScope = "in
   // Sync from disk
   const [syncing, setSyncing] = useState(false);
 
-  // ClawHub marketplace
   const [hubTab, setHubTab] = useState<SkillPanelTab>("local");
-  const [hubQuery, setHubQuery] = useState("");
-  const [hubResults, setHubResults] = useState<ClawHubSkill[]>([]);
-  const [hubSearching, setHubSearching] = useState(false);
-  const [hubError, setHubError] = useState<string | null>(null);
-  const [hubInstalling, setHubInstalling] = useState<string | null>(null);
 
   // Anthropic official plugins
   const [officialQuery, setOfficialQuery] = useState("");
@@ -114,7 +110,7 @@ export default function Skills({ onNavigateTab, embedded = false, hubScope = "in
 
   useEffect(() => {
     if (!embedded) return;
-    setHubTab(hubScope === "market" ? "hub" : "local");
+    setHubTab(hubScope === "market" ? "openpisci" : "local");
   }, [embedded, hubScope]);
 
   const visibleSkillTabs = embedded
@@ -212,48 +208,6 @@ export default function Skills({ onNavigateTab, embedded = false, hubScope = "in
       setUninstallTarget(null);
     }
   };
-
-  const handleHubSearch = useCallback(async () => {
-    const q = hubQuery.trim();
-    setHubSearching(true);
-    setHubError(null);
-    try {
-      const result = await clawHubApi.search(q, 20);
-      if (result.items.length === 0) {
-        setHubError(t("skills.hubNoResults"));
-        setHubResults([]);
-        return;
-      }
-      // Show results immediately, then enrich with compat info in background
-      setHubResults(result.items);
-
-      // Fire-and-forget: pre-check compatibility for each skill that has a skill_url
-      result.items.forEach(async (skill, idx) => {
-        if (!skill.skill_url) return;
-        try {
-          const compat = await skillsApi.checkCompat(skill.skill_url);
-          setHubResults((prev) => {
-            const next = [...prev];
-            if (next[idx]?.slug === skill.slug) {
-              next[idx] = {
-                ...next[idx],
-                platform: compat.issues.some((i) => i.includes("平台")) ? ["linux/macos"] : next[idx].platform,
-                compatible: compat.compatible,
-                compat_issues: compat.issues,
-              };
-            }
-            return next;
-          });
-        } catch {
-          // compat check failed silently — don't block the UI
-        }
-      });
-    } catch (e) {
-      setHubError(t("skills.hubSearchFailed", { error: String(e) }));
-    } finally {
-      setHubSearching(false);
-    }
-  }, [hubQuery, t]);
 
   const handleOfficialSearch = useCallback(async () => {
     setOfficialSearching(true);
@@ -430,30 +384,6 @@ export default function Skills({ onNavigateTab, embedded = false, hubScope = "in
     }
   };
 
-  const handleHubInstall = async (skill: ClawHubSkill) => {
-    // Block install if we already know it's incompatible
-    if (skill.compatible === false) {
-      setError(t("skills.installFailed", { error: skill.compat_issues.join("; ") }));
-      return;
-    }
-    setHubInstalling(skill.slug);
-    setError(null);
-    setSuccessMsg(null);
-    try {
-      const version = skill.version?.trim();
-      const installed = await clawHubApi.install(
-        skill.slug,
-        version && version !== "latest" ? version : undefined,
-      );
-      setSuccessMsg(t("skills.installSuccess", { name: installed.name }));
-      loadSkills();
-    } catch (e) {
-      setError(t("skills.installFailed", { error: String(e) }));
-    } finally {
-      setHubInstalling(null);
-    }
-  };
-
   const catalogByName = Object.fromEntries(catalog.map((c) => [c.name.toLowerCase(), c]));
   const visibleSkills = skills.filter((skill) => {
     const meta = parseSkillConfig(skill.config);
@@ -612,15 +542,8 @@ export default function Skills({ onNavigateTab, embedded = false, hubScope = "in
               onClick={() => setHubTab(tab)}
               className={hubTab === tab ? "active" : ""}
             >
-              {tab === "local"
-                ? `⚡ ${t("skills.tabLocal")}`
-                : tab === "evolution"
-                  ? `🧬 ${t("skills.tabEvolution")}`
-                  : tab === "hub"
-                    ? `🛒 ${t("skills.tabHub")}`
-                    : tab === "official"
-                      ? `🏛 ${t("skills.tabOfficial")}`
-                      : `🤖 ${t("skills.tabOpenai")}`}
+              <SkillMarketTabIcon tab={tab} />
+              {t(skillTabLabelKey(tab))}
             </button>
           ))}
         </div>
@@ -1124,141 +1047,44 @@ export default function Skills({ onNavigateTab, embedded = false, hubScope = "in
           </div>
         )}
 
+        {hubTab === "openpisci" && (
+          <OpenpisciMarketPanel
+            onInstalled={loadSkills}
+            onError={setError}
+            onSuccess={setSuccessMsg}
+          />
+        )}
+
         {hubTab === "hub" && (
-          <div>
-            {/* ClawHub search */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 600, color: "var(--text-primary)", marginBottom: 8, fontSize: 14 }}>
-                🔍 {t("skills.hubSearch")}
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  className="input"
-                  style={{ flex: 1 }}
-                  value={hubQuery}
-                  onChange={(e) => setHubQuery(e.target.value)}
-                  placeholder={t("skills.hubSearchPlaceholder")}
-                  onKeyDown={(e) => e.key === "Enter" && handleHubSearch()}
-                  disabled={hubSearching}
-                />
-                <button
-                  className="btn btn-primary"
-                  onClick={handleHubSearch}
-                  disabled={hubSearching}
-                  style={{ flexShrink: 0 }}
-                >
-                  {hubSearching ? t("common.loading") : t("common.search")}
-                </button>
-              </div>
-              <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}>
-                {t("skills.hubHint")}
-              </p>
-            </div>
+          <RegistrySkillPanel
+            api={clawHubApi}
+            searchTitleKey="skills.hubSearch"
+            searchPlaceholderKey="skills.hubSearchPlaceholder"
+            hintKey="skills.hubHint"
+            emptyTitleKey="skills.hubEmpty"
+            emptyDescKey="skills.hubEmptyDesc"
+            noResultsKey="skills.hubNoResults"
+            searchFailedKey="skills.hubSearchFailed"
+            onInstalled={loadSkills}
+            onError={setError}
+            onSuccess={setSuccessMsg}
+          />
+        )}
 
-            {hubError && (
-              <div style={{ padding: "8px 14px", background: "rgba(220,53,69,0.1)", borderLeft: "3px solid #dc3545", color: "#ff6b6b", fontSize: 12, marginBottom: 12 }}>
-                {hubError}
-              </div>
-            )}
-
-            {hubResults.length === 0 && !hubSearching && !hubError && (
-              <div className="empty-state" style={{ padding: "28px 16px" }}>
-                <div className="empty-state-title">{t("skills.hubEmpty")}</div>
-                <div className="empty-state-desc">{t("skills.hubEmptyDesc")}</div>
-              </div>
-            )}
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
-              {hubResults.map((skill) => {
-                const isInstalling = hubInstalling === skill.slug;
-                const incompatible = skill.compatible === false;
-                return (
-                  <div
-                    key={skill.slug}
-                    className="card"
-                    style={{
-                      display: "flex", flexDirection: "column", gap: 8,
-                      opacity: incompatible ? 0.75 : 1,
-                      border: incompatible ? "1px solid rgba(220,53,69,0.4)" : undefined,
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                          <span style={{ fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {skill.name}
-                          </span>
-                          {skill.version && (
-                            <span style={{ fontSize: 10, color: "var(--text-muted)", flexShrink: 0 }}>
-                              {/^\d/.test(skill.version) ? `v${skill.version}` : skill.version}
-                            </span>
-                          )}
-                          {/* Compat badge — shown once check completes */}
-                          {skill.compatible === true && (
-                            <span style={{ fontSize: 10, color: "#28a745", background: "rgba(40,167,69,0.12)", padding: "1px 6px", borderRadius: 8, flexShrink: 0 }}>
-                              ✓ {t("skills.compatOk")}
-                            </span>
-                          )}
-                          {incompatible && (
-                            <span style={{ fontSize: 10, color: "#ff6b6b", background: "rgba(220,53,69,0.12)", padding: "1px 6px", borderRadius: 8, flexShrink: 0 }}>
-                              ✗ {t("skills.compatFail")}
-                            </span>
-                          )}
-                          {skill.compatible === null && skill.skill_url && (
-                            <span style={{ fontSize: 10, color: "var(--text-muted)", flexShrink: 0 }}>…</span>
-                          )}
-                        </div>
-                        <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: 0, lineHeight: 1.4 }}>
-                          {skill.description || t("skills.noDescription")}
-                        </p>
-                        {/* Compat issues */}
-                        {incompatible && skill.compat_issues.length > 0 && (
-                          <div style={{ marginTop: 4, fontSize: 11, color: "#ff6b6b" }}>
-                            {skill.compat_issues.map((issue, i) => (
-                              <div key={i}>⚠ {issue}</div>
-                            ))}
-                          </div>
-                        )}
-                        {/* Platform / deps badges */}
-                        {(skill.platform.length > 0 || skill.dependencies.length > 0) && (
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-                            {skill.platform.length > 0 && (
-                              <span style={{ fontSize: 10, color: "var(--text-muted)", background: "var(--bg-tertiary)", padding: "1px 6px", borderRadius: 8, border: "1px solid var(--border)" }}>
-                                🖥 {skill.platform.join("/")}
-                              </span>
-                            )}
-                            {skill.dependencies.map((dep) => (
-                              <span key={dep} style={{ fontSize: 10, color: "var(--text-muted)", background: "var(--bg-tertiary)", padding: "1px 6px", borderRadius: 8, border: "1px solid var(--border)" }}>
-                                📦 {dep}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        className={`btn ${incompatible ? "btn-secondary" : "btn-primary"}`}
-                        onClick={() => handleHubInstall(skill)}
-                        disabled={isInstalling || incompatible}
-                        title={incompatible ? skill.compat_issues.join("; ") : undefined}
-                        style={{ flexShrink: 0, fontSize: 12, padding: "4px 12px" }}
-                      >
-                        {isInstalling ? t("skills.installing") : incompatible ? t("skills.compatFail") : t("skills.installBtn")}
-                      </button>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 11, color: "var(--text-muted)" }}>
-                      <span>👤 {skill.author}</span>
-                      <span>⭐ {skill.stars}</span>
-                      {skill.tags.slice(0, 3).map((tag) => (
-                        <span key={tag} style={{ padding: "1px 6px", background: "var(--bg-tertiary)", borderRadius: 10, border: "1px solid var(--border)" }}>
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+        {hubTab === "skillhub" && (
+          <RegistrySkillPanel
+            api={skillHubApi}
+            searchTitleKey="skills.skillhubSearch"
+            searchPlaceholderKey="skills.skillhubSearchPlaceholder"
+            hintKey="skills.skillhubHint"
+            emptyTitleKey="skills.skillhubEmpty"
+            emptyDescKey="skills.skillhubEmptyDesc"
+            noResultsKey="skills.skillhubNoResults"
+            searchFailedKey="skills.skillhubSearchFailed"
+            onInstalled={loadSkills}
+            onError={setError}
+            onSuccess={setSuccessMsg}
+          />
         )}
       </div>
 

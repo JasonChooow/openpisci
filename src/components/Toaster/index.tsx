@@ -147,7 +147,7 @@ export default function Toaster() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="piscis-toaster" role="region" aria-label="Piscis notifications">
+    <div className="piscis-toaster" role="region" aria-label="DimWork notifications">
       {toasts.map((toast) => (
         <div
           key={toast.id}

@@ -262,7 +262,7 @@ async fn install_skill_from_content(
     install_skill_from_content_sourced(state, content, "manual", None).await
 }
 
-async fn install_skill_from_content_sourced(
+pub(crate) async fn install_skill_from_content_sourced(
     state: &State<'_, AppState>,
     content: String,
     source: &str,
@@ -791,15 +791,17 @@ pub async fn uninstall_skill(state: State<'_, AppState>, skill_name: String) -> 
     Ok(())
 }
 
-// ─── ClawHub Skill Registry ───────────────────────────────────────────────────
+// ─── ClawHub-compatible Skill Registry ───────────────────────────────────────
 
 /// ClawHub public API base URL.
 const CLAWHUB_API: &str = "https://clawhub.ai";
+/// SkillHub public API base URL (讯飞 SkillHub, ClawHub-compatible layer).
+const SKILLHUB_API: &str = "https://api.skillhub.cn";
 
-/// A skill entry from the ClawHub registry.
+/// A skill entry from a ClawHub-compatible registry.
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct ClawHubSkill {
-    /// Unique skill slug on ClawHub (e.g. "my-skill").
+    /// Unique skill slug (e.g. "my-skill" or "namespace--my-skill").
     pub slug: String,
     pub name: String,
     pub description: String,
@@ -812,7 +814,7 @@ pub struct ClawHubSkill {
     pub skill_url: Option<String>,
     /// URL to download the zip bundle via `/api/v1/download?slug=<slug>`
     pub zip_url: Option<String>,
-    /// OS/platform requirements from ClawHub metadata (e.g. ["windows"], ["linux"])
+    /// OS/platform requirements from registry metadata (e.g. ["windows"], ["linux"])
     pub platform: Vec<String>,
     /// Dependency requirements extracted from SKILL.md frontmatter (if pre-fetched)
     pub dependencies: Vec<String>,
@@ -829,16 +831,107 @@ pub struct ClawHubSearchResult {
     pub query: String,
 }
 
-/// Search ClawHub for skills.
-///
-/// Uses vector search (`/api/v1/search?q=`) when a query is provided,
-/// or the list endpoint (`/api/v1/skills?sort=stars`) when the query is empty.
-#[tauri::command]
-pub async fn clawhub_search(
+fn is_valid_registry_slug(slug: &str) -> bool {
+    !slug.is_empty()
+        && slug
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.' || c == '/')
+}
+
+/// How to fetch the default browse list when the query is empty.
+#[derive(Clone, Copy)]
+enum RegistryBrowseMode {
+    /// ClawHub: `GET /api/v1/skills?sort=stars`
+    SkillsList,
+    /// SkillHub: only exposes `GET /api/v1/search` (list endpoint returns 405)
+    SearchOnly,
+}
+
+fn build_registry_search_url(base: &str, q: &str, limit: u32, offset: u32) -> String {
+    if q.is_empty() {
+        if offset > 0 {
+            format!("{base}/api/v1/search?limit={limit}&offset={offset}")
+        } else {
+            format!("{base}/api/v1/search?limit={limit}")
+        }
+    } else if offset > 0 {
+        format!(
+            "{base}/api/v1/search?q={}&limit={limit}&offset={offset}",
+            urlencoding::encode(q),
+        )
+    } else {
+        format!(
+            "{base}/api/v1/search?q={}&limit={limit}",
+            urlencoding::encode(q),
+        )
+    }
+}
+
+fn parse_registry_search_item(base: &str, r: &serde_json::Value) -> Option<ClawHubSkill> {
+    let slug = r["slug"].as_str().unwrap_or("").to_string();
+    if slug.is_empty() {
+        return None;
+    }
+    let name = r["displayName"]
+        .as_str()
+        .or_else(|| r["name"].as_str())
+        .unwrap_or(&slug)
+        .to_string();
+    let description = r["summary"]
+        .as_str()
+        .or_else(|| r["description"].as_str())
+        .unwrap_or("")
+        .to_string();
+    let version = r["version"].as_str().unwrap_or("").to_string();
+    let author = r["owner_name"]
+        .as_str()
+        .or_else(|| r["author"].as_str())
+        .unwrap_or("")
+        .to_string();
+    let downloads = r["downloads"]
+        .as_u64()
+        .or_else(|| r["installs"].as_u64())
+        .unwrap_or(0);
+    let stars = r["stars"].as_u64().unwrap_or(0);
+    let tags: Vec<String> = r["tags"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    let skill_url = Some(format!("{base}/api/v1/skills/{slug}/file?path=SKILL.md"));
+    let zip_url = Some(format!("{base}/api/v1/download?slug={slug}"));
+    Some(ClawHubSkill {
+        slug,
+        name,
+        description,
+        version,
+        author,
+        downloads,
+        stars,
+        tags,
+        skill_url,
+        zip_url,
+        platform: vec![],
+        dependencies: vec![],
+        compatible: None,
+        compat_issues: vec![],
+    })
+}
+
+/// Search a ClawHub-compatible registry for skills.
+async fn registry_search(
+    registry_base: &str,
+    registry_label: &str,
     query: String,
     limit: Option<u32>,
+    offset: Option<u32>,
+    browse_mode: RegistryBrowseMode,
 ) -> Result<ClawHubSearchResult, String> {
     let limit = limit.unwrap_or(20).min(50);
+    let offset = offset.unwrap_or(0);
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .user_agent("Piscis-Desktop/1.0")
@@ -846,32 +939,29 @@ pub async fn clawhub_search(
         .map_err(|e| e.to_string())?;
 
     let q = query.trim().to_string();
+    let base = registry_base.trim_end_matches('/');
 
-    // Choose endpoint: vector search when query is non-empty, list by stars otherwise
-    let (url, use_search_endpoint) = if q.is_empty() {
-        (
-            format!("{}/api/v1/skills?sort=stars&limit={}", CLAWHUB_API, limit),
+    let (url, use_search_endpoint) = match browse_mode {
+        RegistryBrowseMode::SearchOnly => {
+            (build_registry_search_url(base, &q, limit, offset), true)
+        }
+        RegistryBrowseMode::SkillsList if q.is_empty() => (
+            format!("{base}/api/v1/skills?sort=stars&limit={limit}&offset={offset}"),
             false,
-        )
-    } else {
-        (
-            format!(
-                "{}/api/v1/search?q={}&limit={}",
-                CLAWHUB_API,
-                urlencoding::encode(&q),
-                limit
-            ),
+        ),
+        RegistryBrowseMode::SkillsList => (
+            build_registry_search_url(base, &q, limit, 0),
             true,
-        )
+        ),
     };
-    info!("ClawHub search: {}", url);
+    info!("{} search: {}", registry_label, url);
 
     let resp = clawhub_get_with_retry(&client, &url, 3)
         .await
         .map_err(|e| {
             format!(
-                "无法连接到 ClawHub（{}）：{}。请检查网络连接。",
-                CLAWHUB_API, e
+                "无法连接到 {}（{}）：{}。请检查网络连接。",
+                registry_label, registry_base, e
             )
         })?;
 
@@ -889,53 +979,21 @@ pub async fn clawhub_search(
             body.clone()
         };
         return Err(format!(
-            "ClawHub 返回错误 HTTP {}{}：{}",
-            status, hint, body_preview
+            "{} 返回错误 HTTP {}{}：{}",
+            registry_label, status, hint, body_preview
         ));
     }
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| format!("ClawHub 响应格式异常：{}", e))?;
+        .map_err(|e| format!("{} 响应格式异常：{}", registry_label, e))?;
 
-    // Parse items from either endpoint format:
-    // - /api/v1/search  → { results: [{ slug, displayName, summary, version, score }] }
-    // - /api/v1/skills  → { items:   [{ slug, displayName, summary, tags, stats, latestVersion, metadata }] }
     let items: Vec<ClawHubSkill> = if use_search_endpoint {
         let results = body["results"].as_array().cloned().unwrap_or_default();
         results
             .iter()
-            .filter_map(|r| {
-                let slug = r["slug"].as_str().unwrap_or("").to_string();
-                if slug.is_empty() {
-                    return None;
-                }
-                let name = r["displayName"].as_str().unwrap_or(&slug).to_string();
-                let description = r["summary"].as_str().unwrap_or("").to_string();
-                let version = r["version"].as_str().unwrap_or("").to_string();
-                let skill_url = Some(format!(
-                    "{}/api/v1/skills/{}/file?path=SKILL.md",
-                    CLAWHUB_API, slug
-                ));
-                let zip_url = Some(format!("{}/api/v1/download?slug={}", CLAWHUB_API, slug));
-                Some(ClawHubSkill {
-                    slug,
-                    name,
-                    description,
-                    version,
-                    author: String::new(),
-                    downloads: 0,
-                    stars: 0,
-                    tags: vec![],
-                    skill_url,
-                    zip_url,
-                    platform: vec![],
-                    dependencies: vec![],
-                    compatible: None,
-                    compat_issues: vec![],
-                })
-            })
+            .filter_map(|r| parse_registry_search_item(base, r))
             .collect()
     } else {
         let raw_items = body["items"].as_array().cloned().unwrap_or_default();
@@ -953,7 +1011,6 @@ pub async fn clawhub_search(
                     .unwrap_or("latest")
                     .to_string();
 
-                // tags is an object { tag_name: versionId } in the list endpoint
                 let tags: Vec<String> = item["tags"]
                     .as_object()
                     .map(|obj| obj.keys().cloned().collect())
@@ -966,7 +1023,6 @@ pub async fn clawhub_search(
                     .unwrap_or(0);
                 let stars = stats["stars"].as_u64().unwrap_or(0);
 
-                // OS platform from metadata (clawdis.os field)
                 let platform: Vec<String> = item["metadata"]["os"]
                     .as_array()
                     .map(|arr| {
@@ -977,10 +1033,9 @@ pub async fn clawhub_search(
                     .unwrap_or_default();
 
                 let skill_url = Some(format!(
-                    "{}/api/v1/skills/{}/file?path=SKILL.md",
-                    CLAWHUB_API, slug
+                    "{base}/api/v1/skills/{slug}/file?path=SKILL.md"
                 ));
-                let zip_url = Some(format!("{}/api/v1/download?slug={}", CLAWHUB_API, slug));
+                let zip_url = Some(format!("{base}/api/v1/download?slug={slug}"));
 
                 Some(ClawHubSkill {
                     slug,
@@ -1008,6 +1063,121 @@ pub async fn clawhub_search(
         total,
         query,
     })
+}
+
+/// Install a skill from a ClawHub-compatible registry by slug.
+async fn registry_install(
+    state: &State<'_, AppState>,
+    registry_base: &str,
+    registry_label: &str,
+    source_tag: &str,
+    slug: String,
+    version: Option<String>,
+) -> Result<SkillCatalogItem, String> {
+    if !is_valid_registry_slug(&slug) {
+        return Err(format!("无效的技能 slug：'{}'", slug));
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .user_agent("Piscis-Desktop/1.0")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let base = registry_base.trim_end_matches('/');
+    let normalized_version = version
+        .as_deref()
+        .map(str::trim)
+        .filter(|ver| !ver.is_empty() && *ver != "latest" && *ver != "null");
+
+    let file_url = if let Some(ver) = normalized_version {
+        format!(
+            "{base}/api/v1/skills/{slug}/file?path=SKILL.md&version={ver}"
+        )
+    } else {
+        format!("{base}/api/v1/skills/{slug}/file?path=SKILL.md")
+    };
+    info!(
+        "{} install: fetching SKILL.md for '{}' from {}",
+        registry_label, slug, file_url
+    );
+
+    let resp = clawhub_get_with_retry(&client, &file_url, 3)
+        .await
+        .map_err(|e| format!("下载失败：{}", e))?;
+
+    let content = if resp.status().is_success() {
+        resp.text()
+            .await
+            .map_err(|e| format!("读取 SKILL.md 失败：{}", e))?
+    } else {
+        let file_status = resp.status();
+        let zip_url = if let Some(ver) = normalized_version {
+            format!("{base}/api/v1/download?slug={slug}&version={ver}")
+        } else {
+            format!("{base}/api/v1/download?slug={slug}")
+        };
+        info!(
+            "{}: file endpoint returned {}, trying zip: {}",
+            registry_label, file_status, zip_url
+        );
+        let zip_resp = clawhub_get_with_retry(&client, &zip_url, 3)
+            .await
+            .map_err(|e| format!("Zip 下载失败：{}", e))?;
+        if !zip_resp.status().is_success() {
+            let hint = if zip_resp.status().as_u16() == 429 {
+                "请求过于频繁，请稍后再试".to_string()
+            } else {
+                format!("HTTP {}", zip_resp.status())
+            };
+            return Err(format!(
+                "{}：技能 '{}' 安装失败（{}）",
+                registry_label, slug, hint
+            ));
+        }
+        let zip_bytes = zip_resp.bytes().await.map_err(|e| e.to_string())?;
+        extract_skill_md_from_zip(&zip_bytes)
+            .map_err(|e| format!("从 zip 中提取 SKILL.md 失败：{}", e))?
+    };
+
+    let source_url = Some(format!("{base}/skills/{slug}"));
+    install_skill_from_content_sourced(state, content, source_tag, source_url).await
+}
+
+/// Search ClawHub for skills.
+#[tauri::command]
+pub async fn clawhub_search(
+    query: String,
+    limit: Option<u32>,
+    offset: Option<u32>,
+) -> Result<ClawHubSearchResult, String> {
+    registry_search(
+        CLAWHUB_API,
+        "ClawHub",
+        query,
+        limit,
+        offset,
+        RegistryBrowseMode::SkillsList,
+    )
+    .await
+}
+
+/// Search SkillHub (api.skillhub.cn) for skills.
+#[tauri::command]
+pub async fn skillhub_search(
+    query: String,
+    limit: Option<u32>,
+    offset: Option<u32>,
+) -> Result<ClawHubSearchResult, String> {
+    registry_search(
+        SKILLHUB_API,
+        "SkillHub",
+        query,
+        limit,
+        offset,
+        RegistryBrowseMode::SearchOnly,
+    )
+    .await
 }
 
 /// Pre-check whether a skill (from URL or local path) is compatible with the current system.
@@ -1059,88 +1229,39 @@ pub async fn check_skill_compat(
 }
 
 /// Install a skill from ClawHub by slug.
-/// Fetches SKILL.md via `/api/v1/skills/<slug>/file?path=SKILL.md`,
-/// falls back to the zip download if the file endpoint fails.
 #[tauri::command]
 pub async fn clawhub_install(
     state: State<'_, AppState>,
     slug: String,
     version: Option<String>,
 ) -> Result<SkillCatalogItem, String> {
-    // Validate slug — only allow alphanumeric, hyphens, underscores, dots
-    if !slug
-        .chars()
-        .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
-    {
-        return Err(format!("无效的技能 slug：'{}'", slug));
-    }
+    registry_install(
+        &state,
+        CLAWHUB_API,
+        "ClawHub",
+        "clawhub",
+        slug,
+        version,
+    )
+    .await
+}
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .user_agent("Piscis-Desktop/1.0")
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    let normalized_version = version
-        .as_deref()
-        .map(str::trim)
-        .filter(|ver| !ver.is_empty() && *ver != "latest" && *ver != "null");
-
-    // Build the file URL, optionally pinning a concrete version
-    let file_url = if let Some(ver) = normalized_version {
-        format!(
-            "{}/api/v1/skills/{}/file?path=SKILL.md&version={}",
-            CLAWHUB_API, slug, ver
-        )
-    } else {
-        format!("{}/api/v1/skills/{}/file?path=SKILL.md", CLAWHUB_API, slug)
-    };
-    info!(
-        "ClawHub install: fetching SKILL.md for '{}' from {}",
-        slug, file_url
-    );
-
-    let resp = clawhub_get_with_retry(&client, &file_url, 3)
-        .await
-        .map_err(|e| format!("下载失败：{}", e))?;
-
-    let content = if resp.status().is_success() {
-        resp.text()
-            .await
-            .map_err(|e| format!("读取 SKILL.md 失败：{}", e))?
-    } else {
-        let file_status = resp.status();
-        // Fallback: download the zip bundle and extract SKILL.md
-        let zip_url = if let Some(ver) = normalized_version {
-            format!(
-                "{}/api/v1/download?slug={}&version={}",
-                CLAWHUB_API, slug, ver
-            )
-        } else {
-            format!("{}/api/v1/download?slug={}", CLAWHUB_API, slug)
-        };
-        info!(
-            "ClawHub: file endpoint returned {}, trying zip: {}",
-            file_status, zip_url
-        );
-        let zip_resp = clawhub_get_with_retry(&client, &zip_url, 3)
-            .await
-            .map_err(|e| format!("Zip 下载失败：{}", e))?;
-        if !zip_resp.status().is_success() {
-            let hint = if zip_resp.status().as_u16() == 429 {
-                "请求过于频繁，请稍后再试".to_string()
-            } else {
-                format!("HTTP {}", zip_resp.status())
-            };
-            return Err(format!("ClawHub：技能 '{}' 安装失败（{}）", slug, hint));
-        }
-        let zip_bytes = zip_resp.bytes().await.map_err(|e| e.to_string())?;
-        extract_skill_md_from_zip(&zip_bytes)
-            .map_err(|e| format!("从 zip 中提取 SKILL.md 失败：{}", e))?
-    };
-
-    let source_url = Some(format!("{}/skills/{}", CLAWHUB_API, slug));
-    install_skill_from_content_sourced(&state, content, "clawhub", source_url).await
+/// Install a skill from SkillHub by slug.
+#[tauri::command]
+pub async fn skillhub_install(
+    state: State<'_, AppState>,
+    slug: String,
+    version: Option<String>,
+) -> Result<SkillCatalogItem, String> {
+    registry_install(
+        &state,
+        SKILLHUB_API,
+        "SkillHub",
+        "skillhub",
+        slug,
+        version,
+    )
+    .await
 }
 
 /// Extract SKILL.md text from a zip archive bytes.

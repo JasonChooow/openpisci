@@ -1,5 +1,6 @@
 import type { Session } from "../services/tauri";
 import type { KoiTodo, KoiWithStats, PoolSession } from "../services/tauri/pool";
+import { brand } from "../brand";
 
 export type InboxSessionLabel = {
   primary: string;
@@ -48,7 +49,7 @@ function findPool(poolId: string, pools: PoolSession[]): PoolSession | undefined
 function koiDisplayName(koi: KoiWithStats | undefined, fallbackId: string | null): string {
   if (koi?.name) return koi.icon ? `${koi.icon} ${koi.name}` : koi.name;
   if (fallbackId) return fallbackId.slice(0, 8);
-  return "Koi";
+  return "Expert";
 }
 
 /**
@@ -123,17 +124,17 @@ export function resolveInboxSessionLabel(
     const pool = findPool(poolId, ctx.pools);
     return {
       primary: pool
-        ? (t ? t("pond.inboxSessionPool", { pool: pool.name }) : `Piscis · ${pool.name}`)
-        : `Piscis · ${poolId.slice(0, 8)}`,
+        ? (t ? t("pond.inboxSessionPool", { pool: pool.name }) : `${brand.displayNameZh} · ${pool.name}`)
+        : `${brand.displayNameZh} · ${poolId.slice(0, 8)}`,
     };
   }
 
   if (id === "heartbeat" || session.source === "heartbeat") {
-    return { primary: t?.("pond.inboxHeartbeat") ?? "Piscis Heartbeat" };
+    return { primary: t?.("pond.inboxHeartbeat") ?? `${brand.displayNameEn} Heartbeat` };
   }
 
   if (id === "piscis_inbox_global" || session.source === "piscis_inbox_global") {
-    return { primary: t?.("pond.inboxGlobalInbox") ?? "Piscis Global Inbox" };
+    return { primary: t?.("pond.inboxGlobalInbox") ?? `${brand.displayNameEn} Global Inbox` };
   }
 
   return { primary: stored || id };

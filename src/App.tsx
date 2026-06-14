@@ -530,6 +530,7 @@ function AppContent() {
               <div className={activeTab === "assistant" ? "assistant-page" : "conversation-shell"}>
                 <Chat
                   variant={activeTab === "assistant" ? "im" : "task"}
+                  onOpenSettings={(sub) => openSettings(sub)}
                   onNavigateTab={(tab, opts) => {
                     if (tab === "skills" || tab === "school") {
                       navigateTab("school");

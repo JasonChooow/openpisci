@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Download, Store } from "lucide-react";
+import { Store } from "lucide-react";
 import KoiManager from "../Pond/KoiManager";
 import { marketplaceApi, type MarketExpert, type MarketTeam } from "../../services/tauri/platform";
 import { extrasApi } from "../../services/tauri";
@@ -8,21 +8,10 @@ import { getCloudBaseUrl } from "../../config/cloud";
 import type { TeamTemplate } from "../../types/pisciAsset";
 import { loadInstalledTeams, saveInstalledTeams, teamFromMarketPackage, normalizeTeamTemplate } from "../../utils/teamStorage";
 import TeamInstalledPanel from "./TeamInstalledPanel";
+import MarketCatalogGrid from "../Market/MarketCatalogGrid";
 import "./ExpertHub.css";
 
 const Skills = lazy(() => import("../Skills"));
-
-function sourceLabel(source?: string): string {
-  switch (source) {
-    case "cloud":
-      return "云市场";
-    case "clawhub":
-      return "ClawHub";
-    case "github":
-    default:
-      return "官方";
-  }
-}
 
 export type MarketLevelTab = "experts" | "teams" | "skills";
 export type MarketScopeTab = "market" | "installed";
@@ -174,55 +163,25 @@ export default function ExpertHub({
         )}
 
         {scopeTab === "market" && levelTab === "experts" && (
-          <>
-            {loading && <div className="expert-empty">{t("common.loading")}</div>}
-            {!loading && (
-              <div className="expert-market-grid">
-                {marketExperts.length === 0 ? (
-                  <div className="expert-empty">{t("expert.marketEmpty")}</div>
-                ) : marketExperts.map((e) => (
-                  <div key={`${e.source ?? "github"}:${e.id}`} className="expert-market-card">
-                    <h3>{e.name} <span className={`market-source-badge ${e.source ?? "github"}`}>{sourceLabel(e.source)}</span></h3>
-                    <p>{e.description}</p>
-                    <code className="team-card-id">{e.id}</code>
-                    <button type="button" className="btn btn-primary" onClick={() => void installExpert(e)}>
-                      <Download size={14} /> {t("expert.install")}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
+          <MarketCatalogGrid
+            items={marketExperts}
+            loading={loading}
+            emptyLabel={t("expert.marketEmpty")}
+            installLabel={t("expert.install")}
+            onInstall={(e) => void installExpert(e)}
+          />
         )}
 
         {scopeTab === "market" && levelTab === "teams" && (
-          <>
-            {loading && <div className="expert-empty">{t("common.loading")}</div>}
-            {!loading && (
-              <div className="expert-market-grid">
-                {marketTeams.length === 0 ? (
-                  <div className="expert-empty">{t("expert.marketEmpty")}</div>
-                ) : marketTeams.map((team) => {
-                  const already = installedIds.has(team.id);
-                  return (
-                    <div key={`${team.source ?? "github"}:${team.id}`} className="expert-market-card">
-                      <h3>{team.name} <span className={`market-source-badge ${team.source ?? "github"}`}>{sourceLabel(team.source)}</span></h3>
-                      <p>{team.description}</p>
-                      <code className="team-card-id">{team.id}</code>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={already}
-                        onClick={() => void installTeam(team)}
-                      >
-                        <Download size={14} /> {already ? t("expert.installed") : t("expert.install")}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
+          <MarketCatalogGrid
+            items={marketTeams}
+            loading={loading}
+            emptyLabel={t("expert.marketEmpty")}
+            installLabel={t("expert.install")}
+            installedLabel={t("expert.installed")}
+            isInstalled={(team) => installedIds.has(team.id)}
+            onInstall={(team) => void installTeam(team)}
+          />
         )}
       </div>
     </div>

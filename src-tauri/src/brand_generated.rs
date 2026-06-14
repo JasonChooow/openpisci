@@ -3,7 +3,8 @@
 #![allow(dead_code)]
 
 pub const BRAND_ID: &str = "xiaonuo";
-pub const PRODUCT_NAME: &str = "XiaoNuo";
+pub const PRODUCT_NAME: &str = "DimWork";
 pub const DISPLAY_NAME_ZH: &str = "小诺";
-pub const PRO_WINDOW_TITLE: &str = "小诺 · 专业功能";
+pub const DISPLAY_NAME_EN: &str = "XiaoNuo";
+pub const PRO_WINDOW_TITLE: &str = "DimWork · 专业功能";
 pub const GITHUB_REPO: &str = "njbinbin/openpisci";

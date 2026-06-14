@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/finance-workflows@1.0.0",
+  "name": "finance-workflows",
+  "description": "Comprehensive finance workflows including income statements, journal entries, reconciliations, SOX testing, and variance analysis",
+  "plugin": "finance",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/finance-workflows"
+}

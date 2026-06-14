@@ -25,6 +25,48 @@ use uuid::Uuid;
 use super::logging::{init_logging, install_crash_reporter};
 use super::markers::{extract_send_marker, guess_mime_from_path};
 
+/// Apply the brand icon to the main window, overlay, and tray.
+///
+/// Linux dock/taskbar icons come from the GTK window icon. During `tauri dev`,
+/// icons may be regenerated after the last compile, so always prefer the live
+/// `icons/icon.png` on disk when it exists.
+fn apply_brand_icons(app: &tauri::App) {
+    use tauri::image::Image;
+
+    let icon = {
+        let icon_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("icons/icon.png");
+        if icon_path.is_file() {
+            match Image::from_path(&icon_path) {
+                Ok(icon) => Some(icon),
+                Err(err) => {
+                    tracing::warn!("Failed to load {}: {}", icon_path.display(), err);
+                    app.default_window_icon().cloned()
+                }
+            }
+        } else {
+            app.default_window_icon().cloned()
+        }
+    };
+
+    let Some(icon) = icon else {
+        return;
+    };
+
+    for label in ["main", "overlay"] {
+        if let Some(window) = app.get_webview_window(label) {
+            if let Err(err) = window.set_icon(icon.clone()) {
+                tracing::warn!("Failed to set {label} window icon: {err}");
+            }
+        }
+    }
+
+    if let Some(tray) = app.tray_by_id("main") {
+        if let Err(err) = tray.set_icon(Some(icon)) {
+            tracing::warn!("Failed to set tray icon: {err}");
+        }
+    }
+}
+
 fn build_im_session_title(msg: &gateway::InboundMessage) -> String {
     let label = if msg.is_group {
         msg.group_name
@@ -306,6 +348,7 @@ fn run_impl() {
     builder
         .setup(move |app| {
             let app_handle = app.handle().clone();
+            apply_brand_icons(app);
 
             let state = tauri::async_runtime::block_on(async {
                 let scheduler = scheduler::cron::CronScheduler::new().await?;
@@ -1093,7 +1136,7 @@ fn run_impl() {
                         MenuItem::with_id(
                             &app_handle,
                             "tray_quit",
-                            "退出 OpenPiscis",
+                            format!("退出 {}", crate::brand_generated::PRODUCT_NAME),
                             true,
                             None::<&str>,
                         ),
@@ -1104,7 +1147,7 @@ fn run_impl() {
                             }
                         }
                     }
-                    let _ = tray.set_tooltip(Some("OpenPiscis"));
+                    let _ = tray.set_tooltip(Some(crate::brand_generated::PRODUCT_NAME));
                 }
             }
 
@@ -1258,6 +1301,8 @@ fn run_impl() {
             commands::config::skills::uninstall_skill,
             commands::config::skills::clawhub_search,
             commands::config::skills::clawhub_install,
+            commands::config::skills::skillhub_search,
+            commands::config::skills::skillhub_install,
             commands::config::claude_plugins::claude_plugins_list,
             commands::config::claude_plugins::claude_plugins_detail,
             commands::config::claude_plugins::claude_plugins_install,
@@ -1435,6 +1480,7 @@ fn run_impl() {
             commands::platform::marketplace::fetch_marketplace_aggregated,
             commands::platform::marketplace::fetch_market_team_package,
             commands::platform::marketplace::install_market_expert,
+            commands::platform::marketplace::install_market_skill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running OpenPiscis Desktop");

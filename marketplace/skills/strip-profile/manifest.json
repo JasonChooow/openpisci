@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/strip-profile@1.0.0",
+  "name": "fsi-strip-profile",
+  "description": "|",
+  "plugin": "investment-banking",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/strip-profile"
+}

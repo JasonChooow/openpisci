@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/finance-data-retrieval@1.0.0",
+  "name": "finance-data-retrieval",
+  "description": ">",
+  "plugin": "finance-data",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/finance-data-retrieval"
+}

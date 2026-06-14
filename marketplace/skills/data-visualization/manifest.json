@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/data-visualization@1.0.0",
+  "name": "data-visualization",
+  "description": "Create effective data visualizations with Python. 优先使用 plotly（交互式图表），seaborn 和 matplotlib 作为备选（静态图表）。Use when building charts, choosing the right chart type for a dataset, creating publication-quality figures, or applying design principles like accessibility and color theory.",
+  "plugin": "data",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/data-visualization"
+}

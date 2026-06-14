@@ -167,6 +167,7 @@ export interface MarketExpert {
   source?: string;
   /** Whether the source is an official/trusted registry. */
   trusted?: boolean;
+  featured?: boolean;
 }
 
 export interface MarketTeam {
@@ -176,11 +177,24 @@ export interface MarketTeam {
   download_url: string;
   source?: string;
   trusted?: boolean;
+  featured?: boolean;
+}
+
+export interface MarketSkill {
+  id: string;
+  name: string;
+  description: string;
+  download_url: string;
+  source?: string;
+  trusted?: boolean;
+  tags?: string[];
+  featured?: boolean;
 }
 
 export interface MarketIndex {
   experts: MarketExpert[];
   teams: MarketTeam[];
+  skills: MarketSkill[];
 }
 
 export const marketplaceApi = {
@@ -194,6 +208,8 @@ export const marketplaceApi = {
   fetchTeamPackage: (url: string) =>
     invoke<import("../../types/pisciAsset").MarketTeamPackageV2>("fetch_market_team_package", { url }),
   installExpert: (downloadUrl: string) => invoke<string>("install_market_expert", { downloadUrl }),
+  installSkill: (downloadUrl: string) =>
+    invoke<import("./config").SkillCatalogItem>("install_market_skill", { downloadUrl }),
 };
 
 export const extrasApi = {

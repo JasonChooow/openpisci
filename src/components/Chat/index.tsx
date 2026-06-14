@@ -10,7 +10,6 @@ import { artifactsApi, chatApi, journalApi, sessionsApi, gatewayApi, koiApi, Age
 import { skillsApi, type Skill, type ComposerMode } from "../../services/tauri";
 import RoundedSearch from "../ui/RoundedSearch";
 import { Search, History, Share2, Mic, PanelRight } from "lucide-react";
-import { brand } from "../../brand";
 import { PlanPanel, ArtifactsPanel, ToolStepCard } from "./ChatPanels";
 import ChatRightPanel from "./ChatRightPanel";
 import TeamCollabPanel from "./TeamCollabPanel";
@@ -385,9 +384,10 @@ export type ChatNavigateTab = (
 interface ChatProps {
   onNavigateTab?: ChatNavigateTab;
   variant?: "task" | "im";
+  onOpenSettings?: (sub: "channels" | "general") => void;
 }
 
-export default function Chat({ onNavigateTab, variant = "task" }: ChatProps = {}) {
+export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }: ChatProps = {}) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const { sessions, activeSessionId, pendingMainChatNav } = useSelector((s: RootState) => s.sessions);
@@ -2060,6 +2060,15 @@ export default function Chat({ onNavigateTab, variant = "task" }: ChatProps = {}
             >
               {gatewayDisconnecting ? t("common.disconnecting") : t("settings.disconnectAll")}
             </button>
+            {onOpenSettings && (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => onOpenSettings("channels")}
+              >
+                {t("settingsHub.configureChannels")} →
+              </button>
+            )}
           </div>
         );
       })()}
@@ -2455,6 +2464,15 @@ export default function Chat({ onNavigateTab, variant = "task" }: ChatProps = {}
                   </div>
                 </div>
               ))}
+
+              {activeMessages.length === 0 &&
+                !running &&
+                !loadingMoreHistory &&
+                pendingLiveCards.length === 0 && (
+                  <div className="chat-messages-empty" aria-hidden="true">
+                    <img src="/chat-empty-hero.png" alt="" className="chat-empty-hero" />
+                  </div>
+                )}
 
               <div ref={messagesEndRef} />
             </div>
@@ -2858,8 +2876,12 @@ export default function Chat({ onNavigateTab, variant = "task" }: ChatProps = {}
                 <button className="error-dismiss" onClick={() => setSendError(null)}>✕</button>
               </div>
             )}
-            <div className="empty-state-icon">
-              <img src={brand.logoPath} alt={brand.displayNameZh} style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 14, opacity: 0.7 }} />
+            <div className="empty-state-icon chat-empty-hero-wrap">
+              <img
+                src="/chat-empty-hero.png"
+                alt=""
+                className="chat-empty-hero"
+              />
             </div>
             <div className="empty-state-title">{t("chat.welcome")}</div>
             <div className="empty-state-desc">{t("chat.welcomeDesc")}</div>

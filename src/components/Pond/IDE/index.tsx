@@ -698,7 +698,7 @@ export default function IDE({ projectDir, poolSessionId }: IDEProps) {
               </div>
               <div className="welcome-hint">
                 {t("ide.welcomeHint") ||
-                  "Collaborate with Koi agents in the same project directory"}
+                  "Collaborate with expert agents in the same project directory"}
               </div>
             </div>
           )}

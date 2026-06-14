@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/data-context-extractor@1.0.0",
+  "name": "data-context-extractor",
+  "description": ">",
+  "plugin": "data",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/data-context-extractor"
+}

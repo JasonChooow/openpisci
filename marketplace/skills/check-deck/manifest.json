@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/check-deck@1.0.0",
+  "name": "check-deck",
+  "description": "|",
+  "plugin": "financial-analysis",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/check-deck"
+}

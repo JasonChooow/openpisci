@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/data-analysis-workflows@1.0.0",
+  "name": "data-analysis-workflows",
+  "description": ">",
+  "plugin": "data",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/data-analysis-workflows"
+}

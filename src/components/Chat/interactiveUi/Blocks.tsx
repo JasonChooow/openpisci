@@ -346,7 +346,7 @@ export function KoiPickerBlock({
             {suggested.has(k.id) && <span className="ic-koi-badge">Recommended</span>}
           </button>
         ))}
-        {kois.length === 0 && <span className="ic-muted">No Koi available</span>}
+        {kois.length === 0 && <span className="ic-muted">No experts available</span>}
       </div>
       {error && <span className="ic-error">{error}</span>}
     </fieldset>

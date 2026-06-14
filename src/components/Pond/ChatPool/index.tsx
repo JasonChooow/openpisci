@@ -641,7 +641,7 @@ export default function ChatPool() {
                   className="chatpool-orgspec-editor"
                   value={orgSpecDraft}
                   onChange={(e) => setOrgSpecDraft(e.target.value)}
-                  placeholder="# Project Goal\n\n# Koi Roles\n\n# Collaboration Rules\n\n# Success Metrics"
+                  placeholder={t("pool.orgSpecPlaceholder")}
                   rows={10}
                 />
                 <button

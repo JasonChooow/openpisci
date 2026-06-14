@@ -667,6 +667,22 @@ select.form-select:focus {
   opacity: 0.5;
 }
 
+.chat-empty-hero-wrap {
+  opacity: 1;
+  margin-bottom: 4px;
+}
+
+.chat-empty-hero {
+  width: min(280px, 72vw);
+  height: auto;
+  max-height: min(320px, 45vh);
+  object-fit: contain;
+  filter: grayscale(1) invert(1) brightness(1.15);
+  opacity: 0.5;
+  user-select: none;
+  pointer-events: none;
+}
+
 .empty-state-title {
   font-size: 16px;
   font-weight: 500;

@@ -1,0 +1,15 @@
+{
+  "spec_version": 2,
+  "id": "openpisci/team/scene-24@1.0.0",
+  "name": "文档",
+  "description": "来自 CB Teams 场景「文档」：",
+  "org_spec": "# 文档\n\n\n\n## 示例任务\n1. 分析当前项目的 API 接口，生成 OpenAPI v3 spec，包含完整的接口描述和示例。\n2. 分析当前项目，帮我完善 README 文档，添加安装步骤、使用示例和贡献指南。\n3. 分析当前项目架构，帮我创建系统架构图和设计文档，说明核心模块和数据流。\n",
+  "members": [],
+  "origin": "cb-teams",
+  "origin_scene_id": 24,
+  "example_prompts": [
+    "分析当前项目的 API 接口，生成 OpenAPI v3 spec，包含完整的接口描述和示例。",
+    "分析当前项目，帮我完善 README 文档，添加安装步骤、使用示例和贡献指南。",
+    "分析当前项目架构，帮我创建系统架构图和设计文档，说明核心模块和数据流。"
+  ]
+}

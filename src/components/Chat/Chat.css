@@ -918,6 +918,16 @@
   cursor: wait;
 }
 
+.chat-messages-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(360px, 50vh);
+  margin: auto 0;
+  pointer-events: none;
+}
+
 .message {
   display: flex;
   flex-direction: column;

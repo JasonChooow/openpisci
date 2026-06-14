@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/bgm-library@1.0.0",
+  "name": "bgm-library",
+  "description": "Search, filter, and download royalty-free background music from ccMixter for Remotion videos. Supports keyword search, tag presets, license filtering (CC BY / CC BY-SA only), and auto-generates attribution. Downloads MP3 directly to project directory.",
+  "plugin": "remotion-video-generator",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/bgm-library"
+}

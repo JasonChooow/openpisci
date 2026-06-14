@@ -5,7 +5,12 @@ export function isPondCliSession(
   if (!session) return false;
   if (session.source === "cli") return true;
   const title = session.title ?? "";
-  return title.startsWith("Piscis CLI") || title === "Piscis CLI";
+  return title.startsWith("Piscis CLI")
+    || title.startsWith("小诺 CLI")
+    || title.startsWith("XiaoNuo CLI")
+    || title === "Piscis CLI"
+    || title === "小诺 CLI"
+    || title === "XiaoNuo CLI";
 }
 
 /** IDE-bound agent session — hidden from main task list. */

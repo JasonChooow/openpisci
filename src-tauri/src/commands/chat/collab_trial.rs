@@ -79,7 +79,7 @@ fn default_trial_scenario() -> TrialScenario {
         goal: "Test multi-agent collaboration by designing and reviewing a simple utility module."
             .into(),
         kickoff_phase: "lead".into(),
-        kickoff_detail: "Piscis starts the collaboration by assigning the first specialist."
+        kickoff_detail: "XiaoNuo starts the collaboration by assigning the first specialist."
             .into(),
         kickoff_message: "@!Architect Design a small \"string utility\" module with 3 functions: \
              1) reverse_words(s) - reverses word order in a sentence \
@@ -89,7 +89,7 @@ fn default_trial_scenario() -> TrialScenario {
              Follow your coordination protocol to hand off to Coder when the spec is ready."
             .into(),
         workflow: vec![
-            "Piscis assigns the initial design task to Architect.".into(),
+            "XiaoNuo assigns the initial design task to Architect.".into(),
             "Architect produces a specification, then hands off implementation to Coder.".into(),
             "Coder implements based on the specification, then hands off to @!Reviewer.".into(),
             "Reviewer requests follow-up work or signals `[ProjectStatus] ready_for_piscis_review` for Piscis to assess."
@@ -528,7 +528,7 @@ pub async fn run_collaboration_trial_with_state(
     push_trial_observation(
         &mut status,
         "kickoff_dispatch",
-        "Piscis",
+        crate::brand_generated::DISPLAY_NAME_ZH,
         format!("Kick off collaboration with @!{}", lead.name),
         lead_results.is_ok(),
         kickoff_preview.clone(),
@@ -834,7 +834,7 @@ pub async fn run_collaboration_trial_with_state(
     push_trial_observation(
         &mut status,
         "piscis_assess",
-        "Piscis",
+        crate::brand_generated::DISPLAY_NAME_ZH,
         "Observe whether the project reached a ready-for-review snapshot",
         final_assessment.decision == TrialDecision::ReadyForPiscisReview,
         final_assessment.summary.clone(),

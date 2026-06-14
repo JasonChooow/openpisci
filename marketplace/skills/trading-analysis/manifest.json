@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/trading-analysis@1.0.0",
+  "name": "trading-analysis",
+  "description": ">",
+  "plugin": "trading-assistant",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/trading-analysis"
+}

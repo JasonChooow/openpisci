@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/financial-analysis-competitive-analysis@1.0.0",
+  "name": "competitive-analysis",
+  "description": "Framework for competitive landscape analysis across any industry. Use when creating competitor analysis, market positioning assessments, investment memos, strategic reviews, or any analysis requiring systematic evaluation of competitive dynamics. Triggers include requests for competitive landscape decks, peer comparisons, market structure analysis, strategic positioning assessments, and investment recommendations.",
+  "plugin": "financial-analysis",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/financial-analysis-competitive-analysis"
+}

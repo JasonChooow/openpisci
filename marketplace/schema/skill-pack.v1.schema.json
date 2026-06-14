@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openpisci.dev/schema/skill-pack.v1.json",
+  "title": "Pisci Skill Pack v1",
+  "description": "Marketplace skill directory manifest; SKILL.md lives at {path}/SKILL.md",
+  "type": "object",
+  "required": ["spec_version", "id", "name", "description", "path"],
+  "properties": {
+    "spec_version": { "const": 1 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+/skill/[a-z0-9-]+@\\d+\\.\\d+\\.\\d+$"
+    },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "path": { "type": "string", "description": "Relative path under marketplace/, e.g. skills/xlsx" },
+    "plugin": { "type": "string", "description": "Optional upstream plugin name" },
+    "tools": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

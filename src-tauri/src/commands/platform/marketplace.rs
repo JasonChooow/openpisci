@@ -1,7 +1,9 @@
-//! GitHub JSON marketplace — fetch expert/team packs and install locally.
+//! GitHub JSON marketplace — fetch expert/team/skill packs and install locally.
 
+use crate::commands::config::skills::{install_skill_from_content_sourced, SkillCatalogItem};
 use crate::store::AppState;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use tauri::State;
 
 fn default_source() -> String {
@@ -24,6 +26,8 @@ pub struct MarketExpert {
     /// Whether the source is an official/trusted registry.
     #[serde(default = "default_trusted")]
     pub trusted: bool,
+    #[serde(default)]
+    pub featured: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,12 +40,32 @@ pub struct MarketTeam {
     pub source: String,
     #[serde(default = "default_trusted")]
     pub trusted: bool,
+    #[serde(default)]
+    pub featured: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MarketSkill {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub download_url: String,
+    #[serde(default = "default_source")]
+    pub source: String,
+    #[serde(default = "default_trusted")]
+    pub trusted: bool,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub featured: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketIndex {
     pub experts: Vec<MarketExpert>,
     pub teams: Vec<MarketTeam>,
+    #[serde(default)]
+    pub skills: Vec<MarketSkill>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,6 +120,16 @@ pub struct MarketExpertPackage {
     pub color: String,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+struct MarketSkillManifest {
+    #[allow(dead_code)]
+    id: String,
+    #[allow(dead_code)]
+    name: String,
+    #[allow(dead_code)]
+    description: String,
+}
+
 fn default_market_url() -> String {
     "https://raw.githubusercontent.com/njbinbin/openpisci/main/marketplace/index.json".into()
 }
@@ -103,6 +137,7 @@ fn default_market_url() -> String {
 async fn fetch_json<T: for<'de> Deserialize<'de>>(url: &str) -> Result<T, String> {
     let client = reqwest::Client::builder()
         .user_agent("XiaoNuo-Marketplace/1.0")
+        .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|e| e.to_string())?;
     let resp = client.get(url).send().await.map_err(|e| e.to_string())?;
@@ -110,6 +145,33 @@ async fn fetch_json<T: for<'de> Deserialize<'de>>(url: &str) -> Result<T, String
         return Err(format!("HTTP {}", resp.status()));
     }
     resp.json().await.map_err(|e| e.to_string())
+}
+
+async fn fetch_text(url: &str) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("XiaoNuo-Marketplace/1.0")
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let resp = client.get(url).send().await.map_err(|e| e.to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {}", resp.status()));
+    }
+    resp.text().await.map_err(|e| e.to_string())
+}
+
+fn skill_md_url_from_manifest_url(manifest_url: &str) -> String {
+    if manifest_url.ends_with("/manifest.json") {
+        format!("{}/SKILL.md", manifest_url.trim_end_matches("/manifest.json"))
+    } else if manifest_url.ends_with("manifest.json") {
+        manifest_url.replace("manifest.json", "SKILL.md")
+    } else {
+        format!("{}/SKILL.md", manifest_url.trim_end_matches('/'))
+    }
+}
+
+fn dedup_key(source: &str, id: &str) -> String {
+    format!("{source}:{id}")
 }
 
 #[tauri::command]
@@ -127,6 +189,10 @@ struct CloudMarketSummary {
     name: String,
     #[serde(default)]
     description: String,
+    #[serde(default)]
+    tags: Vec<String>,
+    #[serde(default)]
+    featured: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -135,6 +201,8 @@ struct CloudMarketIndex {
     experts: Vec<CloudMarketSummary>,
     #[serde(default)]
     teams: Vec<CloudMarketSummary>,
+    #[serde(default)]
+    skills: Vec<CloudMarketSummary>,
 }
 
 fn cloud_asset_url(base: &str, id: &str) -> String {
@@ -154,6 +222,10 @@ pub async fn fetch_marketplace_aggregated(
 ) -> Result<MarketIndex, String> {
     let mut experts: Vec<MarketExpert> = Vec::new();
     let mut teams: Vec<MarketTeam> = Vec::new();
+    let mut skills: Vec<MarketSkill> = Vec::new();
+    let mut seen_experts: HashSet<String> = HashSet::new();
+    let mut seen_teams: HashSet<String> = HashSet::new();
+    let mut seen_skills: HashSet<String> = HashSet::new();
 
     // 1) Official GitHub registry.
     let gh_url = github_url
@@ -163,12 +235,26 @@ pub async fn fetch_marketplace_aggregated(
         for mut e in idx.experts {
             e.source = "github".into();
             e.trusted = true;
-            experts.push(e);
+            let key = dedup_key("github", &e.id);
+            if seen_experts.insert(key) {
+                experts.push(e);
+            }
         }
         for mut t in idx.teams {
             t.source = "github".into();
             t.trusted = true;
-            teams.push(t);
+            let key = dedup_key("github", &t.id);
+            if seen_teams.insert(key) {
+                teams.push(t);
+            }
+        }
+        for mut s in idx.skills {
+            s.source = "github".into();
+            s.trusted = true;
+            let key = dedup_key("github", &s.id);
+            if seen_skills.insert(key) {
+                skills.push(s);
+            }
         }
     }
 
@@ -178,29 +264,56 @@ pub async fn fetch_marketplace_aggregated(
         let url = format!("{base}/api/marketplace/index");
         if let Ok(cloud) = fetch_json::<CloudMarketIndex>(&url).await {
             for s in cloud.experts {
-                experts.push(MarketExpert {
-                    download_url: cloud_asset_url(&base, &s.id),
-                    id: s.id,
-                    name: s.name,
-                    description: s.description,
-                    source: "cloud".into(),
-                    trusted: true,
-                });
+                let key = dedup_key("cloud", &s.id);
+                if seen_experts.insert(key) {
+                    experts.push(MarketExpert {
+                        download_url: cloud_asset_url(&base, &s.id),
+                        id: s.id,
+                        name: s.name,
+                        description: s.description,
+                        source: "cloud".into(),
+                        trusted: true,
+                        featured: s.featured,
+                    });
+                }
             }
             for s in cloud.teams {
-                teams.push(MarketTeam {
-                    download_url: cloud_asset_url(&base, &s.id),
-                    id: s.id,
-                    name: s.name,
-                    description: s.description,
-                    source: "cloud".into(),
-                    trusted: true,
-                });
+                let key = dedup_key("cloud", &s.id);
+                if seen_teams.insert(key) {
+                    teams.push(MarketTeam {
+                        download_url: cloud_asset_url(&base, &s.id),
+                        id: s.id,
+                        name: s.name,
+                        description: s.description,
+                        source: "cloud".into(),
+                        trusted: true,
+                        featured: s.featured,
+                    });
+                }
+            }
+            for s in cloud.skills {
+                let key = dedup_key("cloud", &s.id);
+                if seen_skills.insert(key) {
+                    skills.push(MarketSkill {
+                        download_url: cloud_asset_url(&base, &s.id),
+                        id: s.id,
+                        name: s.name,
+                        description: s.description,
+                        source: "cloud".into(),
+                        trusted: true,
+                        tags: s.tags,
+                        featured: s.featured,
+                    });
+                }
             }
         }
     }
 
-    Ok(MarketIndex { experts, teams })
+    Ok(MarketIndex {
+        experts,
+        teams,
+        skills,
+    })
 }
 
 #[tauri::command]
@@ -229,4 +342,34 @@ pub async fn install_market_expert(
         )
         .map_err(|e| e.to_string())?;
     Ok(koi.id)
+}
+
+/// Install a skill from the OpenPisci marketplace catalog.
+/// Fetches manifest.json, then SKILL.md from the same directory.
+#[tauri::command]
+pub async fn install_market_skill(
+    state: State<'_, AppState>,
+    download_url: String,
+) -> Result<SkillCatalogItem, String> {
+    let manifest_url = download_url.trim();
+    if manifest_url.is_empty() {
+        return Err("download_url is required".into());
+    }
+
+    let _manifest: MarketSkillManifest = fetch_json(manifest_url).await?;
+    let skill_md_url = skill_md_url_from_manifest_url(manifest_url);
+    let content = fetch_text(&skill_md_url).await.map_err(|e| {
+        format!(
+            "Failed to fetch SKILL.md from {}: {}",
+            skill_md_url, e
+        )
+    })?;
+
+    install_skill_from_content_sourced(
+        &state,
+        content,
+        "openpisci-market",
+        Some(skill_md_url),
+    )
+    .await
 }

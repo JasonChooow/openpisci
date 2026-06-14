@@ -190,7 +190,7 @@ pub async fn set_window_theme_border(_app: AppHandle, theme: String) -> Result<(
             _ => return Ok(()),
         };
 
-        let title: Vec<u16> = "OpenPiscis\0".encode_utf16().collect();
+        let title: Vec<u16> = format!("{}\0", PRODUCT_NAME).encode_utf16().collect();
         let hwnd = match unsafe { FindWindowW(PCWSTR::null(), PCWSTR(title.as_ptr())) } {
             Ok(h) if !h.is_invalid() => h,
             _ => return Ok(()), // Window not found yet, ignore

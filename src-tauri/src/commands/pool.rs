@@ -243,8 +243,8 @@ pub async fn send_pool_message(
         && crate::piscis::heartbeat::content_targets_piscis(&input.content)
     {
         return Err(
-            "Cannot @!mention Piscis from a Piscis-role message. \
-             Delegate to Koi with @!KoiName, or use the IDE Piscis CLI for a direct Piscis conversation."
+            "Cannot @!mention XiaoNuo from a XiaoNuo-role message. \
+             Delegate to experts with @!ExpertName, or use the IDE XiaoNuo CLI for a direct XiaoNuo conversation."
                 .into(),
         );
     }
@@ -372,7 +372,7 @@ pub async fn add_pool_member(
         let koi = db
             .resolve_koi_identifier(&koi_id)
             .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!("Koi '{}' was not found.", koi_id))?;
+            .ok_or_else(|| format!("Expert '{}' was not found.", koi_id))?;
         if db
             .is_pool_member(&pool_id, &koi.id)
             .map_err(|e| e.to_string())?
@@ -403,13 +403,13 @@ pub async fn remove_pool_member(
         let koi = db
             .resolve_koi_identifier(&koi_id)
             .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!("Koi '{}' was not found.", koi_id))?;
+            .ok_or_else(|| format!("Expert '{}' was not found.", koi_id))?;
         let active = db
             .count_active_todos_for_member(&pool_id, &koi.id)
             .map_err(|e| e.to_string())?;
         if active > 0 {
             return Err(format!(
-                "无法移除 {}：该 Koi 在本项目还有 {} 个进行中的任务，请先完成或重新分配。",
+                "无法移除 {}：该专家在本项目还有 {} 个进行中的任务，请先完成或重新分配。",
                 koi.name, active
             ));
         }
@@ -544,7 +544,7 @@ pub async fn cancel_koi_task(
         .cloned()
         .collect();
     if matching.is_empty() {
-        return Err(format!("No active task found for Koi '{}'", koi_id));
+        return Err(format!("No active task found for expert '{}'", koi_id));
     }
     for key in &matching {
         if let Some(flag) = flags.get(key) {
@@ -710,7 +710,7 @@ pub async fn archive_pool_session(
             .insert_pool_message(
                 &id,
                 "system",
-                "🗄 项目已归档。项目进入只读状态，Koi 不再接受新任务。",
+                "🗄 项目已归档。项目进入只读状态，专家不再接受新任务。",
                 "status_update",
                 "{}",
             )

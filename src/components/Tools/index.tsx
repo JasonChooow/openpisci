@@ -8,6 +8,7 @@ import {
 import IntegrationsPanel from "./IntegrationsPanel";
 import ConfirmDialog from "../ConfirmDialog";
 import type { SettingsSubTab, ToolsSubTab } from "../SettingsHub/types";
+import "./Tools.css";
 
 // ─── Config Form (for user tools) ────────────────────────────────────────────
 

@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/init-cbc-sdk-web@1.0.0",
+  "name": "init-cbc-sdk-web",
+  "description": "Initialize a complete web-based chat application powered by 小诺 Agent SDK with React frontend and Express backend",
+  "plugin": "codebuddy-chat-web",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/init-cbc-sdk-web"
+}

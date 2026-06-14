@@ -1,0 +1,15 @@
+{
+  "spec_version": 2,
+  "id": "openpisci/team/scene-22-ci-cd@1.0.0",
+  "name": "CI/CD",
+  "description": "来自 CB Teams 场景「CI/CD」：",
+  "org_spec": "# CI/CD\n\n\n\n## 示例任务\n1. 分析当前项目架构，帮我编写 GitHub Actions 工作流，实现自动构建、测试和部署。\n2. 分析当前项目架构，帮我编写 Dockerfile，优化镜像大小，支持多阶段构建。\n3. 分析当前项目架构，帮我编写 Kubernetes Helm Chart，包含 Deployment、Service 和 ConfigMap。\n",
+  "members": [],
+  "origin": "cb-teams",
+  "origin_scene_id": 22,
+  "example_prompts": [
+    "分析当前项目架构，帮我编写 GitHub Actions 工作流，实现自动构建、测试和部署。",
+    "分析当前项目架构，帮我编写 Dockerfile，优化镜像大小，支持多阶段构建。",
+    "分析当前项目架构，帮我编写 Kubernetes Helm Chart，包含 Deployment、Service 和 ConfigMap。"
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "XiaoNuo",
+  "productName": "DimWork",
   "mainBinaryName": "piscis-desktop",
   "version": "0.8.64",
   "identifier": "com.piscis.desktop",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "小诺 XiaoNuo",
+        "title": "DimWork",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -26,7 +26,7 @@
       },
       {
         "label": "overlay",
-        "title": "小诺 Overlay",
+        "title": "DimWork Overlay",
         "url": "index.html?overlay=1",
         "width": 280,
         "height": 56,
@@ -59,17 +59,19 @@
     "targets": "all",
     "icon": [
       "icons/32x32.png",
+      "icons/64x64.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
+      "icons/icon.png",
       "icons/icon.icns",
       "icons/icon.ico"
     ],
     "resources": [],
     "externalBin": [],
-    "copyright": "Copyright 2025 XiaoNuo Team",
+    "copyright": "Copyright 2025 DimWork Team",
     "category": "Productivity",
-    "shortDescription": "小诺 XiaoNuo - Open-source cross-platform AI Agent Desktop",
-    "longDescription": "小诺 (XiaoNuo) is an open-source cross-platform AI agent desktop for Windows, macOS, and Linux. 小诺 is the main coordinator agent inside the app — with chat, memory, skills, MCP tools, browser automation, and pool-based multi-agent orchestration, all running locally against the LLM provider of your choice.",
+    "shortDescription": "DimWork - Open-source cross-platform AI Agent Desktop",
+    "longDescription": "DimWork is an open-source cross-platform AI agent desktop for Windows, macOS, and Linux. XiaoNuo (小诺) is the main coordinator agent inside the app — with chat, memory, skills, MCP tools, browser automation, and team-based multi-agent orchestration, all running locally against the LLM provider of your choice.",
     "windows": {
       "digestAlgorithm": "sha256",
       "webviewInstallMode": {

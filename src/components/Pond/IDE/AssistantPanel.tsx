@@ -17,6 +17,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { getBrandDisplayName } from "../../../brand";
 import { useDispatch, useSelector } from "react-redux";
 import { sessionsApi, chatApi, type AgentEventType } from "../../../services/tauri/chat";
 import { permissionApi } from "../../../services/tauri/platform";
@@ -69,7 +70,7 @@ export default function AssistantPanel({
   height,
   onWorkspaceFilesChanged,
 }: AssistantPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useDispatch();
   const storeSessions = useSelector((s: RootState) => s.sessions.sessions);
   const [lines, setLines] = useState<CliLine[]>([]);
@@ -116,9 +117,10 @@ export default function AssistantPanel({
   const ensureSession = useCallback(async (): Promise<string> => {
     if (sessionIdRef.current) return sessionIdRef.current;
 
+    const agentLabel = getBrandDisplayName(i18n.language);
     const title = projectDir
-      ? `Piscis CLI — ${projectDir.split(/[\\/]/).pop() ?? projectDir}`
-      : "Piscis CLI";
+      ? `${agentLabel} CLI — ${projectDir.split(/[\\/]/).pop() ?? projectDir}`
+      : `${agentLabel} CLI`;
 
     const matchesProject = (s: { title?: string; workspace_root?: string | null }) => {
       if (s.title === title) return true;
@@ -150,7 +152,7 @@ export default function AssistantPanel({
     }
     dispatch(sessionsActions.addSession(session));
     return session.id;
-  }, [projectDir, storeSessions, dispatch]);
+  }, [projectDir, storeSessions, dispatch, i18n.language]);
 
   const subscribe = useCallback(async (sessionId: string) => {
     if (unlistenRef.current) { unlistenRef.current(); unlistenRef.current = null; }

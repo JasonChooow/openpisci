@@ -1,0 +1,15 @@
+{
+  "spec_version": 1,
+  "id": "openpisci/skill/remotion-video-generator-lucide-icons@1.0.0",
+  "name": "lucide-icons",
+  "description": "Search, download, and customize Lucide icons (1000+ beautiful SVG icons). Supports SVG and TypeScript React component generation with full customization options.",
+  "plugin": "remotion-video-generator",
+  "tools": [
+    "file_read",
+    "file_write",
+    "shell",
+    "web_search",
+    "web_fetch"
+  ],
+  "path": "skills/remotion-video-generator-lucide-icons"
+}

@@ -281,10 +281,17 @@ export interface ClawHubSearchResult {
 }
 
 export const clawHubApi = {
-  search: (query: string, limit?: number) =>
-    invoke<ClawHubSearchResult>("clawhub_search", { query, limit }),
+  search: (query: string, limit?: number, offset?: number) =>
+    invoke<ClawHubSearchResult>("clawhub_search", { query, limit, offset: offset ?? null }),
   install: (slug: string, version?: string) =>
     invoke<SkillCatalogItem>("clawhub_install", { slug, version }),
+};
+
+export const skillHubApi = {
+  search: (query: string, limit?: number, offset?: number) =>
+    invoke<ClawHubSearchResult>("skillhub_search", { query, limit, offset: offset ?? null }),
+  install: (slug: string, version?: string) =>
+    invoke<SkillCatalogItem>("skillhub_install", { slug, version }),
 };
 
 // ---------------------------------------------------------------------------

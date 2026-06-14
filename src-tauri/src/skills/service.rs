@@ -92,7 +92,12 @@ pub fn install_to_installed(
     let skill_file = skill_dir.join("SKILL.md");
     std::fs::write(&skill_file, content)?;
 
-    if source == "clawhub" || source == "claude-plugins-official" || source == "openai-curated" {
+    if source == "clawhub"
+        || source == "skillhub"
+        || source == "openpisci-market"
+        || source == "claude-plugins-official"
+        || source == "openai-curated"
+    {
         let _ = provenance::add_hub_lock(root, &skill_id);
     }
     Ok((skill_id, skill.name))
@@ -135,7 +140,12 @@ pub fn install_from_skill_dir(
     }
     copy_dir_all(src_dir, &dest_dir)?;
 
-    if source == "clawhub" || source == "claude-plugins-official" || source == "openai-curated" {
+    if source == "clawhub"
+        || source == "skillhub"
+        || source == "openpisci-market"
+        || source == "claude-plugins-official"
+        || source == "openai-curated"
+    {
         let _ = provenance::add_hub_lock(root, &skill_id);
     }
     Ok((skill_id, skill.name))
