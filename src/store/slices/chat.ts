@@ -15,6 +15,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import type { Session, ChatMessage, ScheduledTask } from "../../services/tauri";
 import { isInternalSession, type MainChatSessionKind } from "../../utils/session";
+import { normalizeSession } from "../../utils/parseTimestamp";
 
 // ---------------------------------------------------------------------------
 // Sessions slice
@@ -32,6 +33,8 @@ interface SessionsState {
     composerDraft?: string;
     autoSend?: boolean;
   } | null;
+  /** Increment to refresh Settings → Archived tasks panel. */
+  archivedTasksRevision: number;
 }
 
 export const sessionsSlice = createSlice({
@@ -42,13 +45,14 @@ export const sessionsSlice = createSlice({
     loading: false,
     error: null,
     pendingMainChatNav: null,
+    archivedTasksRevision: 0,
   } as SessionsState,
   reducers: {
     setSessions: (state, action: PayloadAction<Session[]>) => {
-      state.sessions = action.payload;
+      state.sessions = action.payload.map(normalizeSession);
     },
     addSession: (state, action: PayloadAction<Session>) => {
-      state.sessions.unshift(action.payload);
+      state.sessions.unshift(normalizeSession(action.payload));
     },
     removeSession: (state, action: PayloadAction<string>) => {
       state.sessions = state.sessions.filter((s) => s.id !== action.payload);
@@ -74,14 +78,53 @@ export const sessionsSlice = createSlice({
       const s = state.sessions.find((s) => s.id === action.payload.id);
       if (s) s.workspace_root = action.payload.workspace_root ?? undefined;
     },
+    updateSessionPolicy: (state, action: PayloadAction<{ id: string; policy_mode: string | null }>) => {
+      const s = state.sessions.find((s) => s.id === action.payload.id);
+      if (s) s.policy_mode = action.payload.policy_mode ?? undefined;
+    },
+    updateSessionAllowOutside: (
+      state,
+      action: PayloadAction<{ id: string; allow_outside_workspace: boolean | null }>,
+    ) => {
+      const s = state.sessions.find((s) => s.id === action.payload.id);
+      if (!s) return;
+      if (action.payload.allow_outside_workspace === null) {
+        delete s.allow_outside_workspace;
+      } else {
+        s.allow_outside_workspace = action.payload.allow_outside_workspace;
+      }
+    },
     /** Merge refreshed session metadata (message_count, status, updated_at). */
     upsertSession: (state, action: PayloadAction<Session>) => {
-      const idx = state.sessions.findIndex((s) => s.id === action.payload.id);
+      const session = normalizeSession(action.payload);
+      const idx = state.sessions.findIndex((s) => s.id === session.id);
       if (idx >= 0) {
-        state.sessions[idx] = { ...state.sessions[idx], ...action.payload };
+        state.sessions[idx] = { ...state.sessions[idx], ...session };
       } else {
-        state.sessions.unshift(action.payload);
+        state.sessions.unshift(session);
       }
+    },
+    /** Bump sidebar sort time when the user sends a message or a turn completes. */
+    touchSessionActivity: (state, action: PayloadAction<{ id: string; updated_at?: string }>) => {
+      const s = state.sessions.find((s) => s.id === action.payload.id);
+      if (s) {
+        s.updated_at = action.payload.updated_at ?? new Date().toISOString();
+      }
+    },
+    /** Refresh list metadata from server without replacing order or dropping local-only rows. */
+    syncSessionsMetadata: (state, action: PayloadAction<Session[]>) => {
+      for (const fresh of action.payload) {
+        const norm = normalizeSession(fresh);
+        const idx = state.sessions.findIndex((s) => s.id === norm.id);
+        if (idx >= 0) {
+          state.sessions[idx] = { ...state.sessions[idx], ...norm };
+        } else {
+          state.sessions.push(norm);
+        }
+      }
+    },
+    notifyArchivedTasksChanged: (state) => {
+      state.archivedTasksRevision += 1;
     },
     openMainChatView: (
       state,

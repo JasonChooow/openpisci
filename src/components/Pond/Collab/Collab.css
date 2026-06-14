@@ -9,51 +9,18 @@
   font-family: var(--font);
 }
 
-/* ─── LEFT: Project list panel ─────────────────────────────────────── */
-
-.collab-left {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  border-right: 1px solid var(--border);
-  background: var(--panel-sidebar-bg, var(--bg-primary));
+.collab.collab-embedded {
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
-.collab-left-inner {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+.collab.has-preview .collab-center {
   min-width: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-bottom: 8px;
 }
 
-.collab-left-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px 4px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel-sidebar-bg, var(--bg-primary));
-  position: sticky;
-  top: 0;
-  z-index: 2;
-}
-
-.collab-left-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.collab-left-toolbar-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
+.collab.has-preview .chat-right-panel {
+  height: 100%;
 }
 
 .collab-icon-btn {
@@ -79,59 +46,13 @@
   border-color: var(--border);
 }
 
-/* Collapsed left bar with bookmark to re-expand */
-.collab-left-collapsed-bar {
-  flex-shrink: 0;
-  width: 26px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 8px;
-  background: var(--panel-sidebar-bg, var(--bg-primary));
-  border-right: 1px solid var(--border);
-}
-
-.collab-left-bookmark {
-  width: 22px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--accent);
-  font-size: 0.75rem;
-  cursor: pointer;
-  padding: 0;
-  transition: background 0.15s, color 0.15s;
-}
-
-.collab-left-bookmark:hover {
-  background: var(--bg-tertiary, rgba(255,255,255,0.05));
-}
-
-/* Participants body inherits orgspec layout but allows scrolling */
 .chatpool-participants-body {
   gap: 6px;
-  max-height: 220px;
+  max-height: 280px;
   overflow-y: auto;
 }
 
-/* Resize handle between left panel and center */
-.collab-resize-handle {
-  width: 4px;
-  flex-shrink: 0;
-  background: var(--border);
-  cursor: col-resize;
-  transition: background 0.15s;
-}
-
-.collab-resize-handle:hover {
-  background: var(--accent);
-}
-
-/* ─── CENTER: Main content area ────────────────────────────────────── */
+/* ─── CENTER ─────────────────────────────────────────────────────────── */
 
 .collab-center {
   flex: 1;
@@ -142,20 +63,146 @@
   overflow: hidden;
 }
 
-/* Top content shell inside center (main view + optional right-side IDE panel,
-   laid out as a horizontal row). Always row — the "conditional
-   direction" hack (--with-side modifier) has been removed. */
-.collab-content-shell {
-  flex: 1;
+.collab-topbar {
+  flex-shrink: 0;
   display: flex;
-  flex-direction: row;
-  min-height: 0;
-  overflow: hidden;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 0;
+  border-bottom: none;
+  background: var(--bg-secondary);
+  min-height: 44px;
+  overflow: visible;
 }
 
-/* Main view host — takes up all available horizontal space inside
-   the content shell. The view type (chat, IDE editor, board, inbox,
-   koiObserver) switches inside this container. */
+.collab-session-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+  flex-shrink: 0;
+}
+
+.collab-topbar-tabs {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-top: 6px;
+  padding-right: 6px;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+}
+
+.collab-task-panel {
+  margin: 0 12px 8px;
+}
+
+.collab-task-panel.session-task-panel {
+  overflow: hidden;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.collab-task-panel .session-task-panel-content {
+  overflow: hidden;
+  border-radius: 0;
+  padding: 10px 12px 12px;
+  background: transparent;
+}
+
+.team-project-files-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 120px;
+}
+
+.team-project-files-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.team-project-files-hint {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.team-project-files-refresh {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.team-project-files-refresh:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.team-project-files-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 96px;
+  padding: 16px 12px;
+  text-align: center;
+}
+
+.team-project-files-empty-icon {
+  color: var(--text-muted);
+  opacity: 0.55;
+  margin-bottom: 2px;
+}
+
+.team-project-files-empty-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.team-project-files-empty-sub {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  max-width: 240px;
+}
+
+.team-project-files-empty-text {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.team-project-file-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  max-height: 260px;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+
 .collab-main-view {
   flex: 1;
   display: flex;
@@ -165,29 +212,7 @@
   overflow: hidden;
 }
 
-/* IDE side panel (file tree / search / git) — rendered LAST inside
-   .collab-content-shell so it sits to the RIGHT of the main view,
-   adjacent to the icon strip. VS Code / Cursor convention. */
-.collab-ide-side {
-  width: 260px;
-  min-width: 180px;
-  flex-shrink: 0;
-  border-left: 1px solid var(--border);
-  background: var(--bg-secondary);
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.collab-ide-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* ─── RIGHT: Icon tab strip (always visible, no collapse) ─────────── */
+/* ─── RIGHT icon strip ──────────────────────────────────────────────── */
 
 .collab-right {
   flex-shrink: 0;
@@ -234,23 +259,6 @@
   color: var(--accent);
 }
 
-/* Activity badge (e.g. git count) on right icons */
-.collab-right-icon .activity-badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 14px;
-  height: 14px;
-  padding: 0 3px;
-  font-size: 0.6rem;
-  font-weight: 600;
-  line-height: 14px;
-  text-align: center;
-  border-radius: 7px;
-  background: var(--accent);
-  color: #fff;
-}
-
 /* ─── Chat area ────────────────────────────────────────────────────── */
 
 .collab-chat-area {
@@ -285,8 +293,6 @@
   opacity: 0.5;
 }
 
-/* ─── User input area ──────────────────────────────────────────────── */
-
 .collab-input-area {
   flex-shrink: 0;
   border-top: 1px solid var(--border);
@@ -294,8 +300,6 @@
   background: var(--bg-secondary);
   position: relative;
 }
-
-/* ─── @mention autocomplete dropdown ───────────────────────────────── */
 
 .collab-mention-dropdown {
   position: absolute;
@@ -405,23 +409,28 @@
   cursor: not-allowed;
 }
 
-/* ─── Editor area (below chat) ─────────────────────────────────────── */
+/* ─── Team panels (Members / Spec) ─────────────────────────────────── */
 
-.collab-editor-area {
-  flex-shrink: 0;
+.team-members-panel,
+.team-orgspec-panel {
   display: flex;
   flex-direction: column;
-  border-top: 2px solid var(--accent);
-  min-height: 120px;
+  gap: 6px;
+  padding: 0;
 }
 
-/* ─── Projects panel ───────────────────────────────────────────────── */
-
-.collab-projects-panel {
+.team-members-toolbar {
   display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.team-members-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .collab-project-dir-row {
@@ -433,42 +442,107 @@
   flex: 1;
 }
 
-/* ─── IDE no-project placeholder in collab context ─────────────────── */
-
-.ide-no-project {
-  flex: 1;
+.collab-template-row {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  text-align: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.collab-template-label {
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-secondary);
+}
+
+.collab-template-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.collab-template-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.collab-template-chip:hover {
+  border-color: var(--accent, var(--text-secondary));
+  color: var(--text-primary);
+}
+
+.collab-template-chip.active {
+  background: var(--nav-active-bg, var(--bg-hover));
+  color: var(--text-primary);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+/* ─── Team task create dialog ──────────────────────────────────────── */
+
+.team-task-create-dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+}
+
+.team-task-create-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.team-task-create-mode {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.team-task-create-radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.team-task-create-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 4px 0 6px;
+}
+
+.team-task-koi-multi {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
-.ide-no-project .icon {
-  font-size: 3rem;
-  opacity: 0.4;
+.team-task-koi-multi-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
-/* ─── Koi Manager wide modal ──────────────────────────────────────── */
-
-.koi-modal--wide {
-  width: 740px;
-  max-height: 82vh;
-  /* Prevent nested scrollbars: the inner .koi-manager owns the scroll. */
-  overflow: hidden;
+.team-task-koi-chips {
   display: flex;
-  flex-direction: column;
-}
-
-.koi-modal--wide .koi-manager {
-  /* Fill remaining modal height, leaving padding for modal chrome. */
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: none;
-  /* Stable scrollbar gutter prevents flicker when content height
-     toggles between just-fits and overflowing. */
-  scrollbar-gutter: stable;
+  flex-wrap: wrap;
+  gap: 6px;
 }

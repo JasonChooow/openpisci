@@ -714,6 +714,7 @@ async fn build_chat_prompt_artifacts(
     project_instruction_budget_chars: u32,
     enable_project_instructions: bool,
     persona_koi_id: Option<&str>,
+    session_pool_id: Option<&str>,
 ) -> Result<ChatPromptArtifacts, String> {
     let persona_koi = if let Some(koi_id) = persona_koi_id.filter(|id| !id.trim().is_empty()) {
         let db = state.db.lock().await;
@@ -762,8 +763,13 @@ async fn build_chat_prompt_artifacts(
         (None, String::new(), None)
     } else {
         let db = state.db.lock().await;
-        let pools = db.list_pool_sessions().map_err(|e| e.to_string())?;
-        match resolve_pool_session_for_workspace(&pools, workspace_root) {
+        let pool_opt = if let Some(pid) = session_pool_id.filter(|s| !s.is_empty()) {
+            db.get_pool_session(pid).map_err(|e| e.to_string())?
+        } else {
+            let pools = db.list_pool_sessions().map_err(|e| e.to_string())?;
+            resolve_pool_session_for_workspace(&pools, workspace_root)
+        };
+        match pool_opt {
             None => (None, String::new(), None),
             Some(pool) => {
                 let pool_id = pool.id.clone();
@@ -909,6 +915,22 @@ pub(crate) async fn resolve_session_workspace_root(
     Ok(override_root.unwrap_or(default_workspace_root))
 }
 
+pub(crate) fn apply_session_settings_overrides(
+    session: &Session,
+    policy_mode: &mut String,
+    allow_outside_workspace: &mut bool,
+) {
+    if let Some(ref pm) = session.policy_mode {
+        let trimmed = pm.trim();
+        if !trimmed.is_empty() {
+            *policy_mode = trimmed.to_string();
+        }
+    }
+    if let Some(v) = session.allow_outside_workspace {
+        *allow_outside_workspace = v;
+    }
+}
+
 #[tauri::command]
 pub async fn create_session(
     state: State<'_, AppState>,
@@ -956,6 +978,44 @@ pub async fn rename_session(
 }
 
 #[tauri::command]
+pub async fn pin_session(state: State<'_, AppState>, session_id: String) -> Result<(), String> {
+    let db = state.db.lock().await;
+    db.pin_session(&session_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn unpin_session(state: State<'_, AppState>, session_id: String) -> Result<(), String> {
+    let db = state.db.lock().await;
+    db.unpin_session(&session_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn archive_session(state: State<'_, AppState>, session_id: String) -> Result<(), String> {
+    let db = state.db.lock().await;
+    db.archive_session(&session_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn restore_session(state: State<'_, AppState>, session_id: String) -> Result<(), String> {
+    let db = state.db.lock().await;
+    db.restore_session(&session_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn list_archived_sessions(
+    state: State<'_, AppState>,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> Result<SessionList, String> {
+    let db = state.db.lock().await;
+    let sessions = db
+        .list_archived_sessions(limit.unwrap_or(100), offset.unwrap_or(0))
+        .map_err(|e| e.to_string())?;
+    let total = sessions.len();
+    Ok(SessionList { sessions, total })
+}
+
+#[tauri::command]
 pub async fn set_session_workspace(
     state: State<'_, AppState>,
     session_id: String,
@@ -963,6 +1023,37 @@ pub async fn set_session_workspace(
 ) -> Result<(), String> {
     let db = state.db.lock().await;
     db.set_session_workspace(&session_id, workspace_root.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn set_session_policy_mode(
+    state: State<'_, AppState>,
+    session_id: String,
+    policy_mode: Option<String>,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    let normalized = match policy_mode
+        .as_deref()
+        .map(str::trim)
+        .filter(|m| !m.is_empty())
+    {
+        None => None,
+        Some("strict" | "balanced" | "dev") => policy_mode.as_deref().map(str::trim),
+        Some(m) => return Err(format!("Invalid policy_mode: {}", m)),
+    };
+    db.set_session_policy_mode(&session_id, normalized)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn set_session_allow_outside_workspace(
+    state: State<'_, AppState>,
+    session_id: String,
+    allow_outside_workspace: Option<bool>,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    db.set_session_allow_outside_workspace(&session_id, allow_outside_workspace)
         .map_err(|e| e.to_string())
 }
 
@@ -1064,7 +1155,7 @@ pub async fn chat_send(
         tool_settings,
         max_iterations,
         builtin_tool_enabled,
-        allow_outside_workspace,
+        mut allow_outside_workspace,
         vision_enabled,
         vision_use_main_llm,
         vision_provider,
@@ -1107,6 +1198,14 @@ pub async fn chat_send(
     };
     let workspace_root =
         resolve_session_workspace_root(&state, &session_id, workspace_root).await?;
+
+    // Per-session policy / workspace-access overrides (NULL => inherit global settings).
+    {
+        let db = state.db.lock().await;
+        if let Ok(Some(session)) = db.get_session(&session_id) {
+            apply_session_settings_overrides(&session, &mut policy_mode, &mut allow_outside_workspace);
+        }
+    }
 
     if let Some(koi_id) = persona_koi_id
         .as_deref()
@@ -1321,6 +1420,13 @@ pub async fn chat_send(
         llm_read_timeout_secs,
     );
 
+    let session_pool_id = {
+        let db = state.db.lock().await;
+        db.get_session(&session_id)
+            .map_err(|e| e.to_string())?
+            .and_then(|s| s.pool_session_id)
+    };
+
     let mut prompt_artifacts = build_chat_prompt_artifacts(
         &app,
         &state,
@@ -1334,6 +1440,7 @@ pub async fn chat_send(
         project_instruction_budget_chars,
         enable_project_instructions,
         persona_koi_id.as_deref(),
+        session_pool_id.as_deref(),
     )
     .await?;
 
@@ -4549,7 +4656,7 @@ pub async fn get_context_preview(
         max_tokens,
         context_window,
         workspace_root,
-        allow_outside_workspace,
+        mut allow_outside_workspace,
         builtin_tool_enabled,
         project_instruction_budget_chars,
         enable_project_instructions,
@@ -4569,6 +4676,25 @@ pub async fn get_context_preview(
     let workspace_root =
         resolve_session_workspace_root(&state, &session_id, workspace_root).await?;
 
+    {
+        let db = state.db.lock().await;
+        if let Ok(Some(session)) = db.get_session(&session_id) {
+            let mut policy_mode_unused = String::new();
+            apply_session_settings_overrides(
+                &session,
+                &mut policy_mode_unused,
+                &mut allow_outside_workspace,
+            );
+        }
+    }
+
+    let session_pool_id = {
+        let db = state.db.lock().await;
+        db.get_session(&session_id)
+            .map_err(|e| e.to_string())?
+            .and_then(|s| s.pool_session_id)
+    };
+
     // Build context messages from history — this is the exact payload sent to the LLM
     let budget = compute_context_budget(context_window, max_tokens);
     let session_context = build_session_message_context(&state, &session_id, budget).await?;
@@ -4585,6 +4711,7 @@ pub async fn get_context_preview(
         project_instruction_budget_chars,
         enable_project_instructions,
         None,
+        session_pool_id.as_deref(),
     )
     .await?;
     let base_llm_messages = session_context.llm_messages;

@@ -29,6 +29,14 @@ export interface Session {
   last_compacted_at?: string | null;
   /** Per-session workspace override. When set, replaces global workspace_root for this session. */
   workspace_root?: string | null;
+  pinned_at?: string | null;
+  archived_at?: string | null;
+  /** Explicit binding to a team (pool) session. */
+  pool_session_id?: string | null;
+  /** Per-session tool policy override; null = inherit global policy_mode. */
+  policy_mode?: string | null;
+  /** Per-session allow-outside-workspace override; null = inherit global setting. */
+  allow_outside_workspace?: boolean | null;
 }
 
 export interface ChatMessage {
@@ -65,11 +73,21 @@ export const sessionsApi = {
     invoke<{ sessions: Session[]; total: number }>("list_sessions", { limit, offset }),
   delete: (sessionId: string) => invoke<void>("delete_session", { sessionId }),
   rename: (sessionId: string, title: string) => invoke<void>("rename_session", { sessionId, title }),
+  pin: (sessionId: string) => invoke<void>("pin_session", { sessionId }),
+  unpin: (sessionId: string) => invoke<void>("unpin_session", { sessionId }),
+  archive: (sessionId: string) => invoke<void>("archive_session", { sessionId }),
+  restore: (sessionId: string) => invoke<void>("restore_session", { sessionId }),
+  listArchived: (limit = 100, offset = 0) =>
+    invoke<{ sessions: Session[]; total: number }>("list_archived_sessions", { limit, offset }),
   getMessages: (sessionId: string, limit = 100, offset = 0) =>
     invoke<ChatMessage[]>("get_messages", { sessionId, limit, offset }),
   /** Set or clear per-session workspace override. Pass null to revert to global. */
   setWorkspace: (sessionId: string, workspaceRoot: string | null) =>
     invoke<void>("set_session_workspace", { sessionId, workspaceRoot }),
+  setPolicyMode: (sessionId: string, policyMode: string | null) =>
+    invoke<void>("set_session_policy_mode", { sessionId, policyMode }),
+  setAllowOutsideWorkspace: (sessionId: string, allowOutsideWorkspace: boolean | null) =>
+    invoke<void>("set_session_allow_outside_workspace", { sessionId, allowOutsideWorkspace }),
 };
 
 export const artifactsApi = {

@@ -77,6 +77,9 @@ docs/tribon/
 # Local reference repos / docs
 references/
 
+# Active brand marker (scripts/apply-brand.mjs)
+.brand-active
+
 
 ci-log.txt
 src-tauri/ci-log.txt

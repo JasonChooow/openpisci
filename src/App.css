@@ -38,20 +38,23 @@ body {
 }
 
 .sidebar {
-  width: 200px;
-  min-width: 200px;
+  width: 240px;
+  min-width: 240px;
+  height: 100%;
   background: var(--sidebar-bg, var(--bg-secondary));
   border-right: 1px solid var(--sidebar-border, var(--border));
   display: flex;
   flex-direction: column;
-  padding: 0 0 12px;
+  padding: 0;
+  overflow: hidden;
 }
 
 /* 左侧品牌栏 + 右侧所有页顶栏：同高、同色、顶对齐 */
 .sidebar-header,
 .page-header,
 .feature-topbar,
-.chat-topbar {
+.chat-topbar,
+.chat-right-panel-header {
   height: var(--chrome-header-height, 44px);
   min-height: var(--chrome-header-height, 44px);
   box-sizing: border-box;
@@ -63,18 +66,28 @@ body {
 }
 
 .sidebar-header {
-  gap: 8px;
-  padding: 0 12px;
-  margin-bottom: 8px;
+  gap: 6px;
+  padding: 0 10px;
+  margin-bottom: 0;
+  min-width: 0;
 }
 
 .sidebar-brand {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
+}
+
+.sidebar-brand .logo {
+  flex-shrink: 0;
+}
+
+.sidebar-brand .app-name {
+  flex: 1;
+  min-width: 0;
 }
 
 .color-mode-toggle {
@@ -126,16 +139,39 @@ body {
   flex-direction: column;
 }
 
+.sidebar-collapsed {
+  width: 44px;
+  min-width: 44px;
+  position: relative;
+  z-index: 30;
+  overflow: visible;
+}
+
+.sidebar-collapsed .sidebar-scroll,
+.sidebar-collapsed .sidebar-new-task-wrap,
+.sidebar-collapsed .nav-section-label,
+.sidebar-collapsed .nav-label-wrap,
+.sidebar-collapsed .nav-label,
+.sidebar-collapsed .nav-chevron,
+.sidebar-collapsed .account-bar {
+  display: none;
+}
+
+.sidebar-collapsed .nav-item {
+  justify-content: center;
+  padding: 8px;
+}
+
 .logo {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
   object-fit: contain;
   border-radius: 8px;
 }
 
 .app-name {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--accent);
   letter-spacing: 0.4px;

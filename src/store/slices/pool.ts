@@ -132,6 +132,10 @@ export const poolSlice = createSlice({
       const s = state.sessions.find((s) => s.id === action.payload.id);
       if (s) s.project_dir = action.payload.projectDir;
     },
+    updatePoolSessionName: (state, action: PayloadAction<{ id: string; name: string }>) => {
+      const s = state.sessions.find((s) => s.id === action.payload.id);
+      if (s) s.name = action.payload.name;
+    },
     setActivePoolSession: (state, action: PayloadAction<string | null>) => {
       state.activeSessionId = action.payload;
     },

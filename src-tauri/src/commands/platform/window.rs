@@ -5,6 +5,7 @@
 //!   overlay - 280x56 transparent always-on-top HUD strip
 
 use crate::app::shutdown;
+use crate::brand_generated::PRO_WINDOW_TITLE;
 use crate::store::AppState;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tracing::info;
@@ -364,7 +365,7 @@ pub async fn open_pro_window(
 
     let url = format!("index.html?{}", query);
     let window = WebviewWindowBuilder::new(&app, "pro-ide", WebviewUrl::App(url.into()))
-        .title("小诺 · 专业功能")
+        .title(PRO_WINDOW_TITLE)
         .inner_size(1280.0, 820.0)
         .min_inner_size(900.0, 560.0)
         .resizable(true)

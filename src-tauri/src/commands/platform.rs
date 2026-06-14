@@ -11,8 +11,11 @@
 //! Anything here is host-specific glue and has no bearing on chat / pool /
 //! config state.
 
+pub mod cloud;
+pub mod cloud_account;
 pub mod extras;
 pub mod interactive;
+pub mod marketplace;
 pub mod permission;
 pub mod system;
 pub mod window;

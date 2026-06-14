@@ -53,6 +53,8 @@ const en = {
   app: {
     defaultToastTitle: "XiaoNuo",
     toastDismiss: "Dismiss",
+    toastHumanDecision: "Human decision required · {{name}}",
+    toastTeamTask: "Team task: {{name}}",
   },
 
   // Navigation
@@ -60,9 +62,9 @@ const en = {
     chat: "Chat",
     memory: "Memory",
     tools: "Tools",
-    fish: "Fish",
-    school: "School",
-    pond: "Pond",
+    fish: "Anonymous Assistant",
+    school: "Experts",
+    pond: "Team Tasks",
     skills: "Skills",
     scheduler: "Scheduler",
     audit: "Logs",
@@ -76,23 +78,38 @@ const en = {
     assistant: "Assistant",
     assistantSub: "Connect IM channels",
     expert: "Experts",
-    expertSub: "My school",
+    expertSub: "Marketplace & installed",
+    market: "Market",
+    marketSub: "Experts · Teams · Skills",
     automation: "Automation",
     more: "More",
     myFiles: "My Files",
     inspiration: "Inspiration",
     cloudFiles: "Cloud Files",
+    browser: "Cloud Browser",
     tasks: "Tasks",
     space: "Space",
     guide: "Getting Started",
+  },
+
+  // In-app browser
+  browser: {
+    back: "Back",
+    forward: "Forward",
+    reload: "Reload",
+    home: "Cloud Home",
+    openExternal: "Open in external browser",
+    addressPlaceholder: "Enter URL…",
+    blockedHint: "This page may block in-app embedding. You can open it in your external browser.",
   },
 
   // Account
   account: {
     title: "Account",
     initial: "N",
-    guestName: "Local User",
-    signedOut: "Not signed in",
+    guestName: "Local Account",
+    signedOut: "Local account (not signed in)",
+    signedIn: "Signed in to cloud",
     notifications: "Notifications",
     noNotifications: "No notifications",
     checking: "Checking…",
@@ -104,22 +121,112 @@ const en = {
     checkUpdate: "Check for Updates",
     logout: "Sign out",
     logoutHint: "Sign-in coming soon (cloud marketplace)",
+    login: "Sign in to cloud",
+    loginTitle: "Sign in to cloud",
+    loginDesc: "Sign in to use cloud models, the official marketplace and billing. All local features remain available without signing in.",
+    cloudUrl: "Cloud URL",
+    username: "Username",
+    password: "Password",
+    loginSubmit: "Sign in",
+    loggingIn: "Signing in…",
+    loginFailed: "Sign-in failed",
+    cancel: "Cancel",
+    balance: "Balance",
+    localModeHint: "You are on a local account. Cloud features (cloud model billing, official marketplace) require signing in.",
+  },
+
+  // Sidebar
+  sidebar: {
+    collapse: "Collapse sidebar",
+    expand: "Expand sidebar",
+    searchTasks: "Search tasks",
+    searchEmpty: "No matching tasks",
+    filterTasks: "Filter tasks",
+    newShort: "+ New",
+    newMenu: "New task",
+    newAssistant: "Assistant task",
+    newTeam: "Team task",
+    filter: {
+      all: "All",
+      today: "Today",
+      last7: "Last 7 days",
+      last30: "Last 30 days",
+    },
   },
 
   // Unified task list
   tasks: {
-    empty: "No tasks yet. Click \"New Task\" to start.",
-    kindChat: "Chat",
-    kindPool: "Pool project",
+    empty: "No tasks yet. Click \"+ New\" for an assistant task, or choose Expert Team in the composer to start a team project.",
+    kindChat: "Assistant task",
+    kindPool: "Team task",
     justNow: "just now",
     minutesAgo: "{{n}}m ago",
     hoursAgo: "{{n}}h ago",
     daysAgo: "{{n}}d ago",
+    moreActions: "More actions",
+    openFolder: "Open folder",
+    rename: "Rename",
+    pin: "Pin",
+    unpin: "Unpin",
+    archive: "Archive",
+    delete: "Delete",
+    deleteConfirm: "Delete \"{{name}}\"? This cannot be undone.",
+  },
+
+  // Archived tasks
+  archive: {
+    empty: "No archived tasks",
+    intro: "Archived assistant and team tasks appear here. Restore or delete permanently.",
+    restore: "Restore",
+    deletePermanently: "Delete permanently",
+  },
+
+  // Expert marketplace
+  expert: {
+    title: "Market",
+    scopeLabel: "Browse scope",
+    market: "Marketplace",
+    installed: "Installed",
+    experts: "Experts",
+    teams: "Teams",
+    skills: "Skills",
+    marketEmpty: "Nothing to install",
+    install: "Install",
+    installFailed: "Install failed",
+    installedHint: "Installed experts can be used when creating team tasks.",
+    teamCopyModelHint: "Team experts are embedded snapshots (copy model) for offline use. source_id tracks origin for manual version sync.",
+    teamCreate: "New team",
+    teamEdit: "Edit team",
+    teamFork: "Fork as custom team",
+    teamName: "Team name",
+    teamNamePlaceholder: "e.g. Content squad",
+    teamDesc: "Description",
+    teamDescPlaceholder: "How this team collaborates",
+    teamMembers: "Member experts",
+    teamMembersEmpty: "Add experts from installed Koi, or fork a built-in team to edit.",
+    addExpert: "Add expert",
+    noKoiForTeam: "No installed experts yet. Create or install one under Experts · Installed.",
+    memberRole: "Role",
+    memberName: "Display name",
+    memberSource: "From {{id}} @ {{version}}",
+    originBuiltin: "Built-in",
+    originMarket: "Market",
+    originUser: "Custom",
   },
 
   // Settings hub
   settingsHub: {
     general: "General",
+    models: "AI Models",
+    modelsDesc: "Global default model; Koi can pick a named provider in the editor.",
+    agent: "Agent",
+    channels: "Channels",
+    channelsDesc: "Configure IM channels; save settings, then click Connect.",
+    openAssistant: "Open Assistant",
+    system: "System",
+    systemDesc: "Check runtimes and platform dependencies.",
+    archive: "Archived tasks",
+    unsavedChanges: "Unsaved changes",
   },
 
   // Getting started
@@ -137,9 +244,9 @@ const en = {
     cloudFilesHint: "Coming soon: cloud file connectors.",
   },
 
-  // Pond
+  // Team tasks (formerly Pond)
   pond: {
-    title: "Pond",
+    title: "Team Tasks",
     tabCollab: "Collab",
     tabKois: "Koi",
     tabPool: "Chat Pool",
@@ -194,6 +301,33 @@ const en = {
     inboxSessionUnknownTask: "{{koi}} · task {{id}}",
     inboxToolPending: "Awaiting result…",
     inboxToolNoResult: "(no result recorded)",
+  },
+
+  team: {
+    selectTask: "Select a team task from the sidebar to start collaborating.",
+    panelTabs: "Team task panels",
+    filesPreviewHint: "Double-click a file to preview",
+    filesEmpty: "Project folder is empty",
+    filesEmptyHint: "Files created during execution will appear here",
+    tab: {
+      artifacts: "Project Directory",
+      members: "Team Members",
+      spec: "Project Task",
+    },
+    create: {
+      title: "New Team Task",
+      modeAdhoc: "Ad hoc team",
+      modeTemplate: "Expert team",
+      modeExpert: "Single expert",
+      modeTeam: "Team template",
+      selectExpert: "Choose an expert",
+      selectExperts: "Choose experts (multi-select)",
+      noExperts: "No experts available.",
+      timeoutLabel: "Timeout",
+      noTemplates: "No expert team templates available.",
+    },
+    ideAgent: "IDE Agent",
+    ideAgentHint: "Chat with the agent here; file changes sync to the project.",
   },
 
   // IDE
@@ -278,16 +412,16 @@ const en = {
     confirmDeleteMany: "Are you sure you want to delete {{count}} items?",
   },
 
-  // Koi management
+  // Expert management
   koi: {
-    title: "Koi Management",
-    piscisDesc: "Main coordinator — you speak as XiaoNuo in the pool via @!Koi; use IDE XiaoNuo CLI for deep 1:1 chat",
-    piscisUseCli: "For a direct XiaoNuo conversation, use XiaoNuo CLI in the IDE; transcripts appear under Pool CLI in the main chat.",
-    actAsPiscisRole: "Your pool messages are sent as XiaoNuo to coordinate and @!delegate Koi—not as a regular user in Koi threads.",
-    sendAsPiscisHint: "Speak as XiaoNuo: type @!KoiName to delegate (@ opens autocomplete). Ctrl+Enter to send, Enter for a new line.",
+    title: "Expert Management",
+    piscisDesc: "Main coordinator — you speak as XiaoNuo in team tasks via @!Expert",
+    piscisUseCli: "For a direct XiaoNuo conversation, use the Agent panel in the IDE.",
+    actAsPiscisRole: "Your team messages are sent as XiaoNuo to coordinate and @!delegate experts.",
+    sendAsPiscisHint: "Speak as XiaoNuo: type @!ExpertName to delegate (@ opens autocomplete). Ctrl+Enter to send, Enter for a new line.",
     sendShortcut: "Ctrl+Enter to send",
-    noDelegateSelfPiscis: "You cannot @!Piscis to delegate to yourself. Use @!KoiName, or XiaoNuo CLI in the IDE for a direct chat.",
-    createBtn: "Create Koi",
+    noDelegateSelfPiscis: "You cannot @!Piscis to delegate to yourself. Use @!ExpertName instead.",
+    createBtn: "Create Expert",
     editBtn: "Reassign",
     deleteBtn: "Delete",
     name: "Name",
@@ -296,12 +430,12 @@ const en = {
     color: "Color",
     description: "Description",
     systemPrompt: "Base Persona (Prompt Prefix)",
-    systemPromptPlaceholder: "Define this Koi's personality, expertise and behavior...",
+    systemPromptPlaceholder: "Define this expert's personality, expertise and behavior...",
     systemPromptHelp: "This is prepended as a prefix. The system automatically appends collaboration rules, task lifecycle, knowledge base, and other capability instructions.",
-    namePlaceholder: "Give your Koi a name",
+    namePlaceholder: "Give your expert a name",
     nameRuleHelp: "Names are used for @mentions, so spaces, emoji, and other pictographic characters are not allowed.",
     rolePlaceholder: "e.g. Architect, Coder, QA Lead",
-    descPlaceholder: "Briefly describe this Koi's expertise",
+    descPlaceholder: "Briefly describe this expert's expertise",
     statusIdle: "Idle",
     statusBusy: "Busy",
     statusHasTasks: "Has Tasks",
@@ -340,7 +474,7 @@ const en = {
     llmProvider: "🤖 LLM provider",
     llmProviderDefaultOption: "Global default (inherit system settings)",
     llmProviderEmptyHint:
-      "After adding named providers in Settings → LLM Provider Management, you can pick one per Koi here.",
+      "After adding named providers in Settings → AI Models, you can pick one per Koi here.",
     maxIterationsField: "🔁 Max iterations",
     maxIterationsKoiHelp:
       "0 = use the system default (30); set 1–200 for a custom per-Koi cap.",
@@ -366,6 +500,8 @@ const en = {
     title: "Agent Collab Project",
     projects: "Projects",
     newSession: "New Project",
+    teamTemplateLabel: "Expert team",
+    teamTemplateBlank: "Blank",
     sessionName: "Project Name",
     sessionPlaceholder: "e.g. Project Alpha",
     participants: "Participants",
@@ -461,34 +597,34 @@ const en = {
     selectProject: "Select a project on the left to view the task board",
   },
 
-  // Fish
+  // Anonymous assistants (Fish internal tools)
   fish: {
-    title: "Fish",
-    subtitle: "Fish are internal specialist agents. The main agent invokes them via call_fish automatically.",
+    title: "Anonymous Assistants",
+    subtitle: "Anonymous assistants are internal specialist agents. The main agent invokes them via call_fish automatically.",
     badgeBuiltin: "Built-in",
     badgeSkill: "Skill",
     badgeUser: "Custom",
     refresh: "Refresh",
-    loading: "Loading fish...",
-    sectionBuiltin: "Built-in Fish",
+    loading: "Loading assistants...",
+    sectionBuiltin: "Built-in Assistants",
     sectionBuiltinDesc: "Built-in specialist agents the main agent can call automatically",
-    sectionSkill: "Skill Fish",
-    sectionSkillDesc: "Auto-generated from installed skills, one fish per skill domain",
-    sectionUser: "Custom Fish",
+    sectionSkill: "Skill Assistants",
+    sectionSkillDesc: "Auto-generated from installed skills, one assistant per skill domain",
+    sectionUser: "Custom Assistants",
     sectionUserDesc: "Drop a FISH.toml file in the fish directory to load",
-    sectionGuide: "Create a custom Fish",
+    sectionGuide: "Create a custom assistant",
     guidePath: "Create a file at",
     guideExample: `id = "my-fish"
-name = "My Fish"
+name = "My Assistant"
 description = "Assistant focused on a specific task type"
 icon = "🐡"
 tools = ["file_read", "shell", "memory_store"]
 
 [agent]
-system_prompt = "You are a fish focused on..."
+system_prompt = "You are an assistant focused on..."
 max_iterations = 20
 model = "default"`,
-    empty: "No fish yet",
+    empty: "No assistants yet",
   },
 
   overlay: {
@@ -500,8 +636,8 @@ model = "default"`,
   },
 
   school: {
-    tabFish: "Fish",
-    tabKoi: "Koi",
+    tabFish: "Assistants",
+    tabKoi: "Experts",
   },
 
   // Tools (builtin + user-defined)
@@ -542,6 +678,8 @@ model = "default"`,
     tabBuiltin: "Built-in",
     tabUser: "User Tools",
     tabMcp: "MCP",
+    tabIntegrations: "Integrations",
+    integrationsDesc: "Email (SMTP/IMAP), SSH servers, and other agent integrations.",
     // MCP
     mcpSection: "MCP Tool Servers",
     mcpDesc: "Connect to external tool servers via Model Context Protocol (stdio local process / SSE HTTP service). Desktop automation lives under Builtin Tools.",
@@ -611,7 +749,7 @@ model = "default"`,
     requiresConfigTitle: "Requires configuration — see Settings",
     configureFirstTitle: "Configure required settings first",
     sshConfigRequired:
-      "⚠ This scenario requires configuration. Go to Settings → SSH Servers to add a server.",
+      "⚠ This scenario requires configuration. Go to Settings → Tools → Integrations to add an SSH server.",
     passCount: "{{pass}}/{{total}} passed",
     logLines: "{{count}} lines",
     loadingScenarios: "Loading scenarios...",
@@ -701,6 +839,14 @@ model = "default"`,
     notConnected: "Not connected",
     connect: "Connect",
     comingSoon: "Coming soon",
+    disconnect: "Disconnect",
+    webdavTitle: "Connect WebDAV",
+    webdavUrl: "Server URL (e.g. https://dav.example.com/remote.php/dav/files/user/)",
+    webdavUser: "Username",
+    webdavPass: "Password (leave blank to keep saved password)",
+    webdavRoot: "Root",
+    goUp: "Up",
+    emptyDir: "This folder is empty",
   },
 
   // Professional features window
@@ -725,6 +871,7 @@ model = "default"`,
     allCats: "All",
     empty: "No matching cases",
     makeSimilar: "Make similar",
+    makeSimilarPool: "Start fish team",
     cat: {
       office: "Office",
       research: "Research",
@@ -740,6 +887,10 @@ model = "default"`,
     modeAsk: "Ask",
     modePlan: "Plan",
     modeCraft: "Craft",
+    modeTeam: "Expert team",
+    tabMain: "Main chat",
+    tabCollab: "Team collab",
+    teamViewTabs: "Team task views",
     searchInConversation: "Search in conversation",
     history: "Question history",
     share: "Share task",
@@ -879,6 +1030,8 @@ model = "default"`,
     cliNoSessionsHint: "No Pond CLI sessions yet. Start a conversation from the IDE assistant inside a pool project first.",
     defaultTitle: "New Chat",
     imSessionHint: "This session is from an IM channel. Send messages from the platform.",
+    imEmptyTitle: "Connect IM channels",
+    imEmptyDesc: "After connecting Telegram, Feishu, or other channels, conversations will appear here.",
     fishSession: "Fish Session",
     fishSessionHint: "Chatting with a Fish agent",
     fishNotActivated: "This Fish is not activated. Please activate it on the Fish page before chatting.",

@@ -4,6 +4,7 @@
 // main.rs calls run() from here; this allows Tauri mobile targets to work.
 
 pub mod app;
+mod brand_generated;
 mod commands;
 mod fish;
 mod gateway;

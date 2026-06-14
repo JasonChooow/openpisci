@@ -1,0 +1,18 @@
+{
+  "experts": [
+    {
+      "id": "openpisci/expert/research-analyst@1.0.0",
+      "name": "调研分析师",
+      "description": "擅长信息搜集、对比分析与报告撰写",
+      "download_url": "https://raw.githubusercontent.com/njbinbin/openpisci/main/marketplace/experts/research-analyst.json"
+    }
+  ],
+  "teams": [
+    {
+      "id": "openpisci/team/content-squad@1.0.0",
+      "name": "内容小队",
+      "description": "选题 + 创作 + 校对的标准内容团队",
+      "download_url": "https://raw.githubusercontent.com/njbinbin/openpisci/main/marketplace/teams/content-squad.json"
+    }
+  ]
+}

@@ -6,7 +6,7 @@ import { openPath } from "../../../services/tauri";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { poolApi, koiApi, PoolMessage, KoiWithStats } from "../../../services/tauri";
-import { RootState, poolActions, koiActions, POOL_DEFAULT_CAPACITY } from "../../../store";
+import { RootState, poolActions, koiActions, sessionsActions, POOL_DEFAULT_CAPACITY } from "../../../store";
 import { useScrollPrependedHistory } from "../../../hooks/useScrollPrependedHistory";
 import ConfirmDialog from "../../ConfirmDialog";
 import PoolMemberPicker from "../PoolMemberPicker";
@@ -421,6 +421,7 @@ export default function ChatPool() {
       } else if (actionTarget.action === "archive") {
         await poolApi.archiveSession(actionTarget.id);
         dispatch(poolActions.updatePoolSessionStatus({ id: actionTarget.id, status: "archived" }));
+        dispatch(sessionsActions.notifyArchivedTasksChanged());
       }
     } catch (e) {
       console.error("[ChatPool] session action error:", e);
@@ -482,7 +483,7 @@ export default function ChatPool() {
               }}
               placeholder={t("pool.taskTimeoutPlaceholder")}
             />
-            <div className="chatpool-empty-hint">{t("pool.taskTimeoutHelp")}</div>
+            <div className="chatpool-field-hint">{t("pool.taskTimeoutHelp")}</div>
             <div className="chatpool-new-actions">
               <button
                 className="chatpool-btn chatpool-btn-secondary"
@@ -635,7 +636,7 @@ export default function ChatPool() {
                     setSessionTaskTimeoutSecs(Number.isFinite(v) ? Math.max(0, Math.min(7200, v)) : 0);
                   }}
                 />
-                <div className="chatpool-empty-hint">{t("pool.taskTimeoutHelp")}</div>
+                <div className="chatpool-field-hint">{t("pool.taskTimeoutHelp")}</div>
                 <textarea
                   className="chatpool-orgspec-editor"
                   value={orgSpecDraft}

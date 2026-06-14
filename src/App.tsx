@@ -3,44 +3,51 @@ import { Provider, useDispatch, useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import {
-  Plus,
   Bot,
-  Fish,
+  Store,
   Clock,
   LayoutGrid,
   FolderOpen,
   Lightbulb,
   Cloud,
+  Globe,
   BookOpen,
   ChevronRight,
 } from "lucide-react";
 import { store, RootState, settingsActions, sessionsActions, chatActions, poolActions } from "./store";
-import { settingsApi, sessionsApi, poolApi, windowApi } from "./services/tauri";
+import { settingsApi, sessionsApi, poolApi, windowApi, extrasApi } from "./services/tauri";
+import { orgSpecFromTeamTemplate } from "./utils/teamTemplate";
+import { joinProjectPath } from "./utils/projectPath";
 import { isInternalSession } from "./utils/session";
 import { applyFontScale, getFontScale } from "./utils/fontScale";
 import i18n, { setLanguage } from "./i18n";
 import Chat from "./components/Chat";
 import Toaster from "./components/Toaster";
 import MyFiles from "./components/MyFiles";
-import Inspiration from "./components/Inspiration";
+import Inspiration, { type InspirationAction } from "./components/Inspiration";
 import CloudFiles from "./components/CloudFiles";
+import CloudBrowser from "./components/CloudBrowser";
 import TaskList from "./components/Sidebar/TaskList";
+import SidebarHeader from "./components/Sidebar/SidebarHeader";
 import AccountMenu from "./components/Sidebar/AccountMenu";
-import type { SettingsSubTab } from "./components/SettingsHub";
+import type { TaskDateFilter } from "./components/Sidebar/taskFilters";
+import type { SettingsSubTab, ToolsSubTab, OpenSettingsOptions } from "./components/SettingsHub/types";
+import type { MarketLevelTab, MarketScopeTab } from "./components/ExpertHub";
 import "./theme.css";
 import "./App.css";
 import "./components/Sidebar/Sidebar.css";
+import "./components/AssistantPage/AssistantPage.css";
 
-const SchoolPage = lazy(() => import("./components/School"));
-const Pond = lazy(() => import("./components/Pond"));
+const ExpertHub = lazy(() => import("./components/ExpertHub"));
 const Scheduler = lazy(() => import("./components/Scheduler"));
 const SettingsHub = lazy(() => import("./components/SettingsHub"));
 const Onboarding = lazy(() => import("./components/Onboarding"));
 const OverlayApp = lazy(() => import("./components/Overlay"));
 const ProWindow = lazy(() => import("./components/ProWindow"));
 
-type Tab = "chat" | "school" | "pond" | "scheduler" | "myfiles" | "inspiration" | "cloud" | "settings";
-type SchoolSubTab = "fish" | "koi";
+type Tab = "chat" | "assistant" | "school" | "scheduler" | "myfiles" | "inspiration" | "cloud" | "browser" | "settings";
+const SIDEBAR_COLLAPSED_KEY = "piscis-sidebar-collapsed";
+const SIDEBAR_DATE_FILTER_KEY = "piscis-task-date-filter";
 const ICON = 18;
 
 // Detect if we are running in the overlay window
@@ -54,11 +61,20 @@ function AppContent() {
   const { showOnboarding, settings } = useSelector((s: RootState) => s.settings);
   const pendingMainChatNav = useSelector((s: RootState) => s.sessions.pendingMainChatNav);
   const activeSessionId = useSelector((s: RootState) => s.sessions.activeSessionId);
-  const activePoolSessionId = useSelector((s: RootState) => s.pool.activeSessionId);
   const [activeTab, setActiveTab] = useState<Tab>("chat");
-  const [schoolSubTab, setSchoolSubTab] = useState<SchoolSubTab>("fish");
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>("general");
+  const [settingsToolsSubTab, setSettingsToolsSubTab] = useState<ToolsSubTab>("builtin");
+  const [marketLevelTab, setMarketLevelTab] = useState<MarketLevelTab>("experts");
+  const [marketScopeTab, setMarketScopeTab] = useState<MarketScopeTab>("market");
   const [moreOpen, setMoreOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+  });
+  const [dateFilter, setDateFilter] = useState<TaskDateFilter>(() => {
+    const saved = localStorage.getItem(SIDEBAR_DATE_FILTER_KEY);
+    if (saved === "today" || saved === "last7" || saved === "last30" || saved === "all") return saved;
+    return "all";
+  });
   /** Tabs that have been opened at least once — stay mounted to preserve state. */
   const [mountedTabs, setMountedTabs] = useState<Set<Tab>>(() => new Set(["chat"]));
   const [initialized, setInitialized] = useState(false);
@@ -82,7 +98,15 @@ function AppContent() {
     });
   }, [activeTab]);
 
-  // Pond IDE assistant → jump to main Chat (鱼池CLI tab).
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? "1" : "0");
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_DATE_FILTER_KEY, dateFilter);
+  }, [dateFilter]);
+
+  // Pond IDE assistant → jump to main Chat (legacy).
   useEffect(() => {
     if (pendingMainChatNav) setActiveTab("chat");
   }, [pendingMainChatNav]);
@@ -255,17 +279,19 @@ function AppContent() {
     );
   }
 
-  const navigateTab = (tab: Tab, opts?: { schoolSubTab?: SchoolSubTab }) => {
-    if (opts?.schoolSubTab) setSchoolSubTab(opts.schoolSubTab);
+  const navigateTab = (tab: Tab) => {
     setActiveTab(tab);
   };
 
-  const openSettings = (sub: SettingsSubTab = "general") => {
+  const openSettings = (sub: SettingsSubTab = "general", options?: OpenSettingsOptions) => {
     setSettingsSubTab(sub);
+    if (options?.toolsSubTab) {
+      setSettingsToolsSubTab(options.toolsSubTab);
+    }
     setActiveTab("settings");
   };
 
-  const handleNewTask = async () => {
+  const handleNewAssistantTask = async () => {
     try {
       const session = await sessionsApi.create(t("chat.newChat"));
       dispatch(sessionsActions.addSession(session));
@@ -277,8 +303,7 @@ function AppContent() {
   };
 
   const handleAssistant = () => {
-    dispatch(sessionsActions.openMainChatView({ filter: "im" }));
-    setActiveTab("chat");
+    setActiveTab("assistant");
   };
 
   const handleGuide = () => {
@@ -298,33 +323,103 @@ function AppContent() {
     setActiveTab("chat");
   };
 
+  const handleInspirationAction = async (action: InspirationAction) => {
+    if (action.target === "chat") {
+      await handleMakeSimilar(action.prompt);
+      return;
+    }
+
+    let projectDir = settings?.workspace_root?.trim() || "";
+    if (!projectDir) {
+      try {
+        const { open } = await import("@tauri-apps/plugin-dialog");
+        const dir = await open({
+          directory: true,
+          multiple: false,
+          title: t("pool.selectProjectDir"),
+        });
+        if (!dir || typeof dir !== "string") return;
+        projectDir = dir;
+      } catch {
+        return;
+      }
+    }
+
+    try {
+      let orgSpec: string | undefined;
+      if (action.teamTemplateId) {
+        const templates = await extrasApi.listTeamTemplates();
+        const tpl = templates.find((item) => item.id === action.teamTemplateId);
+        if (tpl) orgSpec = orgSpecFromTeamTemplate(tpl);
+      }
+
+      const fullProjectDir = joinProjectPath(projectDir, action.title);
+      const bundle = await poolApi.createTeamTaskBundle({
+        name: action.title,
+        projectDir: fullProjectDir,
+        taskTimeoutSecs: 0,
+        mode: action.teamTemplateId ? "template" : "adhoc",
+        koiIds: [],
+        orgSpec,
+      });
+      dispatch(poolActions.addPoolSession(bundle.pool_session));
+      const { sessions: fresh } = await sessionsApi.list(200);
+      dispatch(sessionsActions.setSessions(fresh));
+      dispatch(sessionsActions.openMainChatView({ filter: "chat", sessionId: bundle.chat_session_id }));
+      dispatch(poolActions.setActivePoolSession(bundle.pool_session_id));
+
+      await poolApi.sendMessage({
+        session_id: bundle.pool_session_id,
+        sender_id: "piscis",
+        content: `@all ${action.prompt}`,
+        msg_type: "mention",
+        metadata: "all",
+      });
+      setActiveTab("chat");
+    } catch (e) {
+      console.error("Inspiration pool error:", e);
+    }
+  };
+
   const handleSelectChatTask = (id: string) => {
     dispatch(sessionsActions.openMainChatView({ filter: "chat", sessionId: id }));
     setActiveTab("chat");
   };
 
-  const handleSelectPoolTask = (id: string) => {
-    dispatch(poolActions.setActivePoolSession(id));
-    setActiveTab("pond");
-  };
+  const conversationVisible = activeTab === "chat" || activeTab === "assistant";
+  const conversationMounted = mountedTabs.has("chat") || mountedTabs.has("assistant");
 
   return (
     <div className="app">
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <div className="sidebar-brand">
-            <img src="/piscis.png" className="logo" alt="小诺" />
-            <span className="app-name">小诺</span>
-          </div>
-        </div>
+      <aside className={`sidebar${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+        <SidebarHeader
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((v) => !v)}
+          dateFilter={dateFilter}
+          onDateFilterChange={setDateFilter}
+          onNewAssistantTask={handleNewAssistantTask}
+          onSelectChat={handleSelectChatTask}
+        />
 
-        <button type="button" className="sidebar-cta" onClick={handleNewTask}>
-          <span className="sidebar-cta-icon"><Plus size={ICON} strokeWidth={2} /></span>
-          {t("nav.newTask")}
-        </button>
+        {!sidebarCollapsed && (
+          <div className="sidebar-new-task-wrap">
+            <button
+              type="button"
+              className="sidebar-new-task-btn"
+              onClick={handleNewAssistantTask}
+            >
+              {t("sidebar.newShort")}
+            </button>
+          </div>
+        )}
 
         <div className="sidebar-scroll">
-          <button type="button" className="nav-item" onClick={handleAssistant} title={t("nav.assistant")}>
+          <button
+            type="button"
+            className={`nav-item ${activeTab === "assistant" ? "active" : ""}`}
+            onClick={handleAssistant}
+            title={t("nav.assistant")}
+          >
             <span className="nav-icon"><Bot size={ICON} strokeWidth={1.5} /></span>
             <span className="nav-label-wrap">
               <span className="nav-label">{t("nav.assistant")}</span>
@@ -335,13 +430,13 @@ function AppContent() {
           <button
             type="button"
             className={`nav-item ${activeTab === "school" ? "active" : ""}`}
-            onClick={() => navigateTab("school", { schoolSubTab: "koi" })}
-            title={t("nav.expert")}
+            onClick={() => navigateTab("school")}
+            title={t("nav.market")}
           >
-            <span className="nav-icon"><Fish size={ICON} strokeWidth={1.5} /></span>
+            <span className="nav-icon"><Store size={ICON} strokeWidth={1.5} /></span>
             <span className="nav-label-wrap">
-              <span className="nav-label">{t("nav.expert")}</span>
-              <span className="nav-sub">{t("nav.expertSub")}</span>
+              <span className="nav-label">{t("nav.market")}</span>
+              <span className="nav-sub">{t("nav.marketSub")}</span>
             </span>
           </button>
 
@@ -397,50 +492,69 @@ function AppContent() {
           <div className="nav-section-label">{t("nav.tasks")}</div>
           <TaskList
             activeChatSessionId={activeSessionId}
-            activePoolSessionId={activePoolSessionId}
             activeTab={activeTab}
+            dateFilter={dateFilter}
             onSelectChat={handleSelectChatTask}
-            onSelectPool={handleSelectPoolTask}
           />
 
           <div className="nav-section-label">{t("nav.space")}</div>
+          <button
+            type="button"
+            className={`nav-item ${activeTab === "browser" ? "active" : ""}`}
+            onClick={() => setActiveTab("browser")}
+            title={t("nav.browser")}
+          >
+            <span className="nav-icon"><Globe size={ICON} strokeWidth={1.5} /></span>
+            <span className="nav-label">{t("nav.browser")}</span>
+          </button>
           <button type="button" className="nav-item" onClick={handleGuide} title={t("nav.guide")}>
             <span className="nav-icon"><BookOpen size={ICON} strokeWidth={1.5} /></span>
             <span className="nav-label">{t("nav.guide")}</span>
           </button>
         </div>
 
-        <AccountMenu
-          colorMode={colorMode}
-          onToggleColorMode={() => setColorMode((m) => (m === "dark" ? "light" : "dark"))}
-          onOpenSettings={() => openSettings("general")}
-          onHelp={handleGuide}
-          onMinimalMode={() => windowApi.enterMinimalMode()}
-        />
+        {!sidebarCollapsed && (
+          <AccountMenu
+            colorMode={colorMode}
+            onToggleColorMode={() => setColorMode((m) => (m === "dark" ? "light" : "dark"))}
+            onOpenSettings={() => openSettings("general")}
+            onHelp={handleGuide}
+            onMinimalMode={() => windowApi.enterMinimalMode()}
+          />
+        )}
       </aside>
       <main className="main-content">
         <Suspense fallback={<div className="loading-screen"><div className="loading-spinner" /><p>{t("common.loadingApp")}</p></div>}>
-          {mountedTabs.has("chat") && (
-            <div className="tab-panel" hidden={activeTab !== "chat"}>
-              <Chat
-                onNavigateTab={(tab, opts) => {
-                  if (tab === "skills") openSettings("skills");
-                  if (tab === "school") navigateTab("school", { schoolSubTab: opts?.schoolSubTab ?? "koi" });
-                }}
-              />
-            </div>
-          )}
-          {mountedTabs.has("pond") && (
-            <div className="tab-panel" hidden={activeTab !== "pond"}>
-              <Pond
-                visible={activeTab === "pond"}
-                onNavigateToSchoolKoi={() => navigateTab("school", { schoolSubTab: "koi" })}
-              />
+          {conversationMounted && (
+            <div className="tab-panel" hidden={!conversationVisible}>
+              <div className={activeTab === "assistant" ? "assistant-page" : "conversation-shell"}>
+                <Chat
+                  variant={activeTab === "assistant" ? "im" : "task"}
+                  onNavigateTab={(tab, opts) => {
+                    if (tab === "skills" || tab === "school") {
+                      navigateTab("school");
+                      if (tab === "skills" || opts?.marketLevel === "skills") {
+                        setMarketLevelTab("skills");
+                        setMarketScopeTab(opts?.marketScope ?? "market");
+                      } else if (opts?.schoolSubTab === "koi") {
+                        setMarketLevelTab("experts");
+                        setMarketScopeTab("installed");
+                      }
+                    }
+                  }}
+                />
+              </div>
             </div>
           )}
           {mountedTabs.has("school") && (
             <div className="tab-panel" hidden={activeTab !== "school"}>
-              <SchoolPage initialSubTab={schoolSubTab} />
+              <ExpertHub
+                levelTab={marketLevelTab}
+                scopeTab={marketScopeTab}
+                onLevelTabChange={setMarketLevelTab}
+                onScopeTabChange={setMarketScopeTab}
+                onNavigateToChat={() => navigateTab("chat")}
+              />
             </div>
           )}
           {mountedTabs.has("scheduler") && (
@@ -453,12 +567,17 @@ function AppContent() {
           )}
           {mountedTabs.has("inspiration") && (
             <div className="tab-panel" hidden={activeTab !== "inspiration"}>
-              <Inspiration onMakeSimilar={handleMakeSimilar} />
+              <Inspiration onAction={handleInspirationAction} />
             </div>
           )}
           {mountedTabs.has("cloud") && (
             <div className="tab-panel" hidden={activeTab !== "cloud"}>
               <CloudFiles visible={activeTab === "cloud"} />
+            </div>
+          )}
+          {mountedTabs.has("browser") && (
+            <div className="tab-panel" hidden={activeTab !== "browser"}>
+              <CloudBrowser visible={activeTab === "browser"} />
             </div>
           )}
           {mountedTabs.has("settings") && (
@@ -468,7 +587,8 @@ function AppContent() {
                 setTheme={setTheme}
                 activeSubTab={settingsSubTab}
                 onSubTabChange={setSettingsSubTab}
-                onNavigateToChat={() => setActiveTab("chat")}
+                toolsSubTab={settingsToolsSubTab}
+                onOpenAssistant={handleAssistant}
               />
             </div>
           )}

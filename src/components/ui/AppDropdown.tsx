@@ -9,6 +9,12 @@ export type AppMenuItem = {
   action?: boolean;
   /** Non-interactive row (e.g. current path). */
   disabled?: boolean;
+  /** Checkbox-style toggle row; keeps menu open unless closeOnSelect is true. */
+  toggle?: boolean;
+  /** Visual separator row. */
+  divider?: boolean;
+  /** Override dropdown close-on-select for this row. */
+  keepOpen?: boolean;
 };
 
 export type AppDropdownProps = {
@@ -24,7 +30,7 @@ export type AppDropdownProps = {
   searchPlaceholder?: string;
   emptyLabel?: string;
   closeOnSelect?: boolean;
-  variant?: "default" | "wide" | "toolbar" | "form";
+  variant?: "default" | "wide" | "toolbar" | "form" | "compact";
   /** Panel opens above trigger (composer) or below (toolbars). */
   placement?: "above" | "below";
 };
@@ -130,7 +136,10 @@ export default function AppDropdown({
               <div className="app-dropdown-empty">{emptyLabel ?? "—"}</div>
             ) : (
               filtered.map((item) => {
-                const rowClass = `app-dropdown-item${item.selected ? " selected" : ""}${item.action ? " action" : ""}${item.disabled ? " info" : ""}`;
+                if (item.divider) {
+                  return <div key={item.id} className="app-dropdown-divider" role="separator" />;
+                }
+                const rowClass = `app-dropdown-item${item.selected ? " selected" : ""}${item.action ? " action" : ""}${item.disabled ? " info" : ""}${item.toggle ? " toggle" : ""}`;
                 if (item.disabled) {
                   return (
                     <div key={item.id} role="presentation" className={rowClass} title={item.label}>
@@ -147,21 +156,40 @@ export default function AppDropdown({
                   <button
                     key={item.id}
                     type="button"
-                    role="option"
+                    role={item.toggle ? "menuitemcheckbox" : "option"}
                     aria-selected={item.selected}
+                    aria-checked={item.toggle ? item.selected : undefined}
                     className={rowClass}
                     onClick={() => {
                       onSelect(item.id);
-                      if (closeOnSelect) onOpenChange(false);
+                      const shouldClose = item.keepOpen === true
+                        ? false
+                        : item.keepOpen === false
+                          ? true
+                          : item.toggle
+                            ? false
+                            : closeOnSelect;
+                      if (shouldClose) onOpenChange(false);
                     }}
                   >
-                    {item.icon && (
+                    {item.icon && !item.toggle && (
                       <span className="app-dropdown-item-icon" aria-hidden>
                         {item.icon}
                       </span>
                     )}
                     <span className="app-dropdown-item-label">{item.label}</span>
-                    {item.selected && <span className="app-dropdown-item-check">✓</span>}
+                    {item.toggle ? (
+                      <input
+                        type="checkbox"
+                        className="app-dropdown-item-checkbox"
+                        readOnly
+                        tabIndex={-1}
+                        checked={Boolean(item.selected)}
+                        aria-hidden
+                      />
+                    ) : (
+                      item.selected && <span className="app-dropdown-item-check">✓</span>
+                    )}
                   </button>
                 );
               })

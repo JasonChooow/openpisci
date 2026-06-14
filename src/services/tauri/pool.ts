@@ -92,6 +92,14 @@ export interface PoolSession {
   updated_at: string;
 }
 
+export interface TeamTaskBundleResult {
+  chat_session_id: string;
+  pool_session_id: string;
+  project_dir: string;
+  chat_session: import("./chat").Session;
+  pool_session: PoolSession;
+}
+
 export interface PoolMessage {
   id: number;
   pool_session_id: string;
@@ -320,6 +328,24 @@ export const poolApi = {
   listSessions: () => invoke<PoolSession[]>("list_pool_sessions"),
   createSession: (name: string, projectDir?: string, taskTimeoutSecs?: number) =>
     invoke<PoolSession>("create_pool_session", { name, projectDir, taskTimeoutSecs }),
+  createTeamTaskBundle: (input: {
+    name: string;
+    projectDir: string;
+    taskTimeoutSecs: number;
+    mode: "adhoc" | "template";
+    koiIds?: string[];
+    orgSpec?: string;
+  }) =>
+    invoke<TeamTaskBundleResult>("create_team_task_bundle", {
+      input: {
+        name: input.name,
+        project_dir: input.projectDir,
+        task_timeout_secs: input.taskTimeoutSecs,
+        mode: input.mode,
+        koi_ids: input.koiIds ?? [],
+        org_spec: input.orgSpec ?? null,
+      },
+    }),
   deleteSession: (id: string) => invoke<void>("delete_pool_session", { id }),
   pauseSession: (id: string) => invoke<void>("pause_pool_session", { id }),
   resumeSession: (id: string) => invoke<void>("resume_pool_session", { id }),
@@ -340,6 +366,8 @@ export const poolApi = {
     invoke<void>("update_pool_session_config", { id, taskTimeoutSecs }),
   updateSessionDir: (id: string, projectDir: string) =>
     invoke<void>("update_pool_session_dir", { id, projectDir }),
+  renameSession: (id: string, name: string) =>
+    invoke<void>("rename_pool_session", { id, name }),
   listMembers: (poolId: string) =>
     invoke<KoiDefinition[]>("list_pool_members", { poolId }),
   addMember: (poolId: string, koiId: string) =>

@@ -422,7 +422,6 @@ async fn emit_auto_escalation_toast(state: &AppState, attention: &PoolAttention)
         attention.assessment.attention_reasons.join("; ")
     };
     let preview: String = reasons.chars().take(240).collect();
-    let title = format!("需要人工决策 · {}", attention.pool_name);
 
     let origin_binding = {
         let db = state.db.lock().await;
@@ -439,10 +438,11 @@ async fn emit_auto_escalation_toast(state: &AppState, attention: &PoolAttention)
         }
     };
 
-    let mut request = NotificationRequest::new(title, preview)
+    let mut request = NotificationRequest::new(String::new(), preview)
         .with_level(NotificationLevel::Critical)
         .with_source("heartbeat_auto")
         .with_pool(attention.pool_id.clone())
+        .with_pool_name(attention.pool_name.clone())
         .with_duration_ms(0)
         .add_target(NotificationTarget::Ui);
     if let Some(binding_key) = origin_binding {

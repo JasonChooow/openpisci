@@ -7,6 +7,7 @@ import TerminalPanel from "./Terminal";
 import GitPanel from "./GitPanel";
 import GitSourceControlIcon from "./GitSourceControlIcon";
 import SearchPanel from "./SearchPanel";
+import IdeAgentPanel from "./IdeAgentPanel";
 import { ideApi, onFileChanged } from "../../../services/tauri/ide";
 import { sameProjectPath } from "../../../utils/projectPath";
 import { openPath } from "../../../services/tauri";
@@ -35,7 +36,7 @@ interface FileTreeHandle {
   startCreate?: (isDir: boolean) => void;
 }
 
-export default function IDE({ projectDir, poolSessionId: _poolSessionId }: IDEProps) {
+export default function IDE({ projectDir, poolSessionId }: IDEProps) {
   const { t } = useTranslation();
 
   // File tree
@@ -718,6 +719,15 @@ export default function IDE({ projectDir, poolSessionId: _poolSessionId }: IDEPr
           height={terminalHeight}
         />
       </div>
+
+      <IdeAgentPanel
+        projectDir={projectDir}
+        poolSessionId={poolSessionId}
+        onWorkspaceFilesChanged={() => {
+          loadFileTree();
+          loadGitStatus();
+        }}
+      />
 
       {/* File tree right-click context menu */}
       {fileTreeContextMenu && (

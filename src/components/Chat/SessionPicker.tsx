@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Session } from "../../services/tauri";
+import { parseUtcTimestamp } from "../../utils/parseTimestamp";
 
 /** Map a session.source value to a compact display emoji. */
 function sourceIcon(source: string): string {
@@ -24,8 +25,8 @@ const MORE_PAGE = 20;
 type Group = "today" | "last7" | "more";
 
 function groupForSession(session: Session, now: number): Group {
-  const ts = Date.parse(session.updated_at || session.created_at || "");
-  if (Number.isNaN(ts)) return "more";
+  const ts = parseUtcTimestamp(session.updated_at || session.created_at);
+  if (!ts) return "more";
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
   if (ts >= startOfToday.getTime()) return "today";
@@ -92,8 +93,8 @@ export default function SessionPicker({
       ? sessions.filter((s) => (s.title ?? "").toLowerCase().includes(q))
       : sessions;
     return [...matched].sort((a, b) => {
-      const ta = Date.parse(b.updated_at || b.created_at || "") || 0;
-      const tb = Date.parse(a.updated_at || a.created_at || "") || 0;
+      const ta = parseUtcTimestamp(b.updated_at || b.created_at);
+      const tb = parseUtcTimestamp(a.updated_at || a.created_at);
       return ta - tb;
     });
   }, [sessions, query]);

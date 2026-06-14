@@ -98,6 +98,7 @@ export interface UpdateInfo {
   latest_version: string;
   update_available: boolean;
   notes: string;
+  release_url?: string | null;
 }
 
 export interface CloudConnector {
@@ -109,17 +110,91 @@ export interface CloudConnector {
 }
 
 export interface AccountInfo {
+  /** "local" when signed out, "cloud" when signed in. */
   kind: string;
   name: string;
   signed_in: boolean;
+  email?: string | null;
+  base_url?: string | null;
+  balance?: number | null;
 }
 
-export interface TeamTemplate {
+export const cloudAccountApi = {
+  signIn: (baseUrl: string, username: string, password: string) =>
+    invoke<AccountInfo>("cloud_sign_in", { baseUrl, username, password }),
+  signOut: () => invoke<AccountInfo>("cloud_sign_out"),
+  status: () => invoke<AccountInfo>("cloud_account_status"),
+  /** Sync (or remove) the cloud LLM provider in Settings; returns model ids. */
+  syncLlm: () => invoke<string[]>("sync_cloud_llm_config"),
+};
+
+export type {
+  TeamTemplate,
+  TeamExpertSnapshot,
+  MarketTeamPackageV2 as MarketTeamPackage,
+} from "../../types/pisciAsset";
+
+import type { TeamTemplate } from "../../types/pisciAsset";
+
+export interface WebDavConfig {
+  url: string;
+  username: string;
+  connected: boolean;
+}
+
+export interface WebDavEntry {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  size?: number | null;
+}
+
+export const cloudApi = {
+  getWebDavConfig: () => invoke<WebDavConfig>("get_webdav_config"),
+  saveWebDavConfig: (url: string, username: string, password?: string) =>
+    invoke<WebDavConfig>("save_webdav_config", { url, username, password: password ?? null }),
+  disconnectWebDav: () => invoke<void>("disconnect_webdav"),
+  listWebDavFiles: (path?: string) =>
+    invoke<WebDavEntry[]>("list_webdav_files", { path: path ?? null }),
+};
+
+export interface MarketExpert {
   id: string;
   name: string;
   description: string;
-  roles: string[];
+  download_url: string;
+  /** Origin source id: "github" | "cloud" | "clawhub" | custom. */
+  source?: string;
+  /** Whether the source is an official/trusted registry. */
+  trusted?: boolean;
 }
+
+export interface MarketTeam {
+  id: string;
+  name: string;
+  description: string;
+  download_url: string;
+  source?: string;
+  trusted?: boolean;
+}
+
+export interface MarketIndex {
+  experts: MarketExpert[];
+  teams: MarketTeam[];
+}
+
+export const marketplaceApi = {
+  fetchIndex: (url?: string) => invoke<MarketIndex>("fetch_marketplace_index", { url: url ?? null }),
+  /** Aggregate official GitHub registry + cloud marketplace (multi-source). */
+  fetchAggregated: (cloudBaseUrl?: string, githubUrl?: string) =>
+    invoke<MarketIndex>("fetch_marketplace_aggregated", {
+      cloudBaseUrl: cloudBaseUrl ?? null,
+      githubUrl: githubUrl ?? null,
+    }),
+  fetchTeamPackage: (url: string) =>
+    invoke<import("../../types/pisciAsset").MarketTeamPackageV2>("fetch_market_team_package", { url }),
+  installExpert: (downloadUrl: string) => invoke<string>("install_market_expert", { downloadUrl }),
+};
 
 export const extrasApi = {
   checkUpdate: () => invoke<UpdateInfo>("check_update"),

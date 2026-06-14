@@ -100,6 +100,7 @@ fn build_toast_payload(request: &NotificationRequest) -> serde_json::Value {
         "message": request.message,
         "level": request.level.as_str(),
         "pool_id": request.pool_id,
+        "pool_name": request.pool_name,
         "decision_id": request.decision_id,
         "duration_ms": request.effective_duration_ms(),
         "source": if request.source.is_empty() {
@@ -146,13 +147,24 @@ fn render_im_text(request: &NotificationRequest) -> String {
         NotificationLevel::Info => "",
     };
     let title = request.title.trim();
+    let display_title = if title.is_empty() {
+        request
+            .pool_name
+            .as_deref()
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(|name| format!("Human decision required · {}", name))
+            .unwrap_or_default()
+    } else {
+        title.to_string()
+    };
     let body = request.message.trim();
-    if title.is_empty() {
+    if display_title.is_empty() {
         format!("{}{}", level_tag, body)
     } else if body.is_empty() {
-        format!("{}{}", level_tag, title)
+        format!("{}{}", level_tag, display_title)
     } else {
-        format!("{}{}\n{}", level_tag, title, body)
+        format!("{}{}\n{}", level_tag, display_title, body)
     }
 }
 

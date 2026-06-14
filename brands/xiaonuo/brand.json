@@ -1,0 +1,20 @@
+{
+  "id": "xiaonuo",
+  "displayNameZh": "小诺",
+  "displayNameEn": "XiaoNuo",
+  "productName": "XiaoNuo",
+  "windowTitle": "小诺 XiaoNuo",
+  "overlayTitle": "小诺 Overlay",
+  "proWindowTitle": "小诺 · 专业功能",
+  "copyright": "Copyright 2025 XiaoNuo Team",
+  "shortDescription": "小诺 XiaoNuo - Open-source cross-platform AI Agent Desktop",
+  "longDescription": "小诺 (XiaoNuo) is an open-source cross-platform AI agent desktop for Windows, macOS, and Linux. 小诺 is the main coordinator agent inside the app — with chat, memory, skills, MCP tools, browser automation, and pool-based multi-agent orchestration, all running locally against the LLM provider of your choice.",
+  "logoPath": "/piscis.png",
+  "bundleIdentifier": "com.piscis.desktop",
+  "githubRepo": "njbinbin/openpisci",
+  "iconSource": "brands/xiaonuo/icon-source.png",
+  "i18nReplace": {
+    "zh": {},
+    "en": {}
+  }
+}

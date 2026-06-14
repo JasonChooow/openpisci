@@ -5,13 +5,16 @@ import { listen } from "@tauri-apps/api/event";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
-import { RootState, chatActions, sessionsActions, skillsActions, ToolStep, StreamingState, PlanTodoItem, ContextUsageSnapshot } from "../../store";
+import { RootState, chatActions, sessionsActions, skillsActions, poolActions, ToolStep, StreamingState, PlanTodoItem, ContextUsageSnapshot } from "../../store";
 import { artifactsApi, chatApi, journalApi, sessionsApi, gatewayApi, koiApi, AgentEventType, ChannelInfo, type ChatMessage, type SessionArtifact, type JournalChange, type KoiWithStats } from "../../services/tauri";
-import { settingsApi, skillsApi, type Skill, type ComposerMode } from "../../services/tauri";
-import SegmentedControl from "../ui/SegmentedControl";
+import { skillsApi, type Skill, type ComposerMode } from "../../services/tauri";
 import RoundedSearch from "../ui/RoundedSearch";
-import { Search, History, Share2, Mic, ChevronLeft, Eye } from "lucide-react";
-import ArtifactPreview from "./ArtifactPreview";
+import { Search, History, Share2, Mic, PanelRight } from "lucide-react";
+import { brand } from "../../brand";
+import { PlanPanel, ArtifactsPanel, ToolStepCard } from "./ChatPanels";
+import ChatRightPanel from "./ChatRightPanel";
+import TeamCollabPanel from "./TeamCollabPanel";
+import TeamTaskCreateDialog from "../Pond/TeamTaskCreateDialog";
 import { buildAttachmentFromBlob, buildAttachmentFromPath, isImageFilename, type PendingAttachmentItem } from "./composerUtils";
 import type { Settings } from "../../services/tauri";
 import ReactMarkdown from "react-markdown";
@@ -36,6 +39,12 @@ import {
   seedInputHistory,
 } from "../../utils/inputHistory";
 import "./Chat.css";
+
+const COMPOSER_MODE_ICON: Record<ComposerMode, string> = {
+  craft: "⚡",
+  plan: "📋",
+  ask: "💬",
+};
 
 // ─── Mermaid diagram block ────────────────────────────────────────────────────
 let mermaidPromise: Promise<{
@@ -366,14 +375,19 @@ function ContextUsageRing({
 
 export type ChatNavigateTab = (
   tab: "skills" | "school",
-  opts?: { schoolSubTab?: "fish" | "koi" },
+  opts?: {
+    schoolSubTab?: "fish" | "koi";
+    marketLevel?: "experts" | "teams" | "skills";
+    marketScope?: "market" | "installed";
+  },
 ) => void;
 
 interface ChatProps {
   onNavigateTab?: ChatNavigateTab;
+  variant?: "task" | "im";
 }
 
-export default function Chat({ onNavigateTab }: ChatProps = {}) {
+export default function Chat({ onNavigateTab, variant = "task" }: ChatProps = {}) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const { sessions, activeSessionId, pendingMainChatNav } = useSelector((s: RootState) => s.sessions);
@@ -388,15 +402,21 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
   const [reviewBySession, setReviewBySession] = useState<Record<string, JournalChange[]>>({});
   const [undoingReview, setUndoingReview] = useState(false);
     const [infoNotice, setInfoNotice] = useState<string | null>(null);
-  const [sessionFilter, setSessionFilter] = useState<SessionKind>("chat");
+  const [sessionFilter, setSessionFilter] = useState<SessionKind>(() => (variant === "im" ? "im" : "chat"));
   // Which session-kind dropdown picker is currently open in the top bar.
   const [openPicker, setOpenPicker] = useState<SessionKind | null>(null);
+  const [teamTaskDialogOpen, setTeamTaskDialogOpen] = useState(false);
+  const [chatViewTab, setChatViewTab] = useState<"main" | "collab">("main");
 
   const pendingAutoSendRef = useRef<string | null>(null);
 
   // Pond IDE / Skills → main Chat: switch filter, session, and optional composer draft.
   useEffect(() => {
     if (!pendingMainChatNav) return;
+    if (variant === "im" && pendingMainChatNav.filter !== "im") {
+      dispatch(sessionsActions.clearPendingMainChatNav());
+      return;
+    }
     setSessionFilter(pendingMainChatNav.filter);
     if (pendingMainChatNav.sessionId) {
       dispatch(sessionsActions.setActiveSession(pendingMainChatNav.sessionId));
@@ -409,16 +429,29 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
     }
     setOpenPicker(null);
     dispatch(sessionsActions.clearPendingMainChatNav());
-  }, [pendingMainChatNav, dispatch]);
+  }, [pendingMainChatNav, dispatch, variant]);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
+  const viewFilter: SessionKind = variant === "im" ? "im" : sessionFilter;
   const displaySessionId =
-    activeSession && isMainChatVisibleSession(activeSession, sessionFilter)
+    activeSession && isMainChatVisibleSession(activeSession, viewFilter)
       ? activeSessionId
       : null;
   const displaySession = displaySessionId
     ? sessions.find((s) => s.id === displaySessionId)
     : undefined;
+  const boundPoolSessionId = displaySession?.pool_session_id ?? null;
+  const isTeamBoundSession = Boolean(boundPoolSessionId);
+
+  useEffect(() => {
+    setChatViewTab("main");
+  }, [displaySessionId]);
+
+  useEffect(() => {
+    if (boundPoolSessionId) {
+      dispatch(poolActions.setActivePoolSession(boundPoolSessionId));
+    }
+  }, [boundPoolSessionId, dispatch]);
 
   // ── Input history navigation (up/down arrows) ──────────────────────────
 
@@ -426,7 +459,7 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachmentItem[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<Skill[]>([]);
   const [selectedKoi, setSelectedKoi] = useState<KoiWithStats | null>(null);
-  const [composerMenuOpen, setComposerMenuOpen] = useState<null | "workspace" | "koi" | "skill" | "permission" | "model">(null);
+  const [composerMenuOpen, setComposerMenuOpen] = useState<null | "mode" | "workspace" | "koi" | "skill" | "model" | "permission">(null);
   const [composerMode, setComposerMode] = useState<ComposerMode>(
     () => (localStorage.getItem("piscis-composer-mode") as ComposerMode) || "craft",
   );
@@ -441,6 +474,8 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
   useEffect(() => { modelOverrideRef.current = modelOverride; }, [modelOverride]);
   const [topbarPanel, setTopbarPanel] = useState<null | "search" | "history">(null);
   const [convSearch, setConvSearch] = useState("");
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [previewArtifact, setPreviewArtifact] = useState<SessionArtifact | null>(null);
   const [shareNote, setShareNote] = useState("");
   // Voice dictation (Web Speech API; gracefully hidden when unsupported)
   const [listening, setListening] = useState(false);
@@ -898,6 +933,7 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
         // Track the real DB-row offset (raw count fetched), not the possibly-collapsed store length.
         loadedDbCountRef.current = messages.length;
         const s = fresh.find((x) => x.id === displaySessionId);
+        dispatch(sessionsActions.syncSessionsMetadata(fresh));
         const restored = reconstructPersistedTaskPanels(messages);
         dispatch(chatActions.restoreTaskPanels({
           sessionId: displaySessionId,
@@ -1028,24 +1064,26 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
   const activeSessionIdForFilterRef = useRef(activeSessionId);
   activeSessionIdForFilterRef.current = activeSessionId;
   useEffect(() => {
+    const filter = variant === "im" ? "im" : sessionFilter;
     const currentSessions = sessionsRef.current;
     const currentActiveId = activeSessionIdForFilterRef.current;
     const visibleSessions = currentSessions.filter((x) =>
-      isMainChatVisibleSession(x, sessionFilter),
+      isMainChatVisibleSession(x, filter),
     );
     const s = currentActiveId ? currentSessions.find((x) => x.id === currentActiveId) : null;
     if (s && visibleSessions.some((x) => x.id === s.id)) return;
-    dispatch(sessionsActions.setActiveSession(pickMainChatActiveSession(currentSessions, sessionFilter)));
-  }, [sessionFilter, dispatch]);
+    dispatch(sessionsActions.setActiveSession(pickMainChatActiveSession(currentSessions, filter)));
+  }, [sessionFilter, dispatch, variant]);
 
   // Heartbeat / pool coordination sessions are internal — never keep them as the
   // main Chat active session (sidebar hides them but messages would still load).
   useEffect(() => {
+    const filter = variant === "im" ? "im" : sessionFilter;
     if (!activeSessionId) return;
     const current = sessions.find((s) => s.id === activeSessionId);
-    if (!current || isMainChatVisibleSession(current, sessionFilter)) return;
-    dispatch(sessionsActions.setActiveSession(pickMainChatActiveSession(sessions, sessionFilter)));
-  }, [sessions, activeSessionId, sessionFilter, dispatch]);
+    if (!current || isMainChatVisibleSession(current, filter)) return;
+    dispatch(sessionsActions.setActiveSession(pickMainChatActiveSession(sessions, filter)));
+  }, [sessions, activeSessionId, sessionFilter, dispatch, variant]);
 
   // Subscribe to agent events for the visible main-chat session only (not heartbeat / pool internal).
   useEffect(() => {
@@ -1217,6 +1255,11 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
               }
             })
             .catch(() => {});
+          sessionsApi.list(200)
+            .then(({ sessions: fresh }) => {
+              dispatch(sessionsActions.syncSessionsMetadata(fresh));
+            })
+            .catch(() => {});
           // Surface the files this turn changed so the user can Undo All.
           journalApi.listChanges(boundSessionId)
             .then((changes) => {
@@ -1350,8 +1393,7 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
   }, [steps]);
 
   const handleNewSession = useCallback(async () => {
-    // Switch to main-chat filter *before* the async create so the post-create
-    // visibility effect does not reset activeSessionId while filter is still im/cli.
+    if (variant === "im") return;
     setSessionFilter("chat");
     setOpenPicker(null);
     try {
@@ -1361,7 +1403,7 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
     } catch (e) {
       setSendError(t("chat.failedCreate", { error: String(e) }));
     }
-  }, [dispatch, t]);
+  }, [dispatch, t, variant]);
 
   // Refresh the full session list when opening Pond CLI so assistant / headless
   // sessions created outside the main chat flow appear in the sidebar.
@@ -1429,14 +1471,15 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
         const remaining = sessions.filter((s) => {
           if (s.id === sessionId) return false;
           if (isInternalSession(s)) return false;
-          return classifySession(s) === sessionFilter;
+          const filter = variant === "im" ? "im" : sessionFilter;
+          return classifySession(s) === filter;
         });
         dispatch(sessionsActions.setActiveSession(remaining.length > 0 ? remaining[0].id : null));
       }
     } catch (e) {
       setSendError(t("chat.failedDelete", { error: String(e) }));
     }
-  }, [activeSessionId, sessions, sessionFilter, dispatch, t]);
+  }, [activeSessionId, sessions, sessionFilter, dispatch, t, variant]);
 
   const requestDeleteSession = useCallback((e: React.MouseEvent, sessionId: string, title: string) => {
     e.stopPropagation();
@@ -1491,7 +1534,7 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
 
   const addSkill = useCallback((skillId: string) => {
     if (skillId === "__install__") {
-      onNavigateTab?.("skills");
+      onNavigateTab?.("school", { marketLevel: "skills", marketScope: "market" });
       return;
     }
     const skill = installedSkills.find((s) => s.id === skillId);
@@ -1559,7 +1602,7 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
   const handleSkillMenuSelect = useCallback((skillId: string) => {
     if (skillId === "__install__") {
       setComposerMenuOpen(null);
-      onNavigateTab?.("skills");
+      onNavigateTab?.("school", { marketLevel: "skills", marketScope: "market" });
       return;
     }
     addSkill(skillId);
@@ -1611,16 +1654,20 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
       // Set the session workspace override
       await sessionsApi.setWorkspace(displaySessionId, dirPath);
 
-      // Auto-enable allow_outside_workspace if needed
-      if (isOutside && settings && !settings.allow_outside_workspace) {
-        await settingsApi.save({ allow_outside_workspace: true });
-        // Refresh settings in Redux
-        const updated = await settingsApi.get();
-        dispatch({ type: "settings/setSettings", payload: updated });
-        // Notify the user
-        setInfoNotice(t("chat.workspaceOutsideAutoEnabled"));
-        // Auto-dismiss the notification after 5 seconds
-        setTimeout(() => setInfoNotice(null), 5000);
+      // Auto-enable allow_outside_workspace on this task if needed
+      if (isOutside) {
+        const globalAllow = settings?.allow_outside_workspace ?? false;
+        const sessionAllow = displaySession?.allow_outside_workspace;
+        const effectiveAllow = sessionAllow ?? globalAllow;
+        if (!effectiveAllow) {
+          await sessionsApi.setAllowOutsideWorkspace(displaySessionId, true);
+          dispatch(sessionsActions.updateSessionAllowOutside({
+            id: displaySessionId,
+            allow_outside_workspace: true,
+          }));
+          setInfoNotice(t("chat.workspaceOutsideAutoEnabled"));
+          setTimeout(() => setInfoNotice(null), 5000);
+        }
       }
 
       // Refresh the session in local state so the dropdown updates
@@ -1632,7 +1679,7 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
       setWorkspaceDisplayOverride(null);
       console.error("workspace browse error:", e);
     }
-  }, [displaySessionId, globalWorkspace, settings, dispatch, t]);
+  }, [displaySessionId, globalWorkspace, settings, displaySession?.allow_outside_workspace, dispatch, t]);
 
   const handleWorkspaceReset = useCallback(async () => {
     if (!displaySessionId) return;
@@ -1824,6 +1871,7 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
       },
     }));
 
+    dispatch(sessionsActions.touchSessionActivity({ id: displaySessionId }));
     dispatch(chatActions.setRunning({ sessionId: displaySessionId, running: true }));
 
     try {
@@ -1945,8 +1993,19 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
     }
   };
 
+  const handleArtifactPreview = useCallback((artifact: SessionArtifact) => {
+    setPreviewArtifact(artifact);
+    setRightPanelOpen(true);
+  }, []);
+
+  useEffect(() => {
+    setSessionFilter(variant === "im" ? "im" : "chat");
+    setOpenPicker(null);
+    setTopbarPanel(null);
+    setRightPanelOpen(false);
+  }, [variant]);
+
   // ── Filtered session list (single source of truth) ───────────────────────
-  const sessionKinds: SessionKind[] = ["chat", "im", "cli"];
   const sessionsForKind = (kind: SessionKind) =>
     sessions.filter((s) => isMainChatVisibleSession(s, kind));
   const kindLabel = (kind: SessionKind) =>
@@ -2008,67 +2067,73 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
   );
 
   return (
-    <div className="chat-layout">
+    <div className={`chat-layout${rightPanelOpen ? " has-right-panel" : ""}`}>
       {/* Main chat area */}
       <div className="chat-main">
         {/* Top bar: session-kind dropdown buttons (left) + task tabs (right) */}
         <div className="chat-topbar">
-          <div className="chat-topbar-sessions">
-            {sessionKinds.map((kind) => {
-              const count = sessionsForKind(kind).length;
-              return (
-                <div key={kind} className="chat-session-trigger-wrap">
-                  <button
-                    className={`chat-session-trigger ${sessionFilter === kind ? "active" : ""}`}
-                    onClick={() => {
-                      setSessionFilter(kind);
-                      setOpenPicker((p) => (p === kind ? null : kind));
+          {variant === "im" && (
+            <div className="chat-topbar-sessions">
+              <div className="chat-session-trigger-wrap">
+                <button
+                  className={`chat-session-trigger ${sessionFilter === "im" ? "active" : ""}`}
+                  onClick={() => {
+                    setSessionFilter("im");
+                    setOpenPicker((p) => (p === "im" ? null : "im"));
+                  }}
+                  aria-expanded={openPicker === "im"}
+                >
+                  <span className="chat-session-trigger-label">{kindLabel("im")}</span>
+                  <span className="chat-session-trigger-count">{sessionsForKind("im").length}</span>
+                  <span className="chat-session-trigger-caret">{openPicker === "im" ? "▴" : "▾"}</span>
+                </button>
+                {openPicker === "im" && (
+                  <SessionPicker
+                    sessions={sessionsForKind("im")}
+                    activeSessionId={displaySessionId}
+                    onSelect={(id) => {
+                      dispatch(sessionsActions.setActiveSession(id));
+                      setOpenPicker(null);
                     }}
-                    aria-expanded={openPicker === kind}
-                  >
-                    <span className="chat-session-trigger-label">{kindLabel(kind)}</span>
-                    <span className="chat-session-trigger-count">{count}</span>
-                    <span className="chat-session-trigger-caret">{openPicker === kind ? "▴" : "▾"}</span>
-                  </button>
-                  {openPicker === kind && (
-                    <SessionPicker
-                      sessions={sessionsForKind(kind)}
-                      activeSessionId={displaySessionId}
-                      onSelect={(id) => {
-                        dispatch(sessionsActions.setActiveSession(id));
-                        setOpenPicker(null);
-                      }}
-                      onDelete={requestDeleteSession}
-                      onNew={
-                        kind === "cli"
-                          ? undefined
-                          : () => {
-                              handleNewSession();
-                              setOpenPicker(null);
-                            }
-                      }
-                      allowCreate={kind !== "cli"}
-                      emptyHint={kind === "cli" ? t("chat.cliNoSessionsHint") : undefined}
-                      onClose={() => setOpenPicker(null)}
-                      t={t}
-                      footer={kind === "im" ? imConnectFooter : undefined}
-                    />
-                  )}
-                </div>
-              );
-            })}
-            {sessionFilter !== "cli" && (
-              <button
-                className="btn-icon chat-topbar-new"
-                onClick={handleNewSession}
-                title={t("chat.newChat")}
-              >
-                +
-              </button>
-            )}
-          </div>
+                    onDelete={requestDeleteSession}
+                    onNew={variant === "im" ? undefined : () => {
+                      handleNewSession();
+                      setOpenPicker(null);
+                    }}
+                    allowCreate={variant !== "im"}
+                    onClose={() => setOpenPicker(null)}
+                    t={t}
+                    footer={imConnectFooter}
+                  />
+                )}
+              </div>
+            </div>
+          )}
 
-          {hasTaskPanel && (
+          {isTeamBoundSession && variant !== "im" && (
+            <div className="chat-topbar-team-tabs" role="tablist" aria-label={t("chat.teamViewTabs")}>
+              <button
+                type="button"
+                className={`chat-topbar-team-tab${chatViewTab === "main" ? " active" : ""}`}
+                role="tab"
+                aria-selected={chatViewTab === "main"}
+                onClick={() => setChatViewTab("main")}
+              >
+                {t("chat.tabMain")}
+              </button>
+              <button
+                type="button"
+                className={`chat-topbar-team-tab${chatViewTab === "collab" ? " active" : ""}`}
+                role="tab"
+                aria-selected={chatViewTab === "collab"}
+                onClick={() => setChatViewTab("collab")}
+              >
+                {t("chat.tabCollab")}
+              </button>
+            </div>
+          )}
+
+          {hasTaskPanel && variant !== "im" && chatViewTab === "main" && (
             <div className="chat-topbar-tasks" role="tablist" aria-label="Task panel tabs">
               <button
                 className={`chat-topbar-task-tab ${taskPanelTab === "todo" && taskPanelOpen ? "active" : ""}`}
@@ -2140,6 +2205,14 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
               >
                 <Share2 size={16} strokeWidth={1.5} />
               </button>
+              <button
+                type="button"
+                className={`btn-icon ${rightPanelOpen ? "active" : ""}`}
+                title={t("preview.preview")}
+                onClick={() => setRightPanelOpen((open) => !open)}
+              >
+                <PanelRight size={16} strokeWidth={1.5} />
+              </button>
               {shareNote && <span className="chat-topbar-toast">{shareNote}</span>}
               {topbarPanel && (
                 <div className="chat-topbar-panel">
@@ -2207,6 +2280,16 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
         )}
         {displaySessionId ? (
           <>
+            {chatViewTab === "collab" && isTeamBoundSession && boundPoolSessionId ? (
+              <div className="chat-team-collab-host">
+                <TeamCollabPanel
+                  poolSessionId={boundPoolSessionId}
+                  visible
+                  onNavigateToSchoolKoi={() => onNavigateTab?.("school")}
+                />
+              </div>
+            ) : (
+          <>
             {sendError && (
               <div className="error-banner" role="alert">
                 <span>{sendError}</span>
@@ -2255,7 +2338,7 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
                       )}
                       {taskPanelTab === "artifacts" && activeArtifacts.length > 0 && (
                         <div className="tool-steps-scroll">
-                          <ArtifactsPanel artifacts={activeArtifacts} />
+                          <ArtifactsPanel artifacts={activeArtifacts} onPreview={handleArtifactPreview} />
                         </div>
                       )}
                 </div>
@@ -2476,34 +2559,81 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
                 disabled={running}
               />
               <div className="input-actions">
-                <SegmentedControl
-                  className="composer-mode"
-                  size="sm"
-                  aria-label={t("chat.modeLabel")}
-                  value={composerMode}
-                  onChange={(m) => setComposerMode(m as ComposerMode)}
-                  items={[
-                    { id: "ask", label: t("chat.modeAsk") },
-                    { id: "plan", label: t("chat.modePlan") },
-                    { id: "craft", label: t("chat.modeCraft") },
-                  ]}
-                />
                 <div className="composer-selectors">
-                  <div className="composer-selector workspace-selector">
-                    <ComposerDropdown
-                      menuId="workspace"
-                      icon="📁"
-                      triggerLabel={workspaceTriggerLabel}
-                      triggerTitle={displayedWorkspace || t("chat.workspaceLabel")}
-                      items={workspaceMenuItems}
-                      open={composerMenuOpen === "workspace"}
-                      onOpenChange={(open) => setComposerMenuOpen(open ? "workspace" : null)}
-                      onSelect={(id) => { void handleWorkspaceMenuSelect(id); }}
-                      disabled={running}
-                      variant="wide"
-                      placement="above"
-                    />
+                  <div className="composer-selector mode-selector">
+                    {isTeamBoundSession ? (
+                      <button
+                        type="button"
+                        className="select-control composer-mode-locked"
+                        disabled
+                        title={t("chat.modeTeam")}
+                      >
+                        <span className="app-dropdown-trigger-icon" aria-hidden>👥</span>
+                        <span className="app-dropdown-trigger-label">{t("chat.modeTeam")}</span>
+                      </button>
+                    ) : (
+                      <ComposerDropdown
+                        menuId="mode"
+                        icon={COMPOSER_MODE_ICON[composerMode]}
+                        triggerLabel={
+                          composerMode === "craft"
+                            ? t("chat.modeCraft")
+                            : composerMode === "plan"
+                              ? t("chat.modePlan")
+                              : t("chat.modeAsk")
+                        }
+                        triggerTitle={t("chat.modeLabel")}
+                        items={[
+                          { id: "craft", label: t("chat.modeCraft"), icon: "⚡", selected: composerMode === "craft" },
+                          { id: "plan", label: t("chat.modePlan"), icon: "📋", selected: composerMode === "plan" },
+                          { id: "ask", label: t("chat.modeAsk"), icon: "💬", selected: composerMode === "ask" },
+                          { id: "team", label: t("chat.modeTeam"), icon: "👥" },
+                        ]}
+                        open={composerMenuOpen === "mode"}
+                        onOpenChange={(open) => setComposerMenuOpen(open ? "mode" : null)}
+                        onSelect={(id) => {
+                          if (id === "team") {
+                            setTeamTaskDialogOpen(true);
+                            setComposerMenuOpen(null);
+                            return;
+                          }
+                          setComposerMode(id as ComposerMode);
+                        }}
+                        disabled={running}
+                        variant="compact"
+                        placement="above"
+                      />
+                    )}
                   </div>
+                  <div className="composer-selector workspace-selector">
+                    {isTeamBoundSession ? (
+                      <button
+                        type="button"
+                        className="select-control composer-mode-locked composer-workspace-locked"
+                        disabled
+                        title={displayedWorkspace || t("chat.workspaceLabel")}
+                      >
+                        <span className="app-dropdown-trigger-icon" aria-hidden>📁</span>
+                        <span className="app-dropdown-trigger-label">{workspaceTriggerLabel}</span>
+                      </button>
+                    ) : (
+                      <ComposerDropdown
+                        menuId="workspace"
+                        icon="📁"
+                        triggerLabel={workspaceTriggerLabel}
+                        triggerTitle={displayedWorkspace || t("chat.workspaceLabel")}
+                        items={workspaceMenuItems}
+                        open={composerMenuOpen === "workspace"}
+                        onOpenChange={(open) => setComposerMenuOpen(open ? "workspace" : null)}
+                        onSelect={(id) => { void handleWorkspaceMenuSelect(id); }}
+                        disabled={running}
+                        variant="wide"
+                        placement="above"
+                      />
+                    )}
+                  </div>
+                  {!isTeamBoundSession && (
+                  <>
                   <div className="composer-selector koi-selector">
                     <ComposerDropdown
                       menuId="koi"
@@ -2538,45 +2668,6 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
                       closeOnSelect={false}
                       placement="above"
                     />
-                  </div>
-                  <div className="composer-selector permission-selector">
-                    {(() => {
-                      const currentPolicy = settings?.policy_mode || "balanced";
-                      const policyMeta: Record<string, { icon: string; label: string }> = {
-                        strict: { icon: "🔒", label: t("chat.permStrict") },
-                        balanced: { icon: "⚖️", label: t("chat.permBalanced") },
-                        dev: { icon: "🔓", label: t("chat.permDev") },
-                      };
-                      const meta = policyMeta[currentPolicy] || policyMeta.balanced;
-                      return (
-                        <ComposerDropdown
-                          menuId="permission"
-                          icon={meta.icon}
-                          triggerLabel={meta.label}
-                          triggerTitle={t("chat.permLabel")}
-                          items={Object.entries(policyMeta).map(([id, m]) => ({
-                            id,
-                            label: m.label,
-                            icon: m.icon,
-                            selected: id === currentPolicy,
-                          }))}
-                          open={composerMenuOpen === "permission"}
-                          onOpenChange={(open) => setComposerMenuOpen(open ? "permission" : null)}
-                          onSelect={async (id) => {
-                            if (id === currentPolicy) return;
-                            try {
-                              await settingsApi.save({ policy_mode: id });
-                              const updated = await settingsApi.get();
-                              dispatch({ type: "settings/setSettings", payload: updated });
-                            } catch (e) {
-                              console.error("[Chat] policy update error:", e);
-                            }
-                          }}
-                          disabled={running}
-                          placement="above"
-                        />
-                      );
-                    })()}
                   </div>
                   <div className="composer-selector model-selector">
                     {(() => {
@@ -2614,11 +2705,94 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
                       );
                     })()}
                   </div>
+                  </>
+                  )}
+                  <div className="composer-selector permission-selector">
+                    {(() => {
+                      const globalPolicy = settings?.policy_mode || "balanced";
+                      const effectivePolicy = displaySession?.policy_mode || globalPolicy;
+                      const globalAllowOutside = settings?.allow_outside_workspace ?? false;
+                      const effectiveAllowOutside =
+                        displaySession?.allow_outside_workspace ?? globalAllowOutside;
+                      const policyMeta: Record<string, { icon: string; label: string }> = {
+                        strict: { icon: "🔒", label: t("chat.permStrict") },
+                        balanced: { icon: "⚖️", label: t("chat.permBalanced") },
+                        dev: { icon: "🔓", label: t("chat.permDev") },
+                      };
+                      const meta = policyMeta[effectivePolicy] || policyMeta.balanced;
+                      const items: ComposerMenuItem[] = [
+                        ...Object.entries(policyMeta).map(([id, m]) => ({
+                          id,
+                          label: m.label,
+                          icon: m.icon,
+                          selected: id === effectivePolicy,
+                        })),
+                        { id: "_perm_divider", label: "", divider: true },
+                        {
+                          id: "allow_outside_workspace",
+                          label: t("settings.allowOutsideWorkspace"),
+                          toggle: true,
+                          selected: effectiveAllowOutside,
+                        },
+                      ];
+                      return (
+                        <ComposerDropdown
+                          menuId="permission"
+                          icon={meta.icon}
+                          triggerLabel={meta.label}
+                          triggerTitle={t("chat.permLabel")}
+                          items={items}
+                          open={composerMenuOpen === "permission"}
+                          onOpenChange={(open) => setComposerMenuOpen(open ? "permission" : null)}
+                          onSelect={async (id) => {
+                            if (!displaySessionId) return;
+                            if (id === "allow_outside_workspace") {
+                              const next = !effectiveAllowOutside;
+                              try {
+                                await sessionsApi.setAllowOutsideWorkspace(displaySessionId, next);
+                                dispatch(sessionsActions.updateSessionAllowOutside({
+                                  id: displaySessionId,
+                                  allow_outside_workspace: next,
+                                }));
+                              } catch (e) {
+                                console.error("[Chat] session allow-outside update error:", e);
+                              }
+                              return;
+                            }
+                            if (id === effectivePolicy) return;
+                            try {
+                              await sessionsApi.setPolicyMode(displaySessionId, id);
+                              dispatch(sessionsActions.updateSessionPolicy({
+                                id: displaySessionId,
+                                policy_mode: id,
+                              }));
+                              setComposerMenuOpen(null);
+                            } catch (e) {
+                              console.error("[Chat] session policy update error:", e);
+                            }
+                          }}
+                          disabled={running}
+                          closeOnSelect={false}
+                          variant="wide"
+                          placement="above"
+                        />
+                      );
+                    })()}
+                  </div>
                 </div>
                 <ContextUsageRing
                   usage={displaySessionId ? contextUsage[displaySessionId] : undefined}
                   t={t}
                 />
+                <button
+                  type="button"
+                  className="btn-icon"
+                  onClick={handleShowContextPreview}
+                  disabled={contextPreviewLoading || !displaySessionId}
+                  title={t("chat.debugContextTitle")}
+                >
+                  {contextPreviewLoading ? "…" : "🔍"}
+                </button>
                 {voiceSupported && (
                   <button
                     type="button"
@@ -2641,15 +2815,6 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
                     <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                   </svg>
                 </button>
-                <button
-                  type="button"
-                  className="btn-icon"
-                  onClick={handleShowContextPreview}
-                  disabled={contextPreviewLoading || !displaySessionId}
-                  title={t("chat.debugContextTitle")}
-                >
-                  {contextPreviewLoading ? "…" : "🔍"}
-                </button>
                 {running ? (
                   <button className="btn btn-danger" onClick={handleCancel}>
                     ⏹ {t("common.stop")}
@@ -2666,6 +2831,8 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
               </div>
             </div>}
           </>
+            )}
+          </>
         ) : sessionFilter === "cli" ? (
           <div className="empty-state">
             <div className="empty-state-icon" aria-hidden="true" style={{ fontSize: 48 }}>
@@ -2673,6 +2840,15 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
             </div>
             <div className="empty-state-title">{t("chat.cliEmptyTitle")}</div>
             <div className="empty-state-desc">{t("chat.cliEmptyDesc")}</div>
+          </div>
+        ) : variant === "im" ? (
+          <div className="empty-state">
+            <div className="empty-state-icon" aria-hidden="true" style={{ fontSize: 48 }}>
+              📩
+            </div>
+            <div className="empty-state-title">{t("chat.imEmptyTitle")}</div>
+            <div className="empty-state-desc">{t("chat.imEmptyDesc")}</div>
+            <div className="assistant-im-connect">{imConnectFooter}</div>
           </div>
         ) : (
           <div className="empty-state">
@@ -2683,7 +2859,7 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
               </div>
             )}
             <div className="empty-state-icon">
-              <img src="/piscis.png" alt="小诺" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 14, opacity: 0.7 }} />
+              <img src={brand.logoPath} alt={brand.displayNameZh} style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 14, opacity: 0.7 }} />
             </div>
             <div className="empty-state-title">{t("chat.welcome")}</div>
             <div className="empty-state-desc">{t("chat.welcomeDesc")}</div>
@@ -2693,6 +2869,25 @@ export default function Chat({ onNavigateTab }: ChatProps = {}) {
           </div>
         )}
       </div>
+
+      {rightPanelOpen && (
+        <ChatRightPanel
+          artifact={previewArtifact}
+          onClose={() => setRightPanelOpen(false)}
+        />
+      )}
+
+      <TeamTaskCreateDialog
+        open={teamTaskDialogOpen}
+        defaultWorkspace={effectiveWorkspace}
+        onClose={() => setTeamTaskDialogOpen(false)}
+        onCreated={({ chatSessionId, poolSessionId }) => {
+          dispatch(sessionsActions.setActiveSession(chatSessionId));
+          dispatch(poolActions.setActivePoolSession(poolSessionId));
+          setChatViewTab("main");
+          setTeamTaskDialogOpen(false);
+        }}
+      />
 
       {permissionRequest && (
         <div className="permission-overlay">
@@ -3079,282 +3274,6 @@ function MessageContent({ content }: { content: string }) {
           {processed}
         </ReactMarkdown>
       </RenderErrorBoundary>
-    </div>
-  );
-}
-
-// ─── Tool step card ───────────────────────────────────────────────────────────
-
-const TOOL_ICONS: Record<string, string> = {
-  shell: "💻", powershell: "💻", powershell_query: "💻",
-  file_read: "📄", file_write: "📝",
-  web_search: "🔍",
-  web_fetch: "📰",
-  browser: "🌐",
-  screen_capture: "📸",
-  uia: "🖱️",
-  wmi: "🔧",
-  com: "📋",
-  office: "📊",
-  plan_todo: "🗂️",
-};
-
-function toolIcon(name: string): string {
-  return TOOL_ICONS[name] ?? "⚙️";
-}
-
-/** Summarise tool input into a one-line description */
-function toolSummary(name: string, input: unknown): string {
-  const i = input as Record<string, unknown>;
-  if (!i) return name;
-  if (name === "browser") {
-    const parts = [i["action"]];
-    if (i["url"]) parts.push(String(i["url"]).slice(0, 60));
-    else if (i["selector"]) parts.push(String(i["selector"]).slice(0, 40));
-    return parts.filter(Boolean).join(" → ");
-  }
-  if (name === "shell" || name === "powershell") return String(i["command"] ?? "").slice(0, 80);
-  if (name === "file_read" || name === "file_write") return String(i["path"] ?? "").slice(0, 80);
-  if (name === "web_search") return String(i["query"] ?? "").slice(0, 80);
-  if (name === "web_fetch") return String(i["url"] ?? "").slice(0, 80);
-  if (name === "screen_capture") return String(i["mode"] ?? "fullscreen");
-  return Object.entries(i).slice(0, 2).map(([k, v]) => `${k}=${String(v).slice(0, 30)}`).join(" ");
-}
-
-function planStatusLabel(t: ReturnType<typeof useTranslation>["t"], status: PlanTodoItem["status"]): string {
-  switch (status) {
-    case "pending":
-      return t("chat.planPending");
-    case "in_progress":
-      return t("chat.planInProgress");
-    case "completed":
-      return t("chat.planCompleted");
-    case "cancelled":
-      return t("chat.planCancelled");
-    default:
-      return status;
-  }
-}
-
-function PlanPanel({ items }: { items: PlanTodoItem[] }) {
-  const { t } = useTranslation();
-  return (
-    <div className="plan-panel">
-      {items.map((item, index) => (
-        <div key={item.id} className={`plan-item plan-${item.status}`}>
-          <div className="plan-item-left">
-            <span className="plan-item-index">{index + 1}</span>
-            <span className="plan-item-content">{item.content}</span>
-          </div>
-          <div className="plan-item-right">
-            <span className="plan-item-id">{item.id}</span>
-            <span className={`plan-item-status plan-status-${item.status}`}>
-              {item.status === "in_progress" && <span className="step-spinner" style={{ width: 10, height: 10, marginRight: 4 }} />}
-              {planStatusLabel(t, item.status)}
-            </span>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function artifactIcon(type: string): string {
-  switch (type.toLowerCase()) {
-    case "image":
-      return "IMG";
-    case "link":
-    case "url":
-      return "URL";
-    case "report":
-      return "RPT";
-    case "document":
-      return "DOC";
-    default:
-      return "FILE";
-  }
-}
-
-function formatArtifactTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
-function isWebUri(value: string): boolean {
-  return /^https?:\/\//i.test(value);
-}
-
-function ArtifactsPanel({ artifacts }: { artifacts: SessionArtifact[] }) {
-  const { t } = useTranslation();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = selectedId ? artifacts.find((a) => a.id === selectedId) ?? null : null;
-
-  if (selected) {
-    return (
-      <div className="artifacts-panel artifacts-panel-preview">
-        <button type="button" className="artifacts-back" onClick={() => setSelectedId(null)}>
-          <ChevronLeft size={15} strokeWidth={1.5} /> {t("preview.backToList")}
-        </button>
-        <div className="artifacts-preview-host">
-          <ArtifactPreview artifact={selected} />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="artifacts-panel">
-      {artifacts.map((artifact) => (
-        <div
-          key={artifact.id}
-          className="artifact-card artifact-card-clickable"
-          role="button"
-          tabIndex={0}
-          onClick={() => setSelectedId(artifact.id)}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setSelectedId(artifact.id); }}
-        >
-          <div className="artifact-icon" aria-hidden="true">{artifactIcon(artifact.artifact_type)}</div>
-          <div className="artifact-main">
-            <div className="artifact-title-row">
-              <span className="artifact-title">{artifact.name}</span>
-              <span className="artifact-type">{artifact.artifact_type}</span>
-            </div>
-            {artifact.content_summary && (
-              <div className="artifact-summary">{artifact.content_summary}</div>
-            )}
-            {artifact.uri && (
-              isWebUri(artifact.uri) ? (
-                <a className="artifact-uri" href={artifact.uri} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-                  {artifact.uri}
-                </a>
-              ) : (
-                <button className="artifact-uri artifact-uri-button" onClick={(e) => { e.stopPropagation(); openPath(artifact.uri!); }}>
-                  {artifact.uri}
-                </button>
-              )
-            )}
-            <div className="artifact-meta">
-              {artifact.source_tool && <span>{artifact.source_tool}</span>}
-              <span>{formatArtifactTime(artifact.created_at)}</span>
-              <span className="artifact-preview-hint"><Eye size={12} strokeWidth={1.5} /> {t("preview.preview")}</span>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function FishProgressBadge({ progress }: { progress: NonNullable<ToolStep["fishProgress"]> }) {
-  const { t } = useTranslation();
-  const statusLabel: Record<string, string> = {
-    thinking: t("chat.fishProgressThinking"),
-    thinking_text: t("chat.fishProgressThinking"),
-    tool_call: t("chat.fishProgressToolCall"),
-    tool_done: t("chat.fishProgressToolDone"),
-    done: t("chat.fishProgressDone"),
-  };
-  const label = statusLabel[progress.status] ?? progress.status;
-  const isRunning = progress.status !== "done";
-  const showThinking = isRunning && progress.thinkingText;
-
-  return (
-    <div className="fish-progress-badge">
-      <span className="fish-progress-icon">🐠</span>
-      <span className="fish-progress-name">{progress.fishName}</span>
-      {progress.iteration > 0 && (
-        <span className="fish-progress-iter">{t("chat.fishProgressStep", { n: progress.iteration })}</span>
-      )}
-      {progress.toolName && (
-        <span className="fish-progress-tool">{progress.toolName}</span>
-      )}
-      <span className={`fish-progress-status ${isRunning ? "fish-status-running" : "fish-status-done"}`}>
-        {isRunning && <span className="step-spinner" style={{ width: 10, height: 10, marginRight: 4 }} />}
-        {label}
-      </span>
-      {showThinking && (
-        <span className="fish-progress-thinking">{progress.thinkingText}</span>
-      )}
-    </div>
-  );
-}
-
-function ToolStepCard({ step, onToggle }: { step: ToolStep; onToggle: () => void }) {
-  const { t } = useTranslation();
-  const maxResultLen = 400;
-  const result = step.result ?? "";
-  const truncated = result.length > maxResultLen;
-  const [showFull, setShowFull] = useState(false);
-
-  const statusClass = !step.completed
-    ? "step-running"
-    : step.isError
-    ? "step-error"
-    : "step-ok";
-
-  const statusIcon = !step.completed ? (
-    <span className="step-spinner" aria-label="running" />
-  ) : step.isError ? (
-    <span className="step-status-icon">✕</span>
-  ) : (
-    <span className="step-status-icon">✓</span>
-  );
-
-  return (
-    <div className={`tool-step-card ${statusClass}`}>
-      <button className="tool-step-header" onClick={onToggle} aria-expanded={step.expanded}>
-        <span className="tool-step-icon">{toolIcon(step.name)}</span>
-        <span className="tool-step-name">{step.name}</span>
-        <span className="tool-step-summary">{toolSummary(step.name, step.input)}</span>
-        <span className={`tool-step-status ${statusClass}`}>{statusIcon}</span>
-        <span className="tool-step-chevron">{step.expanded ? "▲" : "▼"}</span>
-      </button>
-
-      {/* Fish progress inline — shown even when step is collapsed */}
-      {step.fishProgress && step.fishProgress.status !== "done" && (
-        <FishProgressBadge progress={step.fishProgress} />
-      )}
-
-      {step.expanded && (
-        <div className="tool-step-body">
-          {/* Fish progress detail when expanded */}
-          {step.fishProgress && (
-            <div className="tool-step-section">
-              <span className="tool-step-section-label">🐠 {t("chat.fishProgressSection")}</span>
-              <FishProgressBadge progress={step.fishProgress} />
-            </div>
-          )}
-          <div className="tool-step-section">
-            <span className="tool-step-section-label">{t("chat.toolStepInput")}</span>
-            <pre className="tool-step-pre">
-              {typeof step.input === "string"
-                ? step.input
-                : JSON.stringify(step.input, null, 2)}
-            </pre>
-          </div>
-          {step.completed && (
-            <div className="tool-step-section">
-              <span className={`tool-step-section-label ${step.isError ? "label-error" : ""}`}>
-                {step.isError ? t("chat.toolStepError") : t("chat.toolStepOutput")}
-              </span>
-              <pre className={`tool-step-pre ${step.isError ? "pre-error" : ""}`}>
-                {showFull || !truncated ? result : result.slice(0, maxResultLen) + "…"}
-              </pre>
-              {truncated && (
-                <button
-                  className="tool-step-show-more"
-                  onClick={(e) => { e.stopPropagation(); setShowFull(!showFull); }}
-                >
-                  {showFull
-                    ? t("chat.toolStepCollapse")
-                    : t("chat.toolStepExpand", { count: result.length })}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

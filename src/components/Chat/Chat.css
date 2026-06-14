@@ -1,6 +1,102 @@
 .chat-layout {
   display: flex;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+.chat-layout.has-right-panel .chat-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-right-panel {
+  width: min(420px, 42vw);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.chat-right-panel-header {
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.chat-right-panel-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-right-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.chat-right-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chat-right-panel-empty {
+  padding: 24px 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.chat-topbar-team-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: auto;
+}
+
+.chat-topbar-team-tab {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-height);
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--control-font-size);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.chat-topbar-team-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.chat-topbar-team-tab.active {
+  background: var(--nav-active-bg);
+  color: var(--text-primary);
+  border-color: var(--border);
+  font-weight: 600;
+}
+
+.chat-team-collab-host {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -290,6 +386,34 @@
 
 .chat-topbar-task-tab.active .chat-topbar-task-count {
   color: var(--accent);
+}
+
+.chat-topbar-task-tab.has-corner-badge {
+  position: relative;
+}
+
+.chat-topbar-corner-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.chat-topbar-task-tab.active .chat-topbar-corner-badge {
+  background: var(--accent);
+  color: #fff;
 }
 
 /* ── Session picker dropdown ────────────────────────────────────────────── */
@@ -1220,6 +1344,24 @@
   max-width: 200px;
   min-width: 0;
   color: var(--text-secondary);
+}
+
+.composer-mode-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 120px;
+  cursor: default;
+  opacity: 1;
+}
+
+.composer-mode-locked:disabled {
+  opacity: 1;
+  color: var(--text-secondary);
+}
+
+.composer-workspace-locked {
+  max-width: min(200px, 42vw);
 }
 
 /* Composer dropdowns — styles in components/ui/AppDropdown.css */

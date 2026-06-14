@@ -1,0 +1,23 @@
+.conversation-shell,
+.assistant-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.conversation-shell .chat-layout,
+.assistant-page .chat-layout {
+  flex: 1;
+  min-height: 0;
+}
+
+.assistant-im-connect {
+  width: min(360px, 100%);
+  margin-top: 8px;
+}
+
+.assistant-im-connect .session-picker-im-connect {
+  align-items: center;
+}

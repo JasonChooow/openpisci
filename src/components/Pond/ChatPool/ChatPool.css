@@ -116,6 +116,15 @@
   color: var(--text-muted);
 }
 
+.chatpool-field-hint {
+  margin: 2px 0 0;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-align: left;
+}
+
 .chatpool-session-item {
   position: relative;
   padding: 10px 10px;

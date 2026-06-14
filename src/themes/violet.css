@@ -50,6 +50,15 @@
   --shadow:    0 2px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
 
+  /* 浮层 / Toast */
+  --bg-elevated: #1e1e26;
+  --toast-bg: var(--bg-elevated);
+  --toast-warning-tint: rgba(245, 166, 35, 0.12);
+  --toast-error-tint: rgba(239, 68, 68, 0.14);
+  --toast-critical-tint: rgba(255, 51, 85, 0.18);
+  --toast-critical-ring: rgba(255, 51, 85, 0.45);
+  --toast-critical-glow: rgba(255, 51, 85, 0.25);
+
   /* 圆角 */
   --radius:    8px;
   --radius-lg: 12px;

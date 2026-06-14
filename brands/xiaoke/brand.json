@@ -1,0 +1,20 @@
+{
+  "id": "xiaoke",
+  "displayNameZh": "小锞",
+  "displayNameEn": "XiaoKe",
+  "productName": "XiaoKe",
+  "windowTitle": "小锞 XiaoKe",
+  "overlayTitle": "小锞 Overlay",
+  "proWindowTitle": "小锞 · 专业功能",
+  "copyright": "Copyright 2025 XiaoKe Team",
+  "shortDescription": "小锞 XiaoKe - Open-source cross-platform AI Agent Desktop",
+  "longDescription": "小锞 (XiaoKe) is an open-source cross-platform AI agent desktop for Windows, macOS, and Linux. 小锞 is the main coordinator agent inside the app — with chat, memory, skills, MCP tools, browser automation, and pool-based multi-agent orchestration, all running locally against the LLM provider of your choice.",
+  "logoPath": "/piscis.png",
+  "bundleIdentifier": "com.xiaoke.desktop",
+  "githubRepo": "njbinbin/openpisci",
+  "iconSource": "brands/xiaoke/icon-source.png",
+  "i18nReplace": {
+    "zh": { "小诺": "小锞" },
+    "en": { "XiaoNuo": "XiaoKe" }
+  }
+}

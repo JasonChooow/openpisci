@@ -25,19 +25,20 @@ import ConfirmDialog from "../ConfirmDialog";
 import type { SyncSkillsResult } from "../../services/tauri";
 import i18n from "../../i18n";
 import { buildSkillAdaptationPrompt, type SkillAdaptationTarget } from "../../utils/skillAdaptation";
+import "../ExpertHub/ExpertHub.css";
 
 interface SkillsProps {
   onNavigateTab?: (tab: "chat") => void;
+  embedded?: boolean;
+  hubScope?: "market" | "installed";
 }
 
-const SOURCE_BADGE: Record<string, { label: string; color: string }> = {
-  builtin:   { label: "builtin",   color: "var(--text-muted)" },
-  installed: { label: "installed", color: "#28a745" },
-  workspace: { label: "workspace", color: "#ffc107" },
-  registry:  { label: "registry",  color: "var(--accent)" },
-};
+const ALL_SKILL_TABS = ["local", "evolution", "hub", "official", "openai"] as const;
+type SkillPanelTab = (typeof ALL_SKILL_TABS)[number];
+const INSTALLED_SKILL_TABS: SkillPanelTab[] = ["local", "evolution"];
+const MARKET_SKILL_TABS: SkillPanelTab[] = ["hub", "official", "openai"];
 
-export default function Skills({ onNavigateTab }: SkillsProps = {}) {
+export default function Skills({ onNavigateTab, embedded = false, hubScope = "installed" }: SkillsProps = {}) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const { skills } = useSelector((s: RootState) => s.skills);
@@ -61,7 +62,7 @@ export default function Skills({ onNavigateTab }: SkillsProps = {}) {
   const [syncing, setSyncing] = useState(false);
 
   // ClawHub marketplace
-  const [hubTab, setHubTab] = useState<"local" | "evolution" | "hub" | "official" | "openai">("local");
+  const [hubTab, setHubTab] = useState<SkillPanelTab>("local");
   const [hubQuery, setHubQuery] = useState("");
   const [hubResults, setHubResults] = useState<ClawHubSkill[]>([]);
   const [hubSearching, setHubSearching] = useState(false);
@@ -110,6 +111,22 @@ export default function Skills({ onNavigateTab }: SkillsProps = {}) {
     loadSkills();
     loadEvolution();
   }, [loadSkills, loadEvolution]);
+
+  useEffect(() => {
+    if (!embedded) return;
+    setHubTab(hubScope === "market" ? "hub" : "local");
+  }, [embedded, hubScope]);
+
+  const visibleSkillTabs = embedded
+    ? (hubScope === "market" ? MARKET_SKILL_TABS : INSTALLED_SKILL_TABS)
+    : ALL_SKILL_TABS;
+
+  const SOURCE_BADGE: Record<string, { label: string; color: string }> = {
+    builtin:   { label: "builtin",   color: "var(--text-muted)" },
+    installed: { label: "installed", color: "#28a745" },
+    workspace: { label: "workspace", color: "#ffc107" },
+    registry:  { label: "registry",  color: "var(--accent)" },
+  };
 
   const handleSyncFromDisk = useCallback(async () => {
     setSyncing(true);
@@ -521,26 +538,28 @@ export default function Skills({ onNavigateTab }: SkillsProps = {}) {
   };
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <h1 className="page-title">⚡ {t("skills.title")}</h1>
-        <div className="page-header-actions">
-          <span className="badge badge-info">
-            {t("skills.enabledCount", { enabled: visibleSkills.filter((s) => s.enabled).length, total: visibleSkills.length })}
-          </span>
-          <button
-            type="button"
-            className="btn-header"
-            onClick={handleSyncFromDisk}
-            disabled={syncing}
-            title={t("skills.syncBtn")}
-          >
-            {syncing ? t("skills.syncing") : `↻ ${t("skills.syncBtn")}`}
-          </button>
+    <div className={embedded ? "skills-embedded" : "page"}>
+      {!embedded && (
+        <div className="page-header">
+          <h1 className="page-title">⚡ {t("skills.title")}</h1>
+          <div className="page-header-actions">
+            <span className="badge badge-info">
+              {t("skills.enabledCount", { enabled: visibleSkills.filter((s) => s.enabled).length, total: visibleSkills.length })}
+            </span>
+            <button
+              type="button"
+              className="btn-header"
+              onClick={handleSyncFromDisk}
+              disabled={syncing}
+              title={t("skills.syncBtn")}
+            >
+              {syncing ? t("skills.syncing") : `↻ ${t("skills.syncBtn")}`}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="page-body">
+      <div className={embedded ? undefined : "page-body"}>
         {error && (
           <div style={{ padding: "8px 14px", background: "rgba(220,53,69,0.15)", borderLeft: "3px solid #dc3545", color: "#ff6b6b", fontSize: "0.85rem", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
             <span>{error}</span>
@@ -565,23 +584,33 @@ export default function Skills({ onNavigateTab }: SkillsProps = {}) {
           onCancel={() => !uninstalling && setUninstallTarget(null)}
         />
 
+        {embedded && hubScope === "installed" && (
+          <div className="skills-embedded-toolbar">
+            <span className="badge badge-info">
+              {t("skills.enabledCount", { enabled: visibleSkills.filter((s) => s.enabled).length, total: visibleSkills.length })}
+            </span>
+            <button
+              type="button"
+              className="btn-header"
+              onClick={handleSyncFromDisk}
+              disabled={syncing}
+              title={t("skills.syncBtn")}
+            >
+              {syncing ? t("skills.syncing") : `↻ ${t("skills.syncBtn")}`}
+            </button>
+          </div>
+        )}
+
         {/* Tab switcher */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid var(--border)", paddingBottom: 0 }}>
-          {(["local", "evolution", "hub", "official", "openai"] as const).map((tab) => (
+        <div className="market-nav-tertiary" role="tablist">
+          {visibleSkillTabs.map((tab) => (
             <button
               key={tab}
+              type="button"
+              role="tab"
+              aria-selected={hubTab === tab}
               onClick={() => setHubTab(tab)}
-              style={{
-                padding: "6px 16px",
-                background: "none",
-                border: "none",
-                borderBottom: hubTab === tab ? "2px solid var(--accent)" : "2px solid transparent",
-                color: hubTab === tab ? "var(--accent)" : "var(--text-secondary)",
-                cursor: "pointer",
-                fontWeight: hubTab === tab ? 600 : 400,
-                fontSize: 13,
-                marginBottom: -1,
-              }}
+              className={hubTab === tab ? "active" : ""}
             >
               {tab === "local"
                 ? `⚡ ${t("skills.tabLocal")}`

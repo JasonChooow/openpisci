@@ -1,0 +1,446 @@
+.expert-hub {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.expert-hub-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px 28px;
+}
+
+/* Layer 1 + 2: primary underline tabs + segmented scope toggle */
+.market-nav {
+  margin-bottom: 20px;
+}
+
+.market-nav-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.market-nav-primary {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+}
+
+.market-nav-primary button {
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.market-nav-primary button:hover {
+  color: var(--text-primary);
+}
+
+.market-nav-primary button.active {
+  color: var(--text-primary);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+
+.market-nav-segment {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 3px;
+  gap: 2px;
+  margin-bottom: 8px;
+  background: var(--bg-secondary, var(--bg-tertiary));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.market-nav-segment button {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 14px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.market-nav-segment button:hover:not(.active) {
+  color: var(--text-primary);
+}
+
+.market-nav-segment button.active {
+  background: var(--bg, var(--panel-bg));
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* Layer 3: compact text tabs inside skill panels */
+.market-nav-tertiary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.market-nav-tertiary button {
+  padding: 2px 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -11px;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.market-nav-tertiary button:hover {
+  color: var(--text-secondary);
+}
+
+.market-nav-tertiary button.active {
+  color: var(--accent);
+  font-weight: 500;
+  border-bottom-color: var(--accent);
+}
+
+.expert-market-grid,
+.expert-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.expert-market-card,
+.expert-team-card {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl, 12px);
+  background: var(--bg-secondary, var(--bg));
+}
+
+.expert-market-card h3,
+.expert-team-card h3 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.expert-market-card p,
+.expert-team-card p {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.expert-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.skills-embedded-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.team-installed-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.team-installed-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 560px;
+}
+
+.team-installed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.team-installed-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl, 12px);
+  background: var(--bg-secondary, var(--bg));
+}
+
+.team-installed-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.team-installed-card-head h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.team-origin-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+
+.team-installed-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.team-installed-card-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.team-member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.team-member-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--bg-tertiary, var(--bg));
+  border: 1px solid var(--border);
+}
+
+.team-member-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.team-member-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.team-member-role {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.team-installed-meta code,
+.team-card-id {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.market-source-badge {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+  color: var(--text-secondary);
+  margin-left: 6px;
+}
+
+.market-source-badge.cloud {
+  background: rgba(91, 141, 239, 0.16);
+  color: #5b8def;
+}
+
+.market-source-badge.clawhub {
+  background: rgba(245, 158, 11, 0.16);
+  color: #f59e0b;
+}
+
+.team-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.team-editor {
+  width: min(520px, 100%);
+  max-height: min(80vh, 720px);
+  overflow: auto;
+  padding: 20px;
+  border-radius: 14px;
+  background: var(--bg, #fff);
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+}
+
+.team-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.team-editor-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.team-editor-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.team-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.team-editor-members-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.team-editor-member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.team-editor-member {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+}
+
+.team-editor-member-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.team-editor-role {
+  flex: 1;
+}
+
+.team-editor-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.team-member-source {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.team-editor-koi-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.team-editor-koi-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.team-editor-koi-option:hover {
+  background: var(--bg-hover);
+}
+
+.team-editor-muted {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.team-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}

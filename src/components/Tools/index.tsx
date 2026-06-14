@@ -5,8 +5,9 @@ import {
   BuiltinToolInfo, UserToolInfo, ConfigFieldSchema,
   McpServerConfig, McpToolInfo,
 } from "../../services/tauri";
+import IntegrationsPanel from "./IntegrationsPanel";
 import ConfirmDialog from "../ConfirmDialog";
-import "./Tools.css";
+import type { SettingsSubTab, ToolsSubTab } from "../SettingsHub/types";
 
 // ─── Config Form (for user tools) ────────────────────────────────────────────
 
@@ -488,11 +489,20 @@ function McpServerCard({ server, onEdit, onDelete }: McpServerCardProps) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type ToolsTab = "builtin" | "user" | "mcp";
+type ToolsTab = ToolsSubTab;
 
-export default function Tools() {
+type ToolsProps = {
+  initialTab?: ToolsTab;
+  onOpenSettingsTab?: (tab: SettingsSubTab) => void;
+};
+
+export default function Tools({ initialTab = "builtin" }: ToolsProps) {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<ToolsTab>("builtin");
+  const [activeTab, setActiveTab] = useState<ToolsTab>(initialTab);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
 
   // Builtin tools state
   const [builtinTools, setBuiltinTools] = useState<BuiltinToolInfo[]>([]);
@@ -672,6 +682,12 @@ export default function Tools() {
             <span className="tools-tab-badge">{mcpServers.length}</span>
           )}
         </button>
+        <button
+          className={`tools-tab ${activeTab === "integrations" ? "active" : ""}`}
+          onClick={() => setActiveTab("integrations")}
+        >
+          🔌 {t("tools.tabIntegrations")}
+        </button>
       </div>
 
       {/* Shared status banner */}
@@ -785,6 +801,8 @@ export default function Tools() {
           </div>
         </section>
       )}
+
+      {activeTab === "integrations" && <IntegrationsPanel />}
 
       {/* Config modal for user tools */}
       {configuringTool && (

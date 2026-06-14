@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Generate the XiaoNuo app icon set from the generated mascot render.
+"""Generate the app icon set from a brand mascot render.
 
 Keys out the light background (flood fill from the borders so interior
 highlights are preserved), crops to content, squares + pads it, then emits
 the full Tauri / frontend icon set.
 """
+import argparse
 import os
 from collections import deque
 
 import numpy as np
 from PIL import Image, ImageFilter
 
-ASSETS = "/home/agent/.cursor/projects/home-agent-Projects-openpisci/assets/xiaonuo-icon.png"
 ICONS_DIR = "src-tauri/icons"
 PUBLIC = "public"
 
@@ -71,7 +71,18 @@ def crop_square(im: Image.Image, pad_ratio: float = 0.06) -> Image.Image:
 
 
 def main():
-    src = Image.open(ASSETS)
+    parser = argparse.ArgumentParser(description="Generate Tauri + frontend icons from a PNG source.")
+    parser.add_argument(
+        "--source",
+        default=os.environ.get("BRAND_ICON_SOURCE", "brands/xiaonuo/icon-source.png"),
+        help="Path to mascot PNG (relative to repo root)",
+    )
+    args = parser.parse_args()
+    if not os.path.isfile(args.source):
+        print(f"Icon source not found: {args.source}")
+        raise SystemExit(1)
+
+    src = Image.open(args.source)
     keyed = remove_light_background(src)
     master = crop_square(keyed).resize((1024, 1024), Image.LANCZOS)
 

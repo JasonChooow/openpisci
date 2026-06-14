@@ -17,11 +17,10 @@
   gap: 10px;
   padding: 10px 12px;
   border-radius: 10px;
-  background: var(--bg-elevated, #1e1e26);
-  color: var(--text-primary, #f1f1f3);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35),
-              0 2px 4px rgba(0, 0, 0, 0.25);
-  border-left: 4px solid var(--color-accent, #7c5cff);
+  background: var(--toast-bg, var(--bg-secondary));
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
+  border-left: 4px solid var(--accent);
   animation: piscis-toast-in 0.22s ease-out;
   min-width: 260px;
   max-width: 380px;
@@ -54,12 +53,13 @@
   font-weight: 600;
   font-size: 13px;
   margin-bottom: 2px;
+  color: var(--text-primary);
 }
 
 .piscis-toast-message {
   font-size: 13px;
   line-height: 1.4;
-  color: var(--text-secondary, #c8c8cf);
+  color: var(--text-secondary);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -68,26 +68,26 @@
   margin-top: 4px;
   font-size: 11px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--text-muted, #8a8a94);
-  opacity: 0.85;
+  color: var(--text-muted);
 }
 
 .piscis-toast-close {
   background: transparent;
   border: none;
-  color: inherit;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 14px;
   padding: 2px 6px;
   border-radius: 6px;
-  opacity: 0.6;
+  opacity: 0.7;
   flex: 0 0 auto;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .piscis-toast-close:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }
 
 /* Level-specific accents */
@@ -96,20 +96,20 @@
 }
 
 .piscis-toast-warning {
-  border-left-color: #f5a623;
+  border-left-color: var(--warning, #f5a623);
   background: linear-gradient(
     90deg,
-    rgba(245, 166, 35, 0.12) 0%,
-    var(--bg-elevated, #1e1e26) 60%
+    var(--toast-warning-tint, rgba(245, 166, 35, 0.12)) 0%,
+    var(--toast-bg, var(--bg-secondary)) 58%
   );
 }
 
 .piscis-toast-error {
-  border-left-color: #ef4444;
+  border-left-color: var(--error, #ef4444);
   background: linear-gradient(
     90deg,
-    rgba(239, 68, 68, 0.14) 0%,
-    var(--bg-elevated, #1e1e26) 60%
+    var(--toast-error-tint, rgba(239, 68, 68, 0.14)) 0%,
+    var(--toast-bg, var(--bg-secondary)) 58%
   );
 }
 
@@ -117,12 +117,12 @@
   border-left-color: #ff3355;
   background: linear-gradient(
     90deg,
-    rgba(255, 51, 85, 0.18) 0%,
-    var(--bg-elevated, #1e1e26) 65%
+    var(--toast-critical-tint, rgba(255, 51, 85, 0.18)) 0%,
+    var(--toast-bg, var(--bg-secondary)) 58%
   );
-  box-shadow: 0 0 0 1px rgba(255, 51, 85, 0.45),
-              0 10px 32px rgba(255, 51, 85, 0.25),
-              0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 1px var(--toast-critical-ring, rgba(255, 51, 85, 0.45)),
+              0 10px 32px var(--toast-critical-glow, rgba(255, 51, 85, 0.25)),
+              var(--shadow-lg);
   animation:
     piscis-toast-in 0.22s ease-out,
     piscis-toast-critical-pulse 2.4s ease-in-out 0.3s infinite;
@@ -130,13 +130,13 @@
 
 @keyframes piscis-toast-critical-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 1px rgba(255, 51, 85, 0.4),
-                0 10px 32px rgba(255, 51, 85, 0.2),
-                0 4px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 0 1px var(--toast-critical-ring, rgba(255, 51, 85, 0.4)),
+                0 10px 32px var(--toast-critical-glow, rgba(255, 51, 85, 0.2)),
+                var(--shadow-lg);
   }
   50% {
     box-shadow: 0 0 0 2px rgba(255, 51, 85, 0.7),
                 0 12px 40px rgba(255, 51, 85, 0.4),
-                0 4px 8px rgba(0, 0, 0, 0.3);
+                var(--shadow-lg);
   }
 }

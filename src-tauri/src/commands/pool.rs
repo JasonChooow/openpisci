@@ -16,6 +16,7 @@ use crate::pool::{PoolMessage, PoolSession};
 use crate::store::AppState;
 use piscis_core::host::{PoolEvent, PoolEventSink, PoolMessageSnapshot, PoolSessionSnapshot};
 use serde::Deserialize;
+use serde::Serialize;
 use serde_json::json;
 use tauri::State;
 
@@ -98,6 +99,95 @@ pub async fn create_pool_session(
         task_timeout_secs.unwrap_or(0),
     )
     .map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateTeamTaskBundleInput {
+    pub name: String,
+    pub project_dir: String,
+    pub task_timeout_secs: u32,
+    /// "adhoc" | "template" — kept for client semantics; org_spec and koi_ids apply regardless.
+    #[allow(dead_code)]
+    pub mode: String,
+    #[serde(default)]
+    pub koi_ids: Vec<String>,
+    pub org_spec: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TeamTaskBundleResult {
+    pub chat_session_id: String,
+    pub pool_session_id: String,
+    pub project_dir: String,
+    pub chat_session: piscis_kernel::store::db::Session,
+    pub pool_session: PoolSession,
+}
+
+#[tauri::command]
+pub async fn create_team_task_bundle(
+    state: State<'_, AppState>,
+    input: CreateTeamTaskBundleInput,
+) -> Result<TeamTaskBundleResult, String> {
+    let name = input.name.trim();
+    if name.is_empty() {
+        return Err("Project name is required".into());
+    }
+    let project_dir = input.project_dir.trim();
+    if project_dir.is_empty() {
+        return Err("Project directory is required".into());
+    }
+
+    std::fs::create_dir_all(project_dir).map_err(|e| format!("Failed to create project dir: {e}"))?;
+
+    let (chat_session, pool_session) = {
+        let db = state.db.lock().await;
+        let pool = db
+            .create_pool_session_with_dir(name, Some(project_dir), input.task_timeout_secs)
+            .map_err(|e| e.to_string())?;
+
+        if let Some(ref org_spec) = input.org_spec {
+            if !org_spec.trim().is_empty() {
+                db.update_pool_org_spec(&pool.id, org_spec.trim())
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+
+        for koi_id in &input.koi_ids {
+            let kid = koi_id.trim();
+            if !kid.is_empty() {
+                db.add_pool_member(&pool.id, kid)
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+
+        let pool = db
+            .get_pool_session(&pool.id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Pool session missing after create".to_string())?;
+
+        let chat = db
+            .create_session_with_source(Some(name), "team")
+            .map_err(|e| e.to_string())?;
+        db.set_session_workspace(&chat.id, Some(project_dir))
+            .map_err(|e| e.to_string())?;
+        db.set_session_pool_id(&chat.id, Some(&pool.id))
+            .map_err(|e| e.to_string())?;
+
+        let chat = db
+            .get_session(&chat.id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Chat session missing after create".to_string())?;
+
+        (chat, pool)
+    };
+
+    Ok(TeamTaskBundleResult {
+        chat_session_id: chat_session.id.clone(),
+        pool_session_id: pool_session.id.clone(),
+        project_dir: project_dir.to_string(),
+        chat_session,
+        pool_session,
+    })
 }
 
 #[tauri::command]
@@ -244,6 +334,17 @@ pub async fn update_pool_session_dir(
 ) -> Result<(), String> {
     let db = state.db.lock().await;
     db.update_pool_session_dir(&id, &project_dir)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn rename_pool_session(
+    state: State<'_, AppState>,
+    id: String,
+    name: String,
+) -> Result<(), String> {
+    let db = state.db.lock().await;
+    db.update_pool_session_name(&id, &name)
         .map_err(|e| e.to_string())
 }
 

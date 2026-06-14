@@ -1,21 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+import hljs from "highlight.js";
 import { ExternalLink, Download, FileText } from "lucide-react";
 import { openPath, type SessionArtifact } from "../../services/tauri";
 import { ideApi } from "../../services/tauri/ide";
 import type { FileContent } from "../Pond/IDE/types";
+import "highlight.js/styles/github-dark.min.css";
 import "./ArtifactPreview.css";
 
-type PreviewKind = "web" | "image" | "pdf" | "markdown" | "text" | "unknown";
+type PreviewKind = "web" | "image" | "pdf" | "markdown" | "code" | "html" | "unknown";
 
 const IMAGE_EXT = ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico", "avif"];
-const TEXT_EXT = [
+const CODE_EXT = [
   "txt", "log", "json", "yaml", "yml", "toml", "ini", "csv", "tsv",
   "js", "ts", "tsx", "jsx", "py", "rs", "go", "java", "c", "cpp", "h", "hpp",
-  "css", "scss", "html", "xml", "sh", "bash", "sql", "rb", "php", "kt", "swift",
+  "css", "scss", "xml", "sh", "bash", "sql", "rb", "php", "kt", "swift",
 ];
 
 function isWebUri(value: string): boolean {
@@ -30,26 +33,44 @@ function extOf(value: string): string {
 
 function classify(artifact: SessionArtifact): PreviewKind {
   const uri = artifact.uri || "";
-  if (uri && isWebUri(uri)) return "web";
   const ext = extOf(uri || artifact.name || "");
+  if (ext === "html" || ext === "htm") return "html";
+  if (uri && isWebUri(uri)) return "web";
   if (IMAGE_EXT.includes(ext)) return "image";
   if (ext === "pdf") return "pdf";
   if (ext === "md" || ext === "markdown") return "markdown";
-  if (TEXT_EXT.includes(ext)) return "text";
+  if (CODE_EXT.includes(ext)) return "code";
   return "unknown";
 }
 
-export default function ArtifactPreview({ artifact }: { artifact: SessionArtifact }) {
+function highlightCode(text: string, ext: string): string {
+  const lang = ext && hljs.getLanguage(ext) ? ext : undefined;
+  if (lang) {
+    return hljs.highlight(text, { language: lang }).value;
+  }
+  return hljs.highlightAuto(text).value;
+}
+
+export default function ArtifactPreview({
+  artifact,
+  hideToolbar = false,
+}: {
+  artifact: SessionArtifact;
+  hideToolbar?: boolean;
+}) {
   const { t } = useTranslation();
   const kind = classify(artifact);
   const uri = artifact.uri || "";
+  const ext = extOf(uri || artifact.name || "");
   const [text, setText] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const needsFileContent = kind === "markdown" || kind === "code" || kind === "html";
+
   useEffect(() => {
     let cancelled = false;
-    if ((kind === "text" || kind === "markdown") && uri && !isWebUri(uri)) {
+    if (needsFileContent && uri && !isWebUri(uri)) {
       setLoading(true);
       setError(null);
       ideApi
@@ -71,11 +92,22 @@ export default function ArtifactPreview({ artifact }: { artifact: SessionArtifac
         });
     } else {
       setText(null);
+      setError(null);
+      setLoading(false);
     }
     return () => {
       cancelled = true;
     };
-  }, [uri, kind, t]);
+  }, [uri, kind, needsFileContent, t]);
+
+  const highlightedCode = useMemo(() => {
+    if (kind !== "code" || !text) return null;
+    try {
+      return highlightCode(text, ext);
+    } catch {
+      return null;
+    }
+  }, [kind, text, ext]);
 
   const openExternal = () => {
     if (!uri) return;
@@ -94,6 +126,19 @@ export default function ArtifactPreview({ artifact }: { artifact: SessionArtifac
     );
   } else if (kind === "pdf") {
     body = <iframe className="artifact-preview-frame" src={convertFileSrc(uri)} title={artifact.name} />;
+  } else if (kind === "html") {
+    body = loading ? (
+      <div className="artifact-preview-status">{t("common.loading")}</div>
+    ) : error ? (
+      <div className="artifact-preview-status artifact-preview-error">{error}</div>
+    ) : (
+      <iframe
+        className="artifact-preview-frame"
+        sandbox=""
+        srcDoc={text || ""}
+        title={artifact.name}
+      />
+    );
   } else if (kind === "markdown") {
     body = loading ? (
       <div className="artifact-preview-status">{t("common.loading")}</div>
@@ -101,14 +146,20 @@ export default function ArtifactPreview({ artifact }: { artifact: SessionArtifac
       <div className="artifact-preview-status artifact-preview-error">{error}</div>
     ) : (
       <div className="artifact-preview-markdown">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{text || ""}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+          {text || ""}
+        </ReactMarkdown>
       </div>
     );
-  } else if (kind === "text") {
+  } else if (kind === "code") {
     body = loading ? (
       <div className="artifact-preview-status">{t("common.loading")}</div>
     ) : error ? (
       <div className="artifact-preview-status artifact-preview-error">{error}</div>
+    ) : highlightedCode ? (
+      <pre className="artifact-preview-code">
+        <code className="hljs" dangerouslySetInnerHTML={{ __html: highlightedCode }} />
+      </pre>
     ) : (
       <pre className="artifact-preview-code">{text || ""}</pre>
     );
@@ -119,32 +170,38 @@ export default function ArtifactPreview({ artifact }: { artifact: SessionArtifac
         {artifact.content_summary && (
           <p className="artifact-preview-summary">{artifact.content_summary}</p>
         )}
-        {uri && (
-          <button type="button" className="btn btn-secondary" onClick={openExternal}>
+        {uri && isWebUri(uri) ? (
+          <a className="btn btn-secondary artifact-preview-link" href={uri} target="_blank" rel="noreferrer">
             <ExternalLink size={14} strokeWidth={1.5} /> {t("preview.openExternal")}
+          </a>
+        ) : uri ? (
+          <button type="button" className="btn btn-secondary" onClick={openExternal}>
+            <ExternalLink size={14} strokeWidth={1.5} /> {t("preview.openInSystem")}
           </button>
-        )}
+        ) : null}
       </div>
     );
   }
 
   return (
     <div className="artifact-preview">
-      <div className="artifact-preview-toolbar">
-        <span className="artifact-preview-name" title={uri || artifact.name}>
-          {artifact.name}
-        </span>
-        {uri && (
-          <button
-            type="button"
-            className="btn-icon"
-            onClick={openExternal}
-            title={isWebUri(uri) ? t("preview.openExternal") : t("preview.openInSystem")}
-          >
-            {isWebUri(uri) ? <ExternalLink size={15} strokeWidth={1.5} /> : <Download size={15} strokeWidth={1.5} />}
-          </button>
-        )}
-      </div>
+      {!hideToolbar && (
+        <div className="artifact-preview-toolbar">
+          <span className="artifact-preview-name" title={uri || artifact.name}>
+            {artifact.name}
+          </span>
+          {uri && (
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={openExternal}
+              title={isWebUri(uri) ? t("preview.openExternal") : t("preview.openInSystem")}
+            >
+              {isWebUri(uri) ? <ExternalLink size={15} strokeWidth={1.5} /> : <Download size={15} strokeWidth={1.5} />}
+            </button>
+          )}
+        </div>
+      )}
       <div className="artifact-preview-body">{body}</div>
     </div>
   );

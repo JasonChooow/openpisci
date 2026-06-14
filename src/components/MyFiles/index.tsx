@@ -5,6 +5,7 @@ import { ChevronLeft, RefreshCw, FolderOpen } from "lucide-react";
 import type { RootState } from "../../store";
 import { artifactsApi, type SessionArtifact } from "../../services/tauri";
 import { classifyMainChatSession, isInternalSession } from "../../utils/session";
+import { parseUtcTimestamp } from "../../utils/parseTimestamp";
 import RoundedSearch from "../ui/RoundedSearch";
 import ArtifactPreview from "../Chat/ArtifactPreview";
 import "./MyFiles.css";
@@ -69,7 +70,7 @@ export default function MyFiles({ visible = true }: { visible?: boolean }) {
         }
       });
       merged.sort(
-        (a, b) => (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0),
+        (a, b) => parseUtcTimestamp(b.created_at) - parseUtcTimestamp(a.created_at),
       );
       setItems(merged);
     } finally {

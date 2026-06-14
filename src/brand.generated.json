@@ -1,0 +1,15 @@
+{
+  "id": "xiaonuo",
+  "displayNameZh": "小诺",
+  "displayNameEn": "XiaoNuo",
+  "productName": "XiaoNuo",
+  "windowTitle": "小诺 XiaoNuo",
+  "overlayTitle": "小诺 Overlay",
+  "logoPath": "/piscis.png",
+  "i18nReplace": {
+    "zh": {},
+    "en": {}
+  },
+  "githubRepo": "njbinbin/openpisci",
+  "bundleIdentifier": "com.piscis.desktop"
+}

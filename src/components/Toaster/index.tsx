@@ -15,6 +15,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
+import i18n from "../../i18n";
+import { store } from "../../store";
 import "./Toaster.css";
 
 type ToastLevel = "info" | "warning" | "error" | "critical";
@@ -25,6 +27,7 @@ interface ToastPayload {
   message: string;
   level?: ToastLevel;
   pool_id?: string;
+  pool_name?: string;
   duration_ms?: number;
   source?: string;
   ts?: number;
@@ -35,7 +38,7 @@ interface Toast {
   title: string;
   message: string;
   level: ToastLevel;
-  poolId?: string;
+  teamTaskLabel?: string;
   durationMs: number;
 }
 
@@ -60,12 +63,51 @@ function normalizeLevel(raw?: string): ToastLevel {
   }
 }
 
+function resolveTeamTaskName(poolId?: string, poolName?: string): string | undefined {
+  const fromPayload = poolName?.trim();
+  if (fromPayload) return fromPayload;
+  if (!poolId) return undefined;
+
+  const state = store.getState();
+  const pool = state.pool.sessions.find((p) => p.id === poolId);
+  if (pool?.name?.trim()) return pool.name.trim();
+
+  const session = state.sessions.sessions.find((s) => s.pool_session_id === poolId);
+  if (session?.title?.trim()) return session.title.trim();
+
+  return undefined;
+}
+
+function buildToastFromPayload(p: ToastPayload): Omit<Toast, "id" | "durationMs"> {
+  const t = i18n.t.bind(i18n);
+  const level = normalizeLevel(p.level);
+  const teamName = resolveTeamTaskName(p.pool_id, p.pool_name);
+
+  let title = p.title?.trim() || t("app.defaultToastTitle");
+  let teamTaskLabel: string | undefined;
+
+  if (p.source === "heartbeat_auto" && teamName) {
+    title = t("app.toastHumanDecision", { name: teamName });
+  } else if (teamName) {
+    teamTaskLabel = t("app.toastTeamTask", { name: teamName });
+  } else if (p.pool_id) {
+    teamTaskLabel = p.pool_id;
+  }
+
+  return {
+    title,
+    message: p.message,
+    level,
+    teamTaskLabel,
+  };
+}
+
 export default function Toaster() {
   const { t } = useTranslation();
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const dismiss = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
   useEffect(() => {
@@ -83,24 +125,19 @@ export default function Toaster() {
 
       const toast: Toast = {
         id: p.id || `toast_${Date.now()}_${Math.random()}`,
-        title: p.title?.trim() || t("app.defaultToastTitle"),
-        message: p.message,
-        level,
-        poolId: p.pool_id,
         durationMs,
+        ...buildToastFromPayload(p),
       };
 
       setToasts((prev) => {
-        // Dedupe by id to avoid stacking repeated auto-emissions.
-        const filtered = prev.filter((t) => t.id !== toast.id);
-        // Keep at most 5 toasts on screen.
+        const filtered = prev.filter((item) => item.id !== toast.id);
         const trimmed = filtered.slice(-4);
         return [...trimmed, toast];
       });
 
       if (durationMs > 0) {
         setTimeout(() => {
-          setToasts((prev) => prev.filter((t) => t.id !== toast.id));
+          setToasts((prev) => prev.filter((item) => item.id !== toast.id));
         }, durationMs);
       }
     }).then((fn) => { unlisten = fn; });
@@ -121,8 +158,8 @@ export default function Toaster() {
           <div className="piscis-toast-body">
             <div className="piscis-toast-title">{toast.title}</div>
             <div className="piscis-toast-message">{toast.message}</div>
-            {toast.poolId && (
-              <div className="piscis-toast-meta">pool: {toast.poolId}</div>
+            {toast.teamTaskLabel && (
+              <div className="piscis-toast-meta">{toast.teamTaskLabel}</div>
             )}
           </div>
           <button
