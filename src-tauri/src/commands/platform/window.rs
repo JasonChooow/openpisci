@@ -6,6 +6,8 @@
 
 use crate::app::shutdown;
 use crate::brand_generated::PRO_WINDOW_TITLE;
+#[cfg(target_os = "windows")]
+use crate::brand_generated::PRODUCT_NAME;
 use crate::store::AppState;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tracing::info;
