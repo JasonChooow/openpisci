@@ -49,11 +49,15 @@ Public browse index. No authentication required.
 }
 ```
 
-**Query (recommended for desktop):** `?surface=desktop&os=linux&capabilities=mcp_stdio,com`
+**Query (recommended for desktop):** `?surface=desktop&os=linux&capabilities=mcp_stdio,com&channel=stable`
 
-Legacy clients without `client_profile` receive the full unfiltered index (additive fields only).
+Each summary may include **`platform_compat`**, **`requires_capabilities`**, **`compatible`**, **`incompatible_reason`**, **`download_url`**, **`channel`**, **`signature`** when filtering is active.
 
-Each summary may include **`platform_compat`**, **`requires_capabilities`**, **`compatible`**, **`incompatible_reason`** when filtering is active.
+`channel` values: `stable` (default) | `beta`. Desktop clients should pass `channel=stable` unless opting into beta releases.
+
+`download_url` points to `GET /api/marketplace/asset/{id}` for direct payload fetch (preferred over reconstructing URLs).
+
+When `MARKETPLACE_SIGNING_SECRET` is configured server-side, `signature` is an HMAC-SHA256 hex digest of the canonical JSON payload; desktop clients with the same secret should verify before install.
 
 ### `GET /api/marketplace/asset/{id}`
 

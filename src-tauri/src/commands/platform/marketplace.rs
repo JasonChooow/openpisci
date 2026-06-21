@@ -178,6 +178,68 @@ async fn fetch_text(url: &str) -> Result<String, String> {
     resp.text().await.map_err(|e| e.to_string())
 }
 
+fn canonical_json(value: &serde_json::Value) -> Result<String, String> {
+    match value {
+        serde_json::Value::Object(map) => {
+            let mut keys: Vec<&String> = map.keys().collect();
+            keys.sort();
+            let mut out = String::from("{");
+            for (i, k) in keys.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                out.push_str(&serde_json::to_string(k).map_err(|e| e.to_string())?);
+                out.push(':');
+                out.push_str(&canonical_json(&map[*k])?);
+            }
+            out.push('}');
+            Ok(out)
+        }
+        serde_json::Value::Array(arr) => {
+            let parts: Result<Vec<String>, String> = arr.iter().map(canonical_json).collect();
+            Ok(format!("[{}]", parts?.join(",")))
+        }
+        other => serde_json::to_string(other).map_err(|e| e.to_string()),
+    }
+}
+
+fn verify_cloud_signature(payload: &serde_json::Value, signature: &str) -> Result<(), String> {
+    let secret = std::env::var("MARKETPLACE_SIGNING_SECRET")
+        .ok()
+        .filter(|s| !s.trim().is_empty());
+    let Some(secret) = secret else {
+        return Ok(());
+    };
+    let mut to_sign = payload.clone();
+    if let Some(obj) = to_sign.as_object_mut() {
+        obj.remove("signature");
+    }
+    let canonical = canonical_json(&to_sign)?;
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    type HmacSha256 = Hmac<Sha256>;
+    let mut mac = HmacSha256::new_from_slice(secret.as_bytes()).map_err(|e| e.to_string())?;
+    mac.update(canonical.as_bytes());
+    let expected = hex::encode(mac.finalize().into_bytes());
+    if expected != signature {
+        return Err("cloud asset signature mismatch".into());
+    }
+    Ok(())
+}
+
+/// Parse cloud marketplace download body and verify HMAC signature when configured.
+fn parse_and_verify_cloud_body(body: &str) -> Result<serde_json::Value, String> {
+    let val: serde_json::Value =
+        serde_json::from_str(body).map_err(|e| format!("invalid cloud asset JSON: {e}"))?;
+    let payload = val.get("payload").cloned().unwrap_or_else(|| val.clone());
+    if let Some(sig) = val.get("signature").and_then(|v| v.as_str()) {
+        verify_cloud_signature(&payload, sig)?;
+    } else if let Some(sig) = payload.get("signature").and_then(|v| v.as_str()) {
+        verify_cloud_signature(&payload, sig)?;
+    }
+    Ok(payload)
+}
+
 fn skill_md_url_from_manifest_url(manifest_url: &str) -> String {
     if manifest_url.ends_with("/manifest.json") {
         format!(
@@ -218,6 +280,12 @@ struct CloudMarketSummary {
     featured: bool,
     #[serde(default)]
     platform_compat: serde_json::Value,
+    #[serde(default)]
+    download_url: Option<String>,
+    #[serde(default)]
+    channel: Option<String>,
+    #[serde(default)]
+    signature: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -232,7 +300,7 @@ struct CloudMarketIndex {
     connectors: Vec<CloudMarketSummary>,
 }
 
-fn desktop_client_profile_query() -> String {
+fn desktop_client_profile_query(channel: &str) -> String {
     let os = match std::env::consts::OS {
         "linux" => "linux",
         "macos" => "macos",
@@ -243,7 +311,10 @@ fn desktop_client_profile_query() -> String {
     if os == "windows" {
         caps.push("com");
     }
-    format!("surface=desktop&os={os}&capabilities={}", caps.join(","))
+    format!(
+        "surface=desktop&os={os}&capabilities={}&channel={channel}",
+        caps.join(",")
+    )
 }
 
 fn cloud_asset_url(base: &str, id: &str) -> String {
@@ -308,14 +379,17 @@ pub async fn fetch_marketplace_aggregated(
     // 2) Official cloud marketplace (public index; no auth required to browse).
     if let Some(base) = cloud_base_url.filter(|s| !s.trim().is_empty()) {
         let base = base.trim_end_matches('/').to_string();
-        let profile = desktop_client_profile_query();
+        let profile = desktop_client_profile_query("stable");
         let url = format!("{base}/api/marketplace/index?{profile}");
         if let Ok(cloud) = fetch_json::<CloudMarketIndex>(&url).await {
             for s in cloud.experts {
                 let key = dedup_key("cloud", &s.id);
                 if seen_experts.insert(key) {
+                    let dl = s
+                        .download_url
+                        .unwrap_or_else(|| cloud_asset_url(&base, &s.id));
                     experts.push(MarketExpert {
-                        download_url: cloud_asset_url(&base, &s.id),
+                        download_url: dl,
                         id: s.id,
                         name: s.name,
                         description: s.description,
@@ -329,7 +403,9 @@ pub async fn fetch_marketplace_aggregated(
                 let key = dedup_key("cloud", &s.id);
                 if seen_teams.insert(key) {
                     teams.push(MarketTeam {
-                        download_url: cloud_asset_url(&base, &s.id),
+                        download_url: s
+                            .download_url
+                            .unwrap_or_else(|| cloud_asset_url(&base, &s.id)),
                         id: s.id,
                         name: s.name,
                         description: s.description,
@@ -343,7 +419,9 @@ pub async fn fetch_marketplace_aggregated(
                 let key = dedup_key("cloud", &s.id);
                 if seen_skills.insert(key) {
                     skills.push(MarketSkill {
-                        download_url: cloud_asset_url(&base, &s.id),
+                        download_url: s
+                            .download_url
+                            .unwrap_or_else(|| cloud_asset_url(&base, &s.id)),
                         id: s.id,
                         name: s.name,
                         description: s.description,
@@ -358,7 +436,9 @@ pub async fn fetch_marketplace_aggregated(
                 let key = dedup_key("cloud", &s.id);
                 if seen_connectors.insert(key) {
                     connectors.push(MarketConnector {
-                        download_url: cloud_asset_url(&base, &s.id),
+                        download_url: s
+                            .download_url
+                            .unwrap_or_else(|| cloud_asset_url(&base, &s.id)),
                         id: s.id,
                         name: s.name,
                         description: s.description,
@@ -394,10 +474,8 @@ pub async fn install_market_expert(
     let body = fetch_text(url).await?;
     let pkg: MarketExpertPackage = serde_json::from_str(&body)
         .or_else(|_| {
-            let val: serde_json::Value = serde_json::from_str(&body)
-                .map_err(|e| format!("invalid expert package JSON: {e}"))?;
-            let payload = val.get("payload").unwrap_or(&val);
-            serde_json::from_value(payload.clone())
+            let payload = parse_and_verify_cloud_body(&body)?;
+            serde_json::from_value(payload)
                 .map_err(|e| format!("invalid cloud expert payload: {e}"))
         })
         .map_err(|e| format!("invalid expert package from {url}: {e}"))?;
@@ -432,8 +510,7 @@ pub async fn install_market_skill(
     let body = fetch_text(&url).await?;
 
     // Cloud marketplace (theAgentOS): full payload with embedded skill_md.
-    if let Ok(val) = serde_json::from_str::<serde_json::Value>(&body) {
-        let payload = val.get("payload").unwrap_or(&val);
+    if let Ok(payload) = parse_and_verify_cloud_body(&body) {
         if let Some(skill_md) = payload.get("skill_md").and_then(|v| v.as_str()) {
             if !skill_md.trim().is_empty() {
                 return install_skill_from_content_sourced(
