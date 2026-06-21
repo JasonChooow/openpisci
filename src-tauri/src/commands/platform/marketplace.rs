@@ -390,7 +390,17 @@ pub async fn install_market_expert(
     state: State<'_, AppState>,
     download_url: String,
 ) -> Result<String, String> {
-    let pkg: MarketExpertPackage = fetch_json(&download_url).await?;
+    let url = download_url.trim();
+    let body = fetch_text(url).await?;
+    let pkg: MarketExpertPackage = serde_json::from_str(&body)
+        .or_else(|_| {
+            let val: serde_json::Value = serde_json::from_str(&body)
+                .map_err(|e| format!("invalid expert package JSON: {e}"))?;
+            let payload = val.get("payload").unwrap_or(&val);
+            serde_json::from_value(payload.clone())
+                .map_err(|e| format!("invalid cloud expert payload: {e}"))
+        })
+        .map_err(|e| format!("invalid expert package from {url}: {e}"))?;
     let db = state.db.lock().await;
     let koi = db
         .create_koi(
@@ -408,24 +418,42 @@ pub async fn install_market_expert(
     Ok(koi.id)
 }
 
-/// Install a skill from the OpenPisci marketplace catalog.
-/// Fetches manifest.json, then SKILL.md from the same directory.
+/// Install a skill from GitHub manifest+SKILL.md or cloud marketplace payload (embedded skill_md).
 #[tauri::command]
 pub async fn install_market_skill(
     state: State<'_, AppState>,
     download_url: String,
 ) -> Result<SkillCatalogItem, String> {
-    let manifest_url = download_url.trim();
-    if manifest_url.is_empty() {
+    let url = download_url.trim().to_string();
+    if url.is_empty() {
         return Err("download_url is required".into());
     }
 
-    let _manifest: MarketSkillManifest = fetch_json(manifest_url).await?;
-    let skill_md_url = skill_md_url_from_manifest_url(manifest_url);
+    let body = fetch_text(&url).await?;
+
+    // Cloud marketplace (theAgentOS): full payload with embedded skill_md.
+    if let Ok(val) = serde_json::from_str::<serde_json::Value>(&body) {
+        let payload = val.get("payload").unwrap_or(&val);
+        if let Some(skill_md) = payload.get("skill_md").and_then(|v| v.as_str()) {
+            if !skill_md.trim().is_empty() {
+                return install_skill_from_content_sourced(
+                    &state,
+                    skill_md.to_string(),
+                    "cloud-official",
+                    Some(url.clone()),
+                )
+                .await;
+            }
+        }
+    }
+
+    // GitHub / raw manifest.json + co-located SKILL.md
+    let _manifest: MarketSkillManifest = serde_json::from_str(&body)
+        .map_err(|e| format!("invalid skill manifest from {}: {}", url, e))?;
+    let skill_md_url = skill_md_url_from_manifest_url(&url);
     let content = fetch_text(&skill_md_url)
         .await
         .map_err(|e| format!("Failed to fetch SKILL.md from {}: {}", skill_md_url, e))?;
 
-    install_skill_from_content_sourced(&state, content, "openpisci-market", Some(skill_md_url))
-        .await
+    install_skill_from_content_sourced(&state, content, "openpisci-market", Some(skill_md_url)).await
 }
