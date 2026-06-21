@@ -37,11 +37,23 @@ Public browse index. No authentication required.
       "description": "…",
       "tags": ["cb-teams"]
     }
+  ],
+  "connectors": [
+    {
+      "id": "official/connector/demo-sse-mcp@1.0.0",
+      "name": "Demo SSE MCP",
+      "description": "…",
+      "platform_compat": { "surfaces": ["web", "desktop"] }
+    }
   ]
 }
 ```
 
-Each array item is a **summary**; full package JSON is fetched via the asset endpoint.
+**Query (recommended for desktop):** `?surface=desktop&os=linux&capabilities=mcp_stdio,com`
+
+Legacy clients without `client_profile` receive the full unfiltered index (additive fields only).
+
+Each summary may include **`platform_compat`**, **`requires_capabilities`**, **`compatible`**, **`incompatible_reason`** when filtering is active.
 
 ### `GET /api/marketplace/asset/{id}`
 
@@ -52,6 +64,7 @@ Returns the full asset document for the given catalog `id`.
 | Expert | [`MarketExpertPackage`](../marketplace/schema/expert-pack.v1.schema.json) JSON |
 | Team | [`MarketTeamPackage`](../marketplace/schema/team-template.v2.schema.json) JSON |
 | Skill | [`skill-pack.v1`](../marketplace/schema/skill-pack.v1.schema.json) manifest **or** redirect to manifest URL |
+| Connector | [`connector-pack.v1`](../../theAgentOS/marketplace/schema/connector-pack.v1.schema.json) — install via AgentZ desktop (`source=remote`) |
 
 For skills, the desktop client also resolves `SKILL.md` from the manifest directory when installing via GitHub raw URLs. Cloud deployments should either:
 
@@ -63,7 +76,8 @@ For skills, the desktop client also resolves `SKILL.md` from the manifest direct
 Implemented in:
 
 - Rust: `src-tauri/src/commands/platform/marketplace.rs`
-  - `fetch_marketplace_aggregated` merges GitHub catalog + cloud index
+  - `fetch_marketplace_aggregated` merges GitHub catalog + cloud index (passes desktop `client_profile`)
+  - Parses optional `connectors` bucket + `platform_compat` on summaries
   - Dedup key: `{source}:{id}` (cloud entries skipped if GitHub already has same id)
   - `install_market_skill` fetches manifest → `SKILL.md` → local install
 

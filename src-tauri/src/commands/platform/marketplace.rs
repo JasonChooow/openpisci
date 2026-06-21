@@ -61,11 +61,29 @@ pub struct MarketSkill {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MarketConnector {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub download_url: String,
+    #[serde(default = "default_source")]
+    pub source: String,
+    #[serde(default = "default_trusted")]
+    pub trusted: bool,
+    #[serde(default)]
+    pub featured: bool,
+    #[serde(default)]
+    pub platform_compat: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MarketIndex {
     pub experts: Vec<MarketExpert>,
     pub teams: Vec<MarketTeam>,
     #[serde(default)]
     pub skills: Vec<MarketSkill>,
+    #[serde(default)]
+    pub connectors: Vec<MarketConnector>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -198,6 +216,8 @@ struct CloudMarketSummary {
     tags: Vec<String>,
     #[serde(default)]
     featured: bool,
+    #[serde(default)]
+    platform_compat: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -208,6 +228,22 @@ struct CloudMarketIndex {
     teams: Vec<CloudMarketSummary>,
     #[serde(default)]
     skills: Vec<CloudMarketSummary>,
+    #[serde(default)]
+    connectors: Vec<CloudMarketSummary>,
+}
+
+fn desktop_client_profile_query() -> String {
+    let os = match std::env::consts::OS {
+        "linux" => "linux",
+        "macos" => "macos",
+        "windows" => "windows",
+        _ => "unknown",
+    };
+    let mut caps = vec!["mcp_stdio"];
+    if os == "windows" {
+        caps.push("com");
+    }
+    format!("surface=desktop&os={os}&capabilities={}", caps.join(","))
 }
 
 fn cloud_asset_url(base: &str, id: &str) -> String {
@@ -232,9 +268,11 @@ pub async fn fetch_marketplace_aggregated(
     let mut experts: Vec<MarketExpert> = Vec::new();
     let mut teams: Vec<MarketTeam> = Vec::new();
     let mut skills: Vec<MarketSkill> = Vec::new();
+    let mut connectors: Vec<MarketConnector> = Vec::new();
     let mut seen_experts: HashSet<String> = HashSet::new();
     let mut seen_teams: HashSet<String> = HashSet::new();
     let mut seen_skills: HashSet<String> = HashSet::new();
+    let mut seen_connectors: HashSet<String> = HashSet::new();
 
     // 1) Official GitHub registry.
     let gh_url = github_url
@@ -270,7 +308,8 @@ pub async fn fetch_marketplace_aggregated(
     // 2) Official cloud marketplace (public index; no auth required to browse).
     if let Some(base) = cloud_base_url.filter(|s| !s.trim().is_empty()) {
         let base = base.trim_end_matches('/').to_string();
-        let url = format!("{base}/api/marketplace/index");
+        let profile = desktop_client_profile_query();
+        let url = format!("{base}/api/marketplace/index?{profile}");
         if let Ok(cloud) = fetch_json::<CloudMarketIndex>(&url).await {
             for s in cloud.experts {
                 let key = dedup_key("cloud", &s.id);
@@ -315,6 +354,21 @@ pub async fn fetch_marketplace_aggregated(
                     });
                 }
             }
+            for s in cloud.connectors {
+                let key = dedup_key("cloud", &s.id);
+                if seen_connectors.insert(key) {
+                    connectors.push(MarketConnector {
+                        download_url: cloud_asset_url(&base, &s.id),
+                        id: s.id,
+                        name: s.name,
+                        description: s.description,
+                        source: "cloud".into(),
+                        trusted: true,
+                        featured: s.featured,
+                        platform_compat: s.platform_compat,
+                    });
+                }
+            }
         }
     }
 
@@ -322,6 +376,7 @@ pub async fn fetch_marketplace_aggregated(
         experts,
         teams,
         skills,
+        connectors,
     })
 }
 
