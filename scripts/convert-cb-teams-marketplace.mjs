@@ -330,7 +330,7 @@ function main() {
       }
     }
 
-    const system_prompt = `你是「${displayZh}」专家，运行在 DimWork 桌面 Agent 环境中（小诺协调层）。
+    const system_prompt = `你是「${displayZh}」专家，运行在 9X bot 桌面 Agent 环境中（小诺协调层）。
 
 ## 职责
 ${rewriteText(plugin.description)}

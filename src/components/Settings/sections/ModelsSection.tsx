@@ -3,7 +3,7 @@ import { useSettingsForm } from "../../SettingsHub/useSettingsForm";
 
 export default function ModelsSection() {
   const { t } = useTranslation();
-  const { form, update, showKeys, setShowKeys, llmProviders, setLlmProviders, llmEditIdx, setLlmEditIdx, llmEditForm, setLlmEditForm, llmShowKey, setLlmShowKey, EMPTY_LLM_PROVIDER } = useSettingsForm();
+  const { form, update, showKeys, setShowKeys, llmProviders, saveLlmProviders, llmEditIdx, setLlmEditIdx, llmEditForm, setLlmEditForm, llmShowKey, setLlmShowKey, EMPTY_LLM_PROVIDER, saving } = useSettingsForm();
 
   return (
     <>
@@ -254,14 +254,27 @@ export default function ModelsSection() {
                   <span className="hint">{t("settings.contextWindowHint")}</span>
                 </div>
       
-                {/* Named LLM Providers — lives inside AI Provider section */}
+                {/* Additional LLM models — saved as first-class selectable chat models */}
                 <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
                   <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)", marginBottom: 6 }}>
-                    🔑 {t("settings.namedLlmTitle")}
+                    🧠 {t("settings.namedLlmTitle")}
                   </div>
                   <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
                     {t("settings.namedLlmDesc")}
                   </p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", border: "1px solid var(--accent)", borderRadius: 8, background: "var(--bg-secondary)", marginBottom: 8 }}>
+                    <span style={{ fontSize: 16 }}>✨</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13 }}>
+                        {t("chat.modelDefault")}
+                        <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: 11, marginLeft: 8 }}>[default]</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                        {form.provider} · {form.model || t("settings.namedLlmNoModel")}
+                        {form.custom_base_url ? ` · ${form.custom_base_url}` : ""}
+                      </div>
+                    </div>
+                  </div>
       
                   {llmProviders.length > 0 && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
@@ -279,12 +292,13 @@ export default function ModelsSection() {
                             </div>
                           </div>
                           <div style={{ display: "flex", gap: 6 }}>
-                            <button className="btn" style={{ fontSize: 11, padding: "3px 10px", border: "1px solid var(--border)" }}
+                            <button type="button" className="btn" style={{ fontSize: 11, padding: "3px 10px", border: "1px solid var(--border)" }}
                               onClick={() => { setLlmEditIdx(idx); setLlmEditForm({ ...p, api_key: "" }); setLlmShowKey(false); }}>
                               {t("settings.namedLlmEdit")}
                             </button>
-                            <button className="btn" style={{ fontSize: 11, padding: "3px 10px", border: "1px solid #dc3545", color: "#dc3545" }}
-                              onClick={() => setLlmProviders(prev => prev.filter((_, i) => i !== idx))}>
+                            <button type="button" className="btn" style={{ fontSize: 11, padding: "3px 10px", border: "1px solid #dc3545", color: "#dc3545" }}
+                              disabled={saving}
+                              onClick={() => saveLlmProviders(llmProviders.filter((_, i) => i !== idx))}>
                               {t("settings.namedLlmDelete")}
                             </button>
                           </div>
@@ -345,7 +359,7 @@ export default function ModelsSection() {
                             <input className="input" style={{ flex: 1 }} type={llmShowKey ? "text" : "password"}
                               value={llmEditForm.api_key} onChange={e => setLlmEditForm(f => ({ ...f, api_key: e.target.value }))}
                               placeholder={llmEditIdx !== -1 ? t("settings.namedLlmApiKeyKeepPlaceholder") : "sk-..."} />
-                            <button className="btn" style={{ padding: "0 10px", border: "1px solid var(--border)" }}
+                            <button type="button" className="btn" style={{ padding: "0 10px", border: "1px solid var(--border)" }}
                               onClick={() => setLlmShowKey(v => !v)}>
                               {llmShowKey ? "🙈" : "👁️"}
                             </button>
@@ -365,28 +379,41 @@ export default function ModelsSection() {
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                        <button className="btn btn-primary" style={{ fontSize: 12 }}
-                          onClick={() => {
-                            if (!llmEditForm.id.trim() || !llmEditForm.model.trim()) return;
+                        <button type="button" className="btn btn-primary" style={{ fontSize: 12 }}
+                          disabled={saving}
+                          onClick={async () => {
+                            const normalized = {
+                              ...llmEditForm,
+                              id: llmEditForm.id.trim(),
+                              label: llmEditForm.label.trim(),
+                              provider: llmEditForm.provider.trim(),
+                              model: llmEditForm.model.trim(),
+                              base_url: llmEditForm.base_url.trim(),
+                            };
+                            if (!normalized.id || !normalized.model) return;
                             if (llmEditIdx === -1) {
-                              if (llmProviders.some(p => p.id === llmEditForm.id.trim())) return;
-                              setLlmProviders(prev => [...prev, llmEditForm]);
+                              if (llmProviders.some(p => p.id === normalized.id)) return;
+                              await saveLlmProviders([...llmProviders, normalized]);
                             } else {
-                              setLlmProviders(prev => prev.map((p, i) => i === llmEditIdx ? { ...llmEditForm } : p));
+                              await saveLlmProviders(llmProviders.map((p, i) => i === llmEditIdx ? normalized : p));
                             }
                             setLlmEditIdx(null);
                           }}>
-                          {t("common.save")}
+                          {saving ? t("common.saving") : t("common.save")}
                         </button>
-                        <button className="btn" style={{ fontSize: 12, border: "1px solid var(--border)" }}
+                        <button type="button" className="btn" style={{ fontSize: 12, border: "1px solid var(--border)" }}
                           onClick={() => setLlmEditIdx(null)}>
                           {t("common.cancel")}
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <button className="btn" style={{ fontSize: 12, padding: "6px 14px", border: "1px solid var(--border)" }}
-                      onClick={() => { setLlmEditIdx(-1); setLlmEditForm(EMPTY_LLM_PROVIDER); setLlmShowKey(false); }}>
+                    <button type="button" className="btn btn-primary" style={{ fontSize: 13, padding: "9px 16px", border: "1px solid var(--accent)", width: "100%", justifyContent: "center" }}
+                      onClick={() => {
+                        setLlmEditIdx(-1);
+                        setLlmEditForm({ ...EMPTY_LLM_PROVIDER, id: `model-${Date.now().toString(36)}` });
+                        setLlmShowKey(false);
+                      }}>
                       {t("settings.namedLlmAddBtn")}
                     </button>
                   )}

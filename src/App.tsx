@@ -46,6 +46,7 @@ const OverlayApp = lazy(() => import("./components/Overlay"));
 const ProWindow = lazy(() => import("./components/ProWindow"));
 
 type Tab = "chat" | "assistant" | "school" | "scheduler" | "myfiles" | "inspiration" | "cloud" | "browser" | "settings";
+type AppTheme = "violet" | "gold" | "minimal";
 const SIDEBAR_COLLAPSED_KEY = "piscis-sidebar-collapsed";
 const SIDEBAR_DATE_FILTER_KEY = "piscis-task-date-filter";
 const ICON = 18;
@@ -78,8 +79,9 @@ function AppContent() {
   /** Tabs that have been opened at least once — stay mounted to preserve state. */
   const [mountedTabs, setMountedTabs] = useState<Set<Tab>>(() => new Set(["chat"]));
   const [initialized, setInitialized] = useState(false);
-  const [theme, setTheme] = useState<'violet' | 'gold'>(() => {
-    return (localStorage.getItem('piscis-theme') as 'violet' | 'gold') || 'violet';
+  const [theme, setTheme] = useState<AppTheme>(() => {
+    const saved = localStorage.getItem('piscis-theme');
+    return saved === 'gold' || saved === 'minimal' ? saved : 'violet';
   });
   const [colorMode, setColorMode] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('piscis-color-mode') as 'light' | 'dark') || 'light';
@@ -127,7 +129,7 @@ function AppContent() {
 
   useEffect(() => {
     const unlisten = listen<string>("app_theme_changed", (event) => {
-      const next = event.payload === "gold" ? "gold" : "violet";
+      const next = event.payload === "gold" || event.payload === "minimal" ? event.payload : "violet";
       setTheme(next);
     });
     return () => { unlisten.then((fn) => fn()); };

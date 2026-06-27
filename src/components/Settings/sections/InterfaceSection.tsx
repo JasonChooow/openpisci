@@ -45,12 +45,11 @@ export default function InterfaceSection() {
       
                 <div className="form-group">
                   <label className="label">{t("settings.theme")}</label>
-                  <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, marginTop: 4 }}>
                     {/* 紫罗兰主题卡片 */}
                     <button
                       onClick={() => setTheme("violet")}
                       style={{
-                        flex: 1,
                         padding: "14px 12px",
                         border: `2px solid ${theme === "violet" ? "#7c6af7" : "transparent"}`,
                         borderRadius: 10,
@@ -83,7 +82,6 @@ export default function InterfaceSection() {
                     <button
                       onClick={() => setTheme("gold")}
                       style={{
-                        flex: 1,
                         padding: "14px 12px",
                         border: `2px solid ${theme === "gold" ? "#c9a84c" : "transparent"}`,
                         borderRadius: 10,
@@ -108,6 +106,37 @@ export default function InterfaceSection() {
                       </div>
                       {theme === "gold" && (
                         <div style={{ position: "absolute", top: 6, right: 8, color: "#c9a84c", fontSize: 14, fontWeight: 700 }}>✓</div>
+                      )}
+                    </button>
+
+                    {/* 极简主题卡片 */}
+                    <button
+                      onClick={() => setTheme("minimal")}
+                      style={{
+                        padding: "14px 12px",
+                        border: `2px solid ${theme === "minimal" ? "#111827" : "#e5e7eb"}`,
+                        borderRadius: 10,
+                        background: "#ffffff",
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                        outline: "none",
+                        position: "relative",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: 4, justifyContent: "center", marginBottom: 8 }}>
+                        <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#ffffff", border: "1px solid #d1d5db" }} />
+                        <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#f3f4f6", border: "1px solid #e5e7eb" }} />
+                        <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#111827" }} />
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: theme === "minimal" ? "#111827" : "var(--text-secondary)" }}>
+                        {t("settings.themeMinimal")}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                        {t("settings.themeMinimalDesc")}
+                      </div>
+                      {theme === "minimal" && (
+                        <div style={{ position: "absolute", top: 6, right: 8, color: "#111827", fontSize: 14, fontWeight: 700 }}>✓</div>
                       )}
                     </button>
                   </div>

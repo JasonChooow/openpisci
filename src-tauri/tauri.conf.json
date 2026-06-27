@@ -1,12 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "DimWork",
+  "productName": "9X bot",
   "mainBinaryName": "piscis-desktop",
   "version": "0.8.64",
   "identifier": "com.piscis.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:5174",
     "beforeBuildCommand": "npm run build:tauri",
     "frontendDist": "../dist"
   },
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "DimWork",
+        "title": "9X bot",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -26,7 +26,7 @@
       },
       {
         "label": "overlay",
-        "title": "DimWork Overlay",
+        "title": "9X bot Overlay",
         "url": "index.html?overlay=1",
         "width": 280,
         "height": 56,
@@ -68,10 +68,10 @@
     ],
     "resources": [],
     "externalBin": [],
-    "copyright": "Copyright 2025 DimWork Team",
+    "copyright": "Copyright 2025 9X bot Team",
     "category": "Productivity",
-    "shortDescription": "DimWork - Open-source cross-platform AI Agent Desktop",
-    "longDescription": "DimWork is an open-source cross-platform AI agent desktop for Windows, macOS, and Linux. XiaoNuo (小诺) is the main coordinator agent inside the app — with chat, memory, skills, MCP tools, browser automation, and team-based multi-agent orchestration, all running locally against the LLM provider of your choice.",
+    "shortDescription": "9X bot - Open-source cross-platform AI Agent Desktop",
+    "longDescription": "9X bot is an open-source cross-platform AI agent desktop for Windows, macOS, and Linux. XiaoNuo (小诺) is the main coordinator agent inside the app — with chat, memory, skills, MCP tools, browser automation, and team-based multi-agent orchestration, all running locally against the LLM provider of your choice.",
     "windows": {
       "digestAlgorithm": "sha256",
       "webviewInstallMode": {

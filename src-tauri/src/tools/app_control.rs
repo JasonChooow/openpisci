@@ -141,8 +141,8 @@ impl Tool for AppControlTool {
          \n- 'ssh_delete': Delete an SSH server entry by id. Required: ssh_id.\
          \
          \n\nACTIONS — UI / Window:\
-         \n- 'ui_set_theme': Switch the app theme and sync the native border color. Required: theme (violet|gold).\
-         \n- 'ui_set_theme_border': Only set the native window border theme color. Required: theme (violet|gold).\
+         \n- 'ui_set_theme': Switch the app theme and sync the native border color. Required: theme (violet|gold|minimal).\
+         \n- 'ui_set_theme_border': Only set the native window border theme color. Required: theme (violet|gold|minimal).\
          \n- 'ui_enter_minimal_mode': Hide main window and show the floating overlay.\
          \n- 'ui_exit_minimal_mode': Exit minimal mode and restore the main window.\
          \n- 'window_move': Move the main or overlay window. Required: window_target (main|overlay). Use x+y or position_preset=bottom_right.\
@@ -312,7 +312,7 @@ impl Tool for AppControlTool {
                 "ssh_username": { "type": "string", "description": "SSH username" },
                 "ssh_password": { "type": "string", "description": "SSH password (optional; empty means unchanged when updating)" },
                 "ssh_private_key": { "type": "string", "description": "SSH private key PEM (optional; empty means unchanged when updating)" },
-                "theme": { "type": "string", "description": "Theme name for ui_set_theme/ui_set_theme_border: violet|gold" },
+                "theme": { "type": "string", "description": "Theme name for ui_set_theme/ui_set_theme_border: violet|gold|minimal" },
                 "window_target": { "type": "string", "description": "Window to move: main|overlay" },
                 "x": { "type": "integer", "description": "Absolute screen X for window_move" },
                 "y": { "type": "integer", "description": "Absolute screen Y for window_move" },

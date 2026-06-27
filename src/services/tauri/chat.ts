@@ -181,6 +181,7 @@ export type AgentEventType =
     };
 
 export type ComposerMode = "ask" | "plan" | "craft";
+export type ChatScene = "office" | "code" | "design";
 
 export interface ChatSendOptions {
   attachments?: ChatAttachment[];
@@ -191,8 +192,17 @@ export interface ChatSendOptions {
   clearPlan?: boolean;
   /** Interaction mode (ask = read-only Q&A, plan = design, craft = full agent). */
   mode?: ComposerMode;
+  /** Product scene used to filter/rout models. */
+  scene?: ChatScene;
   /** Per-turn model override; empty/undefined uses the configured default. */
   modelOverride?: string;
+  /** Per-turn named LLM provider id; empty/undefined uses the configured default provider. */
+  modelProviderId?: string;
+}
+
+export interface LlmModelList {
+  provider_id: string;
+  models: string[];
 }
 
 export const chatApi = {
@@ -209,11 +219,15 @@ export const chatApi = {
       personaKoiId: options?.personaKoiId ?? null,
       clearPlan: options?.clearPlan ?? true,
       mode: options?.mode ?? null,
+      scene: options?.scene ?? null,
       modelOverride: options?.modelOverride ?? null,
+      modelProviderId: options?.modelProviderId ?? null,
     });
   },
   cancel: (sessionId: string) =>
     invoke<void>("chat_cancel", { sessionId }),
+  listLlmProviderModels: (providerId: string) =>
+    invoke<LlmModelList>("list_llm_provider_models", { providerId }),
   onEvent: (sessionId: string, handler: (event: AgentEventType) => void): Promise<UnlistenFn> =>
     listen<AgentEventType>(`agent_event_${sessionId}`, (e) => handler(e.payload)),
 };

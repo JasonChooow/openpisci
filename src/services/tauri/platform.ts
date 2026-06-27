@@ -85,7 +85,7 @@ export const windowApi = {
     invoke<void>("set_overlay_position", { x, y }),
   saveOverlayPosition: (x: number, y: number) =>
     invoke<void>("save_overlay_position", { x, y }),
-  setThemeBorder: (theme: "violet" | "gold") =>
+  setThemeBorder: (theme: "violet" | "gold" | "minimal") =>
     invoke<void>("set_window_theme_border", { theme }),
 };
 

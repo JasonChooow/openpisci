@@ -148,11 +148,11 @@ pub async fn enter_unattended_im_mode(
 // ─── Theme-based window border color (Windows 11+) ──────────────────────────
 
 /// Set the main window title bar and border color to match the app theme.
-/// violet → purple (#7c6af7), gold → gold (#c9a84c).
+/// violet → purple (#7c6af7), gold → gold (#c9a84c), minimal → white (#ffffff).
 /// Windows 11+ only; no-op on older Windows or non-Windows.
 pub async fn apply_app_theme(app: &AppHandle, theme: &str) -> Result<(), String> {
     let theme = theme.trim();
-    if theme != "violet" && theme != "gold" {
+    if theme != "violet" && theme != "gold" && theme != "minimal" {
         return Err(format!("Unsupported theme '{}'", theme));
     }
     app.emit("app_theme_changed", theme.to_string())
@@ -189,6 +189,7 @@ pub async fn set_window_theme_border(_app: AppHandle, theme: String) -> Result<(
         let color: u32 = match theme.as_str() {
             "violet" => 0x00F76A7C, // #7c6af7
             "gold" => 0x004CA8C9,   // #c9a84c
+            "minimal" => 0x00FFFFFF, // #ffffff
             _ => return Ok(()),
         };
 

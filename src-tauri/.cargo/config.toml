@@ -1,3 +1,9 @@
 [build]
 # Place build artifacts outside src-tauri to avoid Tauri's file watcher triggering rebuild loops
 target-dir = "../target"
+
+[source.crates-io]
+replace-with = "ustc-sparse"
+
+[source.ustc-sparse]
+registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"

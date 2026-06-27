@@ -50,6 +50,12 @@ pub struct SessionList {
     pub total: usize,
 }
 
+#[derive(Debug, Serialize)]
+pub struct LlmModelList {
+    pub provider_id: String,
+    pub models: Vec<String>,
+}
+
 struct SessionMessageContext {
     llm_messages: Vec<LlmMessage>,
     session_state: Option<SessionContextState>,
@@ -1104,6 +1110,88 @@ pub async fn list_all_artifacts(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn list_llm_provider_models(
+    state: State<'_, AppState>,
+    provider_id: String,
+) -> Result<LlmModelList, String> {
+    let provider_id = provider_id.trim().to_string();
+    if provider_id.is_empty() {
+        return Err("LLM provider id is required.".to_string());
+    }
+
+    let (base_url, api_key, configured_model) = {
+        let settings = state.settings.lock().await;
+        let Some(provider) = settings.find_llm_provider(&provider_id) else {
+            return Err(format!(
+                "LLM provider '{}' not found. Please check Settings > Models.",
+                provider_id
+            ));
+        };
+        (
+            provider.base_url.trim().trim_end_matches('/').to_string(),
+            provider.effective_api_key().to_string(),
+            provider.model.clone(),
+        )
+    };
+
+    if base_url.is_empty() {
+        return Ok(LlmModelList {
+            provider_id,
+            models: vec![configured_model],
+        });
+    }
+    if api_key.trim().is_empty() {
+        return Err(format!(
+            "API key for LLM provider '{}' is not configured.",
+            provider_id
+        ));
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let response = client
+        .get(format!("{}/models", base_url))
+        .bearer_auth(api_key)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch model list: {}", e))?;
+    let status = response.status();
+    let value = response
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("Failed to parse model list: {}", e))?;
+    if !status.is_success() {
+        return Err(format!("Model list request failed with {}: {}", status, value));
+    }
+
+    let mut models: Vec<String> = value
+        .get("data")
+        .and_then(|data| data.as_array())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| item.get("id").and_then(|id| id.as_str()))
+                .map(str::trim)
+                .filter(|id| !id.is_empty())
+                .map(ToString::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+    if !configured_model.trim().is_empty() && !models.iter().any(|m| m == &configured_model) {
+        models.push(configured_model);
+    }
+    models.sort();
+    models.dedup();
+
+    Ok(LlmModelList {
+        provider_id,
+        models,
+    })
+}
+
 /// Send a user message and run the agent loop.
 /// Streams AgentEvents to the frontend via Tauri events.
 #[tauri::command]
@@ -1121,8 +1209,12 @@ pub async fn chat_send(
     clear_plan: Option<bool>,
     // Composer interaction mode: "ask" | "plan" | "craft" (None => craft/full agent).
     mode: Option<String>,
+    // Product scene: "office" | "code" | "design" (None => office).
+    scene: Option<String>,
     // Per-turn model override (None/empty => use the configured default model).
     model_override: Option<String>,
+    // Per-turn named LLM provider id (None/empty => use the configured default provider).
+    model_provider_id: Option<String>,
 ) -> Result<(), String> {
     let merged_attachments = merge_frontend_attachments(attachment, attachments);
     let composer_mode = mode
@@ -1130,15 +1222,22 @@ pub async fn chat_send(
         .map(|m| m.trim().to_lowercase())
         .filter(|m| !m.is_empty())
         .unwrap_or_else(|| "craft".to_string());
+    let composer_scene = scene
+        .as_deref()
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| matches!(s.as_str(), "office" | "code" | "design"))
+        .unwrap_or_else(|| "office".to_string());
     tracing::info!(
-        "chat_send called: session={} content_len={} attachments={} explicit_skills={:?} persona_koi={:?} mode={} model_override={:?}",
+        "chat_send called: session={} content_len={} attachments={} explicit_skills={:?} persona_koi={:?} mode={} scene={} model_override={:?} model_provider_id={:?}",
         session_id,
         content.len(),
         merged_attachments.len(),
         explicit_skills,
         persona_koi_id,
         composer_mode,
+        composer_scene,
         model_override,
+        model_provider_id,
     );
 
     // Load settings
@@ -1242,8 +1341,91 @@ pub async fn chat_send(
         }
     }
 
+    // Per-turn named provider override (composer model picker). Takes precedence
+    // over the configured default and any koi-provider selection for this turn.
+    if let Some(provider_id) = model_provider_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+    {
+        let settings = state.settings.lock().await;
+        if let Some(rest) = provider_id.strip_prefix("builtin:") {
+            let (builtin_provider, builtin_model) = rest.split_once(':').ok_or_else(|| {
+                format!(
+                    "Invalid built-in LLM provider id '{}'. Expected builtin:provider:model.",
+                    provider_id
+                )
+            })?;
+            let builtin_api_key = match builtin_provider {
+                "anthropic" => settings.anthropic_api_key.as_str(),
+                "openai" => settings.openai_api_key.as_str(),
+                "deepseek" => settings.deepseek_api_key.as_str(),
+                "qwen" | "tongyi" => settings.qwen_api_key.as_str(),
+                "minimax" => settings.minimax_api_key.as_str(),
+                "zhipu" => settings.zhipu_api_key.as_str(),
+                "kimi" | "moonshot" => settings.kimi_api_key.as_str(),
+                "custom" | "ollama" => settings.active_api_key(),
+                _ => {
+                    return Err(format!(
+                        "Built-in LLM provider '{}' is not supported.",
+                        builtin_provider
+                    ));
+                }
+            };
+            if builtin_api_key.trim().is_empty() {
+                return Err(format!(
+                    "API key for built-in provider '{}' is not configured. Please check Settings > Models.",
+                    builtin_provider
+                ));
+            }
+            tracing::info!(
+                "chat_send: applying built-in LLM provider override: {} ({}/{})",
+                provider_id,
+                builtin_provider,
+                builtin_model
+            );
+            provider = builtin_provider.to_string();
+            model = builtin_model.to_string();
+            api_key = builtin_api_key.to_string();
+            base_url = if builtin_provider == "custom" || builtin_provider == "ollama" {
+                settings.custom_base_url.clone()
+            } else {
+                String::new()
+            };
+        } else {
+            let (lookup_provider_id, selected_model) = provider_id
+                .split_once("::")
+                .map(|(pid, model_id)| (pid, Some(model_id)))
+                .unwrap_or((provider_id, None));
+            if let Some(p) = settings.find_llm_provider(lookup_provider_id) {
+            tracing::info!(
+                "chat_send: applying per-turn LLM provider override: {} ({}/{})",
+                lookup_provider_id,
+                p.provider,
+                selected_model.unwrap_or(&p.model)
+            );
+            provider = p.provider.clone();
+            model = selected_model.unwrap_or(&p.model).to_string();
+            api_key = p.effective_api_key().to_string();
+            base_url = p.base_url.clone();
+            if p.max_tokens > 0 {
+                max_tokens = p.max_tokens;
+            }
+        } else {
+            tracing::warn!(
+                "chat_send: requested LLM provider override not found: {}",
+                lookup_provider_id
+            );
+            return Err(format!(
+                "LLM provider '{}' not found. Please check Settings > Models.",
+                lookup_provider_id
+            ));
+        }
+        }
+    }
+
     // Per-turn model override (composer model picker). Takes precedence over the
-    // configured default and any koi-provider model for this single turn.
+    // selected provider's model for backward compatibility with older callers.
     if let Some(m) = model_override
         .as_deref()
         .map(str::trim)
@@ -1258,6 +1440,14 @@ pub async fn chat_send(
     // by the system-prompt directive below; "craft" keeps the configured policy.
     if composer_mode == "ask" {
         policy_mode = "strict".to_string();
+    }
+
+    let image_generation_model_selected = is_image_generation_only_model(&model);
+    if image_generation_model_selected && composer_scene != "design" {
+        return Err(format!(
+            "Model '{}' is an image generation model. Please switch to the Design scene before using image generation models.",
+            model
+        ));
     }
 
     tracing::info!(
@@ -1314,22 +1504,24 @@ pub async fn chat_send(
     // For non-vision models or non-image files, we append the path to the message text.
     // For vision models + image data, we pass through as MediaAttachment for inline injection.
     // vision_capable controls vision_override on the MAIN LLM.
+    let selected_model_supports_vision = model_supports_vision(&provider, &model);
+    let main_llm_vision_enabled = vision_enabled || selected_model_supports_vision;
     // Logic per user requirements:
     // 1. If vision_use_main_llm=true: use main model for vision IFF vision_enabled=true
-    //    (validated at config save time via real API call).
+    //    or the selected named provider/model is recognized as vision-capable.
     // 2. If vision_use_main_llm=false with separate model configured: use separate model
     //    (validated at config save time). Main LLM's vision pipeline is still needed for
     //    screen_capture → vision_context → inject workfow.
     // 3. If vision_use_main_llm=false but NO separate model configured:
     //    fall back to main model rules (vision_enabled flag).
     let vision_capable = if vision_use_main_llm {
-        vision_enabled
+        main_llm_vision_enabled
     } else {
         if !vision_provider.is_empty() && !vision_model.is_empty() && !vision_api_key.is_empty() {
             true
         } else {
             // No separate vision model — fall back to main model logic
-            vision_enabled
+            main_llm_vision_enabled
         }
     };
     let (mut effective_content, media_attachments) =
@@ -1367,6 +1559,65 @@ pub async fn chat_send(
         replace_task_contract,
     )
     .await;
+
+    if image_generation_model_selected {
+        let app_clone = app.clone();
+        let db_arc = state.db.clone();
+        let session_id_clone = session_id.clone();
+        let prompt = effective_content.clone();
+        let provider_clone = provider.clone();
+        let model_clone = model.clone();
+        let api_key_clone = api_key.clone();
+        let base_url_clone = base_url.clone();
+        tokio::spawn(async move {
+            let event_name = format!("agent_event_{}", session_id_clone);
+            let _ = app_clone.emit(
+                &event_name,
+                AgentEvent::TextSegmentStart { iteration: 1 },
+            );
+            match generate_image_for_chat(
+                &app_clone,
+                db_arc.clone(),
+                &session_id_clone,
+                &provider_clone,
+                &model_clone,
+                &api_key_clone,
+                &base_url_clone,
+                &prompt,
+            )
+            .await
+            {
+                Ok(assistant_content) => {
+                    let _ = app_clone.emit(
+                        &event_name,
+                        AgentEvent::TextDelta {
+                            delta: assistant_content.clone(),
+                        },
+                    );
+                    let _ = app_clone.emit(
+                        &event_name,
+                        AgentEvent::Done {
+                            total_input_tokens: 0,
+                            total_output_tokens: 0,
+                        },
+                    );
+                }
+                Err(err) => {
+                    {
+                        let db = db_arc.lock().await;
+                        let _ = db.update_session_status(&session_id_clone, "idle");
+                    }
+                    let _ = app_clone.emit(
+                        &event_name,
+                        AgentEvent::Error {
+                            message: err.to_string(),
+                        },
+                    );
+                }
+            }
+        });
+        return Ok(());
+    }
 
     // Load message history and build context with layered compression.
     let budget = compute_context_budget(context_window, max_tokens);
@@ -1742,6 +1993,199 @@ pub async fn chat_send(
 
     // Return immediately — agent runs in background, events streamed via Tauri events
     Ok(())
+}
+
+async fn generate_image_for_chat(
+    app: &AppHandle,
+    db_arc: Arc<tokio::sync::Mutex<crate::store::Database>>,
+    session_id: &str,
+    provider: &str,
+    model: &str,
+    api_key: &str,
+    base_url: &str,
+    prompt: &str,
+) -> Result<String, String> {
+    let base_url = base_url.trim().trim_end_matches('/');
+    if base_url.is_empty() {
+        return Err(format!(
+            "Image model '{}' needs a Base URL that supports /images/generations.",
+            model
+        ));
+    }
+    if api_key.trim().is_empty() {
+        return Err("API key is not configured for the selected image model.".to_string());
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(180))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let response = client
+        .post(format!("{}/images/generations", base_url))
+        .bearer_auth(api_key)
+        .json(&serde_json::json!({
+            "model": model,
+            "prompt": prompt,
+            "n": 1,
+            "size": "1024x1024",
+            "response_format": "b64_json"
+        }))
+        .send()
+        .await
+        .map_err(|e| format!("Image generation request failed: {}", e))?;
+    let status = response.status();
+    let value = response
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| format!("Failed to parse image generation response: {}", e))?;
+    if !status.is_success() {
+        return Err(format!("Image generation failed with {}: {}", status, value));
+    }
+
+    let first = value
+        .get("data")
+        .and_then(|data| data.as_array())
+        .and_then(|items| items.first())
+        .ok_or_else(|| format!("Image generation response did not include data: {}", value))?;
+
+    let (bytes, media_type) = if let Some(b64) = first.get("b64_json").and_then(|v| v.as_str()) {
+        decode_image_b64(b64)?
+    } else if let Some(url) = first.get("url").and_then(|v| v.as_str()) {
+        download_generated_image(&client, url).await?
+    } else {
+        return Err(format!(
+            "Image generation response did not include b64_json or url: {}",
+            first
+        ));
+    };
+
+    let ext = image_extension_for_media_type(&media_type);
+    let image_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("generated-images")
+        .join(session_id);
+    std::fs::create_dir_all(&image_dir).map_err(|e| e.to_string())?;
+    let ts = chrono::Utc::now().timestamp_millis();
+    let image_path = image_dir.join(format!("image-{}.{}", ts, ext));
+    std::fs::write(&image_path, bytes).map_err(|e| e.to_string())?;
+
+    let image_uri = path_to_file_uri(&image_path);
+    let assistant_content = format!(
+        "已用 `{}` 生成图片：\n\n![生成图片]({})",
+        model, image_uri
+    );
+
+    {
+        let db = db_arc.lock().await;
+        db.append_message(session_id, "assistant", &assistant_content)
+            .map_err(|e| e.to_string())?;
+        let _ = db.add_session_artifact(
+            session_id,
+            &format!("Generated image {}", ts),
+            "image",
+            Some(image_path.to_string_lossy().as_ref()),
+            &format!("Generated with {} via {}", model, provider),
+            Some("image_generation"),
+            None,
+            Some(
+                &serde_json::json!({
+                    "provider": provider,
+                    "model": model,
+                    "media_type": media_type
+                })
+                .to_string(),
+            ),
+        );
+        let _ = db.update_session_status(session_id, "idle");
+    }
+
+    if let Ok(db) = db_arc.try_lock() {
+        if let Ok(artifacts) = db.list_session_artifacts(session_id, 1) {
+            if let Some(artifact) = artifacts.first() {
+                let _ = app.emit(&format!("session_artifacts_updated_{}", session_id), artifact);
+            }
+        }
+    }
+
+    Ok(assistant_content)
+}
+
+fn decode_image_b64(raw: &str) -> Result<(Vec<u8>, String), String> {
+    use base64::Engine;
+    let (media_type, data) = if let Some(rest) = raw.strip_prefix("data:") {
+        let (meta, data) = rest
+            .split_once(',')
+            .ok_or_else(|| "Invalid data URL returned by image generation.".to_string())?;
+        let media_type = meta
+            .split(';')
+            .next()
+            .filter(|m| !m.trim().is_empty())
+            .unwrap_or("image/png")
+            .to_string();
+        (media_type, data)
+    } else {
+        ("image/png".to_string(), raw)
+    };
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(data)
+        .map_err(|e| format!("Failed to decode generated image: {}", e))?;
+    Ok((bytes, media_type))
+}
+
+async fn download_generated_image(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<(Vec<u8>, String), String> {
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to download generated image: {}", e))?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!("Generated image download failed with {}", status));
+    }
+    let media_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.split(';').next().unwrap_or("image/png").to_string())
+        .unwrap_or_else(|| "image/png".to_string());
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read generated image bytes: {}", e))?;
+    Ok((bytes.to_vec(), media_type))
+}
+
+fn image_extension_for_media_type(media_type: &str) -> &'static str {
+    match media_type.to_lowercase().as_str() {
+        "image/jpeg" | "image/jpg" => "jpg",
+        "image/webp" => "webp",
+        "image/gif" => "gif",
+        _ => "png",
+    }
+}
+
+fn path_to_file_uri(path: &Path) -> String {
+    format!("file:///{}", path.to_string_lossy().replace('\\', "/"))
+}
+
+/// Returns true for models that generate images through image APIs rather than
+/// chat completions. Relay catalogs often include these beside chat models.
+fn is_image_generation_only_model(model: &str) -> bool {
+    let m = model.to_lowercase();
+    m.contains("gpt-image")
+        || m.contains("dall-e")
+        || m.contains("imagen")
+        || m.contains("qwen-image")
+        || m.contains("flux")
+        || m.contains("stable-diffusion")
+        || m.contains("midjourney")
+        || m.split(|c| c == '-' || c == '_' || c == '/')
+            .any(|part| part == "image")
 }
 
 /// Returns true if the given provider+model supports vision (image input).

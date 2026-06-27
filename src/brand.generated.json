@@ -2,9 +2,9 @@
   "id": "xiaonuo",
   "displayNameZh": "小诺",
   "displayNameEn": "XiaoNuo",
-  "productName": "DimWork",
-  "windowTitle": "DimWork",
-  "overlayTitle": "DimWork Overlay",
+  "productName": "9X bot",
+  "windowTitle": "9X bot",
+  "overlayTitle": "9X bot Overlay",
   "logoPath": "/app-icon.png",
   "i18nReplace": {
     "zh": {},

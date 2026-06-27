@@ -283,8 +283,10 @@ struct CloudMarketSummary {
     #[serde(default)]
     download_url: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     channel: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     signature: Option<String>,
 }
 

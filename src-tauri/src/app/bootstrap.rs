@@ -1355,6 +1355,7 @@ fn run_impl() {
             commands::chat::get_messages,
             commands::chat::list_session_artifacts,
             commands::chat::list_all_artifacts,
+            commands::chat::list_llm_provider_models,
             commands::chat::chat_send,
             commands::chat::chat_cancel,
             commands::journal::journal_list_changes,

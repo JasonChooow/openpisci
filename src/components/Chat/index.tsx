@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { RootState, chatActions, sessionsActions, skillsActions, poolActions, ToolStep, StreamingState, PlanTodoItem, ContextUsageSnapshot } from "../../store";
 import { artifactsApi, chatApi, journalApi, sessionsApi, gatewayApi, koiApi, AgentEventType, ChannelInfo, type ChatMessage, type SessionArtifact, type JournalChange, type KoiWithStats } from "../../services/tauri";
@@ -38,6 +38,101 @@ import {
   seedInputHistory,
 } from "../../utils/inputHistory";
 import "./Chat.css";
+
+type BuiltInChatModel = {
+  id: string;
+  provider: string;
+  model: string;
+  label: string;
+  tier: "High" | "Medium";
+};
+
+const BUILT_IN_CHAT_MODELS: BuiltInChatModel[] = [
+  { id: "builtin:openai:gpt-4o", provider: "openai", model: "gpt-4o", label: "GPT-4o", tier: "High" },
+  { id: "builtin:openai:gpt-4o-mini", provider: "openai", model: "gpt-4o-mini", label: "GPT-4o mini", tier: "Medium" },
+  { id: "builtin:anthropic:claude-sonnet-4-5", provider: "anthropic", model: "claude-sonnet-4-5", label: "Claude Sonnet 4.5", tier: "High" },
+  { id: "builtin:anthropic:claude-haiku-4-5", provider: "anthropic", model: "claude-haiku-4-5", label: "Claude Haiku 4.5", tier: "Medium" },
+  { id: "builtin:deepseek:deepseek-v4-pro", provider: "deepseek", model: "deepseek-v4-pro", label: "DeepSeek-V4-Pro", tier: "High" },
+  { id: "builtin:deepseek:deepseek-v4-flash", provider: "deepseek", model: "deepseek-v4-flash", label: "DeepSeek-V4-Flash", tier: "High" },
+  { id: "builtin:zhipu:glm-5.2", provider: "zhipu", model: "glm-5.2", label: "GLM-5.2", tier: "Medium" },
+  { id: "builtin:zhipu:glm-5.1", provider: "zhipu", model: "glm-5.1", label: "GLM-5.1", tier: "Medium" },
+  { id: "builtin:zhipu:glm-5v-turbo", provider: "zhipu", model: "glm-5v-turbo", label: "GLM-5v-Turbo", tier: "Medium" },
+  { id: "builtin:minimax:MiniMax-M3", provider: "minimax", model: "MiniMax-M3", label: "MiniMax-M3", tier: "Medium" },
+  { id: "builtin:kimi:kimi-k2.7-code", provider: "kimi", model: "kimi-k2.7-code", label: "Kimi-K2.7-Code", tier: "Medium" },
+  { id: "builtin:kimi:kimi-k2.6", provider: "kimi", model: "kimi-k2.6", label: "Kimi-K2.6", tier: "Medium" },
+  { id: "builtin:qwen:qwen3-max", provider: "qwen", model: "qwen3-max", label: "Qwen3-Max", tier: "Medium" },
+];
+
+type ChatScene = "office" | "code" | "design";
+
+const CHAT_SCENES: Array<{ id: ChatScene; label: string; icon: string; title: string }> = [
+  { id: "office", label: "日常办公", icon: "☕", title: "文档、总结、问答、日常任务" },
+  { id: "code", label: "代码开发", icon: "⌘", title: "代码、工具调用、项目开发" },
+  { id: "design", label: "设计创意", icon: "◌", title: "图片、视频、海报、PPT、网页设计" },
+];
+
+function providerHasApiKey(settings: Settings | null | undefined, provider: string): boolean {
+  if (!settings) return false;
+  switch (provider) {
+    case "anthropic":
+      return Boolean(settings.anthropic_api_key?.trim());
+    case "openai":
+      return Boolean(settings.openai_api_key?.trim());
+    case "deepseek":
+      return Boolean(settings.deepseek_api_key?.trim());
+    case "qwen":
+      return Boolean(settings.qwen_api_key?.trim());
+    case "minimax":
+      return Boolean(settings.minimax_api_key?.trim());
+    case "zhipu":
+      return Boolean(settings.zhipu_api_key?.trim());
+    case "kimi":
+      return Boolean(settings.kimi_api_key?.trim());
+    case "custom":
+      return Boolean(settings.openai_api_key?.trim() || settings.custom_base_url?.trim());
+    default:
+      return false;
+  }
+}
+
+function builtInModelLabel(model: BuiltInChatModel): string {
+  return `${model.label}  ${model.tier}`;
+}
+
+function isImageGenerationModel(model: string): boolean {
+  const m = model.toLowerCase();
+  return (
+    m.includes("gpt-image") ||
+    m.includes("dall-e") ||
+    m.includes("imagen") ||
+    m.includes("qwen-image") ||
+    m.includes("flux") ||
+    m.includes("stable-diffusion") ||
+    m.includes("midjourney") ||
+    /(^|[-_/])image($|[-_/])/.test(m)
+  );
+}
+
+function isVideoGenerationModel(model: string): boolean {
+  const m = model.toLowerCase();
+  return (
+    m.includes("video") ||
+    m.includes("veo") ||
+    m.includes("sora") ||
+    m.includes("kling") ||
+    m.includes("runway") ||
+    m.includes("wan-")
+  );
+}
+
+function isCreativeGenerationModel(model: string): boolean {
+  return isImageGenerationModel(model) || isVideoGenerationModel(model);
+}
+
+function modelAllowedInScene(model: string, scene: ChatScene): boolean {
+  if (scene === "design") return true;
+  return !isCreativeGenerationModel(model);
+}
 
 const COMPOSER_MODE_ICON: Record<ComposerMode, string> = {
   craft: "⚡",
@@ -384,7 +479,7 @@ export type ChatNavigateTab = (
 interface ChatProps {
   onNavigateTab?: ChatNavigateTab;
   variant?: "task" | "im";
-  onOpenSettings?: (sub: "channels" | "general") => void;
+  onOpenSettings?: (sub: "channels" | "general" | "models") => void;
 }
 
 export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }: ChatProps = {}) {
@@ -468,10 +563,75 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
     composerModeRef.current = composerMode;
     localStorage.setItem("piscis-composer-mode", composerMode);
   }, [composerMode]);
-  // Per-turn model override ("" => use configured default model).
-  const [modelOverride, setModelOverride] = useState<string>("");
-  const modelOverrideRef = useRef<string>("");
-  useEffect(() => { modelOverrideRef.current = modelOverride; }, [modelOverride]);
+  const [chatScene, setChatScene] = useState<ChatScene>(
+    () => (localStorage.getItem("piscis-chat-scene") as ChatScene) || "office",
+  );
+  const chatSceneRef = useRef<ChatScene>(chatScene);
+  useEffect(() => {
+    chatSceneRef.current = chatScene;
+    localStorage.setItem("piscis-chat-scene", chatScene);
+  }, [chatScene]);
+  // Per-turn LLM selection. "" => use configured default provider/model.
+  const [selectedModelProviderId, setSelectedModelProviderId] = useState<string>(
+    () => localStorage.getItem("piscis-chat-model-provider-id") || "",
+  );
+  const selectedModelProviderIdRef = useRef<string>("");
+  useEffect(() => {
+    selectedModelProviderIdRef.current = selectedModelProviderId;
+    localStorage.setItem("piscis-chat-model-provider-id", selectedModelProviderId);
+  }, [selectedModelProviderId]);
+  useEffect(() => {
+    if (chatScene === "design") return;
+    const selectedModel = selectedModelProviderId.includes("::")
+      ? selectedModelProviderId.split("::").slice(1).join("::")
+      : "";
+    if (selectedModel && !modelAllowedInScene(selectedModel, chatScene)) {
+      setSelectedModelProviderId("");
+    }
+  }, [chatScene, selectedModelProviderId]);
+  useEffect(() => {
+    if (chatScene === "design") return;
+    if (!selectedModelProviderId || selectedModelProviderId.includes("::")) return;
+    const providerModel = settings?.llm_providers?.find((p) => p.id === selectedModelProviderId)?.model;
+    if (providerModel && !modelAllowedInScene(providerModel, chatScene)) {
+      setSelectedModelProviderId("");
+    }
+  }, [chatScene, selectedModelProviderId, settings?.llm_providers]);
+  const [providerModelsById, setProviderModelsById] = useState<Record<string, string[]>>({});
+  const [providerModelLoadErrors, setProviderModelLoadErrors] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const providers = (settings?.llm_providers ?? []).filter((p) => p.base_url?.trim());
+    if (!providers.length) {
+      setProviderModelsById({});
+      setProviderModelLoadErrors({});
+      return;
+    }
+    let cancelled = false;
+    Promise.allSettled(
+      providers.map(async (provider) => {
+        const result = await chatApi.listLlmProviderModels(provider.id);
+        return { providerId: provider.id, models: result.models };
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+      const nextModels: Record<string, string[]> = {};
+      const nextErrors: Record<string, string> = {};
+      results.forEach((result, idx) => {
+        const providerId = providers[idx]?.id;
+        if (!providerId) return;
+        if (result.status === "fulfilled") {
+          nextModels[providerId] = result.value.models;
+        } else {
+          nextErrors[providerId] = String(result.reason);
+        }
+      });
+      setProviderModelsById(nextModels);
+      setProviderModelLoadErrors(nextErrors);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [settings?.llm_providers]);
   const [topbarPanel, setTopbarPanel] = useState<null | "search" | "history">(null);
   const [convSearch, setConvSearch] = useState("");
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
@@ -1881,7 +2041,8 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
         personaKoiId: koi?.id,
         clearPlan,
         mode: composerModeRef.current,
-        modelOverride: modelOverrideRef.current || undefined,
+        scene: chatSceneRef.current,
+        modelProviderId: selectedModelProviderIdRef.current || undefined,
       });
     } catch (e) {
       console.error('[Chat] send error:', e);
@@ -2469,8 +2630,26 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
                 !running &&
                 !loadingMoreHistory &&
                 pendingLiveCards.length === 0 && (
-                  <div className="chat-messages-empty" aria-hidden="true">
-                    <img src="/chat-empty-hero.png" alt="" className="chat-empty-hero" />
+                  <div className="chat-messages-empty">
+                    <div className="chat-empty-start">
+                      <img src="/chat-empty-hero.png" alt="" className="chat-empty-hero" aria-hidden="true" />
+                      <div className="chat-empty-scenes" role="tablist" aria-label="Chat scene">
+                        {CHAT_SCENES.map((scene) => (
+                          <button
+                            key={scene.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={chatScene === scene.id}
+                            className={`chat-empty-scene${chatScene === scene.id ? " active" : ""}`}
+                            title={scene.title}
+                            onClick={() => setChatScene(scene.id)}
+                          >
+                            <span className="chat-empty-scene-icon" aria-hidden>{scene.icon}</span>
+                            <span>{scene.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -2534,6 +2713,25 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
             {!isImSession && <div
               className={`input-area${isDragging ? " drag-over" : ""}`}
             >
+              {(activeMessages.length > 0 || running || pendingLiveCards.length > 0) && (
+              <div className="chat-scene-tabs" role="tablist" aria-label="Chat scene">
+                {CHAT_SCENES.map((scene) => (
+                  <button
+                    key={scene.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={chatScene === scene.id}
+                    className={`chat-scene-tab${chatScene === scene.id ? " active" : ""}`}
+                    title={scene.title}
+                    onClick={() => setChatScene(scene.id)}
+                    disabled={running}
+                  >
+                    <span className="chat-scene-icon" aria-hidden>{scene.icon}</span>
+                    <span>{scene.label}</span>
+                  </button>
+                ))}
+              </div>
+              )}
               {(selectedKoi || selectedSkills.length > 0 || pendingAttachments.length > 0) && (
                 <div className="pending-composer-strip">
                   {selectedKoi && (
@@ -2693,17 +2891,96 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
                       const defaultLabel = settings?.model
                         ? `${t("chat.modelDefault")} · ${settings.model}`
                         : t("chat.modelDefault");
-                      const current = modelOverride
-                        ? providers.find((p) => p.model === modelOverride)?.label || modelOverride
-                        : t("chat.modelDefault");
+                      const selectedBuiltIn = BUILT_IN_CHAT_MODELS.find((m) => m.id === selectedModelProviderId);
+                      const selectedCustom = providers.find((p) => p.id === selectedModelProviderId);
+                      const selectedExpandedCustom = selectedModelProviderId.includes("::")
+                        ? (() => {
+                            const [providerId, modelId] = selectedModelProviderId.split("::");
+                            const provider = providers.find((p) => p.id === providerId);
+                            return provider && modelId ? { provider, modelId } : null;
+                          })()
+                        : null;
+                      const current = selectedBuiltIn
+                        ? selectedBuiltIn.label
+                        : selectedCustom
+                          ? (selectedCustom.label || selectedCustom.model || selectedCustom.id)
+                          : selectedExpandedCustom
+                            ? selectedExpandedCustom.modelId
+                            : t("chat.modelDefault");
+                      const builtInItems: ComposerMenuItem[] = BUILT_IN_CHAT_MODELS.map((m) => {
+                        const configured = providerHasApiKey(settings, m.provider);
+                        return {
+                          id: m.id,
+                          label: `${builtInModelLabel(m)}${configured ? "" : "  (未配置)"}`,
+                          icon: m.provider.slice(0, 2).toUpperCase(),
+                          selected: selectedModelProviderId === m.id,
+                          disabled: !configured,
+                        };
+                      });
+                      const customItems: ComposerMenuItem[] = providers.flatMap((p) => {
+                        const fetchedModels = providerModelsById[p.id] ?? [];
+                        const models = Array.from(new Set([
+                          p.model,
+                          ...fetchedModels,
+                        ].map((model) => model?.trim()).filter(Boolean) as string[]));
+                        const sceneModels = models.filter((modelName) => modelAllowedInScene(modelName, chatScene));
+                        const chatModels = sceneModels.filter((modelName) => !isCreativeGenerationModel(modelName));
+                        const creativeModels = sceneModels.filter((modelName) => isCreativeGenerationModel(modelName));
+                        const rows: ComposerMenuItem[] = [];
+                        if (sceneModels.length === 0 && models.length > 0) {
+                          return rows;
+                        }
+                        if (sceneModels.length > 1) {
+                          rows.push({
+                            id: `_provider_header_${p.id}`,
+                            label: p.label || p.id,
+                            disabled: true,
+                          });
+                        }
+                        if (providerModelLoadErrors[p.id] && models.length <= 1) {
+                          rows.push({
+                            id: `_provider_error_${p.id}`,
+                            label: `${p.label || p.id}  模型列表获取失败，显示已保存模型`,
+                            disabled: true,
+                          });
+                        }
+                        rows.push(...chatModels.map((modelName) => {
+                          const id = modelName === p.model ? p.id : `${p.id}::${modelName}`;
+                          return {
+                            id,
+                            label: sceneModels.length > 1
+                              ? modelName
+                              : (p.label ? `${p.label}  ${p.provider}  ${modelName}` : `${p.id}  ${p.provider}  ${modelName}`),
+                            icon: "AI",
+                            selected: selectedModelProviderId === id,
+                          };
+                        }));
+                        if (creativeModels.length > 0) {
+                          rows.push({
+                            id: `_provider_image_header_${p.id}`,
+                            label: "创意生成模型",
+                            disabled: true,
+                          });
+                          rows.push(...creativeModels.map((modelName) => {
+                            const id = modelName === p.model ? p.id : `${p.id}::${modelName}`;
+                            return {
+                              id,
+                              label: modelName,
+                              icon: isImageGenerationModel(modelName) ? "IMG" : "VID",
+                              selected: selectedModelProviderId === id,
+                            };
+                          }));
+                        }
+                        return rows;
+                      });
                       const items: ComposerMenuItem[] = [
-                        { id: "", label: defaultLabel, icon: "✨", selected: !modelOverride },
-                        ...providers.map((p) => ({
-                          id: p.model,
-                          label: p.label ? `${p.label} · ${p.model}` : p.model,
-                          icon: "🧠",
-                          selected: modelOverride === p.model,
-                        })),
+                        { id: "", label: defaultLabel, icon: "Auto", selected: !selectedModelProviderId },
+                        { id: "_model_builtin_header", label: "内置模型", disabled: true },
+                        ...builtInItems,
+                        { id: "_model_custom_header", label: "自定义模型", disabled: true },
+                        ...customItems,
+                        { id: "_model_config_divider", label: "", divider: true },
+                        { id: "_model_configure", label: "+ 配置自定义模型", action: true },
                       ];
                       return (
                         <ComposerDropdown
@@ -2714,7 +2991,14 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
                           items={items}
                           open={composerMenuOpen === "model"}
                           onOpenChange={(open) => setComposerMenuOpen(open ? "model" : null)}
-                          onSelect={(id) => setModelOverride(id)}
+                          onSelect={(id) => {
+                            if (id === "_model_configure") {
+                              setComposerMenuOpen(null);
+                              onOpenSettings?.("models");
+                              return;
+                            }
+                            setSelectedModelProviderId(id);
+                          }}
                           disabled={running}
                           searchPlaceholder={t("chat.modelLabel")}
                           emptyLabel={t("ide.noResults")}
@@ -2869,22 +3153,56 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
             <div className="assistant-im-connect">{imConnectFooter}</div>
           </div>
         ) : (
-          <div className="empty-state">
+          <div className="empty-state chat-welcome-state">
             {sendError && (
               <div className="error-banner" role="alert" style={{ marginBottom: 16, maxWidth: 480, width: "100%" }}>
                 <span>{sendError}</span>
                 <button className="error-dismiss" onClick={() => setSendError(null)}>✕</button>
               </div>
             )}
-            <div className="empty-state-icon chat-empty-hero-wrap">
-              <img
-                src="/chat-empty-hero.png"
-                alt=""
-                className="chat-empty-hero"
-              />
+            <div className="chat-welcome-copy">
+              <div className="chat-welcome-brand">WorkBuddy</div>
+              <div className="chat-welcome-title">
+                {chatScene === "design"
+                  ? "你的设计超能力"
+                  : chatScene === "code"
+                    ? "你的开发搭档"
+                    : "你的办公助手"}
+              </div>
             </div>
-            <div className="empty-state-title">{t("chat.welcome")}</div>
-            <div className="empty-state-desc">{t("chat.welcomeDesc")}</div>
+            <div className="chat-welcome-scenes" role="tablist" aria-label="Chat scene">
+              {CHAT_SCENES.map((scene) => (
+                <button
+                  key={scene.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={chatScene === scene.id}
+                  className={`chat-welcome-scene${chatScene === scene.id ? " active" : ""}`}
+                  title={scene.title}
+                  onClick={() => setChatScene(scene.id)}
+                >
+                  <span className="chat-welcome-scene-icon" aria-hidden>{scene.icon}</span>
+                  <span>{scene.label}</span>
+                </button>
+              ))}
+            </div>
+            <div className="chat-welcome-actions">
+              {(chatScene === "design"
+                ? ["网站设计", "PPT设计", "视觉海报", "更多"]
+                : chatScene === "code"
+                  ? ["代码审查", "修复报错", "生成脚本", "更多"]
+                  : ["文档处理", "会议总结", "邮件撰写", "更多"]
+              ).map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  className="chat-welcome-action"
+                  onClick={() => setInput(label === "更多" ? "" : `帮我做${label}`)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <button className="btn btn-primary" onClick={handleNewSession}>
               {t("chat.newChatBtn")}
             </button>
@@ -3279,18 +3597,23 @@ function MessageContent({ content }: { content: string }) {
               </div>
             ),
             // Inline images — clickable for full-size view
-            img: ({ src, alt }) => (
-              <img
-                src={src}
+            img: ({ src, alt }) => {
+              const displaySrc = src?.startsWith("file://")
+                ? convertFileSrc(uriToNativePath(src))
+                : src;
+              return (
+                <img
+                src={displaySrc}
                 alt={alt || "image"}
                 className="message-image"
                 onClick={(e) => {
                   const w = window.open();
-                  if (w) { w.document.write(`<img src="${src}" style="max-width:100%">`); }
+                  if (w) { w.document.write(`<img src="${displaySrc}" style="max-width:100%">`); }
                   e.stopPropagation();
                 }}
-              />
-            ),
+                />
+              );
+            },
           }}
         >
           {processed}

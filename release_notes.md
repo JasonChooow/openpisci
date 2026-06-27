@@ -1,9 +1,9 @@
-## v0.8.64 - DimWork rebrand, marketplace, and release polish
+## v0.8.64 - 9X bot rebrand, marketplace, and release polish
 
 ### Highlights
 
-- **DimWork branding**: App icon (transparent), dock/tray icon refresh, chat empty-state 3D hero, settings tools page CSS fix
-- **Marketplace**: Unified DimWork market, cloud account gateway, lazy-loaded catalog
+- **9X bot branding**: App icon (transparent), dock/tray icon refresh, chat empty-state 3D hero, settings tools page CSS fix
+- **Marketplace**: Unified 9X bot market, cloud account gateway, lazy-loaded catalog
 - **Cross-platform release**: Windows (NSIS/MSI), Linux (deb/AppImage), macOS universal binary (Intel + Apple Silicon)
 
 ### Bug Fixes

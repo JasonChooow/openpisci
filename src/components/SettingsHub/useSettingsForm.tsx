@@ -25,8 +25,8 @@ import { getFontScale, type FontScale } from "../../utils/fontScale";
 import { DEFAULT_SETTINGS, EMPTY_LLM_PROVIDER, type EnterprisePlatformId } from "../Settings/settingsDefaults";
 
 export type UseSettingsFormOptions = {
-  theme: "violet" | "gold";
-  setTheme: (t: "violet" | "gold") => void;
+  theme: "violet" | "gold" | "minimal";
+  setTheme: (t: "violet" | "gold" | "minimal") => void;
   onOpenTools?: () => void;
 };
 
@@ -340,7 +340,7 @@ export function useSettingsFormInternal({ theme, setTheme, onOpenTools }: UseSet
     return JSON.stringify(current) !== JSON.stringify(persisted);
   }, [form, sshServers, llmProviders, settings]);
 
-  const handleSave = async () => {
+  const saveSettingsSnapshot = async (nextLlmProviders: LlmProviderConfig[] = llmProviders) => {
     // workspace_root is always required — fill with default if blank
     if (!(form.workspace_root ?? "").trim()) {
       if (defaultWorkspace) {
@@ -368,7 +368,7 @@ export function useSettingsFormInternal({ theme, setTheme, onOpenTools }: UseSet
         max_tool_result_tokens: Math.max(1000, Number(form.max_tool_result_tokens) || 8000),
         summary_model: (form.summary_model ?? "").trim() || null,
         ssh_servers: sshServers,
-        llm_providers: llmProviders,
+        llm_providers: nextLlmProviders,
       });
       dispatch(settingsActions.setSettings(updated));
       dispatch(settingsActions.setConfigured(updated.is_configured ?? !!(updated.anthropic_api_key || updated.openai_api_key || updated.deepseek_api_key || updated.qwen_api_key)));
@@ -384,6 +384,15 @@ export function useSettingsFormInternal({ theme, setTheme, onOpenTools }: UseSet
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    await saveSettingsSnapshot();
+  };
+
+  const saveLlmProviders = async (nextLlmProviders: LlmProviderConfig[]) => {
+    setLlmProviders(nextLlmProviders);
+    await saveSettingsSnapshot(nextLlmProviders);
   };
 
   const update = <K extends keyof SettingsData>(key: K, value: SettingsData[K]) => {
@@ -569,6 +578,7 @@ export function useSettingsFormInternal({ theme, setTheme, onOpenTools }: UseSet
     setSshShowPassword,
     llmProviders,
     setLlmProviders,
+    saveLlmProviders,
     llmEditIdx,
     setLlmEditIdx,
     llmEditForm,

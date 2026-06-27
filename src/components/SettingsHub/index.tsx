@@ -34,8 +34,8 @@ import type { SettingsSubTab, ToolsSubTab } from "./types";
 export type { SettingsSubTab, ToolsSubTab, OpenSettingsOptions } from "./types";
 
 export type SettingsHubProps = {
-  theme: "violet" | "gold";
-  setTheme: (t: "violet" | "gold") => void;
+  theme: "violet" | "gold" | "minimal";
+  setTheme: (t: "violet" | "gold" | "minimal") => void;
   activeSubTab: SettingsSubTab;
   onSubTabChange: (t: SettingsSubTab) => void;
   toolsSubTab?: ToolsSubTab;

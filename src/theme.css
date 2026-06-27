@@ -5,6 +5,7 @@
 
 @import "./themes/violet.css";
 @import "./themes/gold.css";
+@import "./themes/minimal.css";
 @import "./themes/light.css";
 
 /* 默认主题 = violet（在 :root 上直接应用，无需 data-theme） */
