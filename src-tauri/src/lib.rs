@@ -5,6 +5,8 @@
 
 pub mod app;
 mod brand_generated;
+mod builtin_qinchuang;
+mod builtin_skillhub;
 mod commands;
 mod fish;
 mod gateway;

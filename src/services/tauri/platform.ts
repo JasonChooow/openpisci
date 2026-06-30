@@ -168,6 +168,8 @@ export interface MarketExpert {
   /** Whether the source is an official/trusted registry. */
   trusted?: boolean;
   featured?: boolean;
+  category?: string | null;
+  subcategory?: string | null;
 }
 
 export interface MarketTeam {

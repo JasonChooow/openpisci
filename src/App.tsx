@@ -66,7 +66,9 @@ function AppContent() {
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>("general");
   const [settingsToolsSubTab, setSettingsToolsSubTab] = useState<ToolsSubTab>("builtin");
   const [marketLevelTab, setMarketLevelTab] = useState<MarketLevelTab>("experts");
-  const [marketScopeTab, setMarketScopeTab] = useState<MarketScopeTab>("market");
+  const [marketScopeTab, setMarketScopeTab] = useState<MarketScopeTab>("installed");
+  const [activeKoiId, setActiveKoiId] = useState<string | null>(null);
+  const [summonKoiRequest, setSummonKoiRequest] = useState<{ koiId: string | null; nonce: number } | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
@@ -308,6 +310,12 @@ function AppContent() {
     setActiveTab("assistant");
   };
 
+  const handleSummonExpert = (koiId: string | null) => {
+    setActiveKoiId(koiId);
+    setSummonKoiRequest({ koiId, nonce: Date.now() });
+    setActiveTab("chat");
+  };
+
   const handleGuide = () => {
     dispatch(sessionsActions.openMainChatView({ filter: "chat", composerDraft: t("guide.prompt") }));
     setActiveTab("chat");
@@ -532,13 +540,16 @@ function AppContent() {
               <div className={activeTab === "assistant" ? "assistant-page" : "conversation-shell"}>
                 <Chat
                   variant={activeTab === "assistant" ? "im" : "task"}
+                  activeKoiId={activeKoiId}
+                  summonKoiRequest={summonKoiRequest}
+                  onActiveKoiChange={setActiveKoiId}
                   onOpenSettings={(sub) => openSettings(sub)}
                   onNavigateTab={(tab, opts) => {
                     if (tab === "skills" || tab === "school") {
                       navigateTab("school");
                       if (tab === "skills" || opts?.marketLevel === "skills") {
                         setMarketLevelTab("skills");
-                        setMarketScopeTab(opts?.marketScope ?? "market");
+                        setMarketScopeTab(opts?.marketScope ?? "installed");
                       } else if (opts?.schoolSubTab === "koi") {
                         setMarketLevelTab("experts");
                         setMarketScopeTab("installed");
@@ -557,6 +568,8 @@ function AppContent() {
                 onLevelTabChange={setMarketLevelTab}
                 onScopeTabChange={setMarketScopeTab}
                 onNavigateToChat={() => navigateTab("chat")}
+                activeKoiId={activeKoiId}
+                onSummonExpert={handleSummonExpert}
               />
             </div>
           )}

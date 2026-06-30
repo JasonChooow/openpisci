@@ -28,6 +28,10 @@ pub struct MarketExpert {
     pub trusted: bool,
     #[serde(default)]
     pub featured: bool,
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
+    pub subcategory: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -347,6 +351,25 @@ pub async fn fetch_marketplace_aggregated(
     let mut seen_skills: HashSet<String> = HashSet::new();
     let mut seen_connectors: HashSet<String> = HashSet::new();
 
+    if let Ok(builtin) = crate::builtin_qinchuang::market_summaries() {
+        for s in builtin {
+            let key = dedup_key(&s.source, &s.id);
+            if seen_experts.insert(key) {
+                experts.push(MarketExpert {
+                    id: s.id,
+                    name: s.name,
+                    description: s.description,
+                    download_url: s.download_url,
+                    source: s.source,
+                    trusted: true,
+                    featured: s.featured,
+                    category: Some(s.category),
+                    subcategory: Some(s.subcategory),
+                });
+            }
+        }
+    }
+
     // 1) Official GitHub registry.
     let gh_url = github_url
         .filter(|s| !s.trim().is_empty())
@@ -398,6 +421,8 @@ pub async fn fetch_marketplace_aggregated(
                         source: "cloud".into(),
                         trusted: true,
                         featured: s.featured,
+                        category: None,
+                        subcategory: None,
                     });
                 }
             }
@@ -473,6 +498,10 @@ pub async fn install_market_expert(
     download_url: String,
 ) -> Result<String, String> {
     let url = download_url.trim();
+    if let Some(slug) = url.strip_prefix("qinchuang://expert/") {
+        let db = state.db.lock().await;
+        return crate::builtin_qinchuang::install_expert_by_slug(&db, slug);
+    }
     let body = fetch_text(url).await?;
     let pkg: MarketExpertPackage = serde_json::from_str(&body)
         .or_else(|_| {

@@ -22,6 +22,8 @@ export type ExpertHubProps = {
   onLevelTabChange?: (tab: MarketLevelTab) => void;
   onScopeTabChange?: (tab: MarketScopeTab) => void;
   onNavigateToChat?: () => void;
+  activeKoiId?: string | null;
+  onSummonExpert?: (koiId: string | null) => void;
 };
 
 export function getInstalledTeams(): TeamTemplate[] {
@@ -34,10 +36,12 @@ export default function ExpertHub({
   onLevelTabChange,
   onScopeTabChange,
   onNavigateToChat,
+  activeKoiId,
+  onSummonExpert,
 }: ExpertHubProps = {}) {
   const { t } = useTranslation();
   const [levelTabInternal, setLevelTabInternal] = useState<MarketLevelTab>("experts");
-  const [scopeTabInternal, setScopeTabInternal] = useState<MarketScopeTab>("market");
+  const [scopeTabInternal, setScopeTabInternal] = useState<MarketScopeTab>("installed");
   const levelTab = levelTabProp ?? levelTabInternal;
   const scopeTab = scopeTabProp ?? scopeTabInternal;
 
@@ -145,7 +149,7 @@ export default function ExpertHub({
         </nav>
 
         {levelTab === "experts" && scopeTab === "installed" && (
-          <KoiManager />
+          <KoiManager activeKoiId={activeKoiId} onSummon={onSummonExpert} />
         )}
 
         {levelTab === "teams" && scopeTab === "installed" && (
@@ -168,6 +172,8 @@ export default function ExpertHub({
             loading={loading}
             emptyLabel={t("expert.marketEmpty")}
             installLabel={t("expert.install")}
+            installedLabel="已内置"
+            isInstalled={(expert) => expert.source === "builtin-qinchuang"}
             onInstall={(e) => void installExpert(e)}
           />
         )}

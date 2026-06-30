@@ -600,21 +600,57 @@ impl SkillLoader {
         let mut prompt = String::new();
         for name in enabled_skills {
             if let Some(skill) = self.skills.get(name) {
+                let supporting_files = self.generate_supporting_markdown_prompt(skill);
                 prompt.push_str(&format!(
-                    "\n## Skill: {}\nSource: {}\nPermissions: {}\n{}\n\n{}\n",
+                    "\n## Skill: {}\nSource: {}\nPath: {}\nPermissions: {}\n{}\n\n{}\n{}",
                     skill.name,
                     skill.source,
+                    skill.source_path.display(),
                     if skill.permissions.is_empty() {
                         "none".to_string()
                     } else {
                         skill.permissions.join(", ")
                     },
                     skill.description,
-                    skill.instructions
+                    skill.instructions,
+                    supporting_files
                 ));
             }
         }
         prompt
+    }
+
+    fn generate_supporting_markdown_prompt(&self, skill: &SkillDefinition) -> String {
+        let mut chunks = Vec::new();
+        let reference_dir = skill.source_path.join("references");
+        if let Ok(entries) = std::fs::read_dir(&reference_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|ext| ext.to_str()) != Some("md") {
+                    continue;
+                }
+                if let Ok(content) = std::fs::read_to_string(&path) {
+                    chunks.push(format!(
+                        "\n### Supporting file: {}\n{}\n",
+                        path.display(),
+                        content
+                    ));
+                }
+            }
+        }
+        let templates_readme = skill.source_path.join("templates").join("README.md");
+        if let Ok(content) = std::fs::read_to_string(&templates_readme) {
+            chunks.push(format!(
+                "\n### Supporting file: {}\n{}\n",
+                templates_readme.display(),
+                content
+            ));
+        }
+        if chunks.is_empty() {
+            String::new()
+        } else {
+            format!("\n## Bundled supporting skill files\n{}\n", chunks.join("\n"))
+        }
     }
 
     /// Generate a skill directory for the system prompt.

@@ -63,6 +63,26 @@
 }
 
 /* Grid */
+.koi-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.koi-category-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.koi-category-title {
+  margin: 0;
+  padding: 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 .koi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

@@ -20,12 +20,32 @@ const BUILTIN_SKILL_IDS = new Set([
   "desktop-control",
 ]);
 
+const PRIMARY_OFFICE_SKILL_IDS = new Set([
+  "meeting-notes-assistant",
+  "word___docx",
+  "data-analysis-skill",
+  "ppt-generator",
+  "pdf-convert-compdf",
+  "file-classifier",
+  "invoice-organizer",
+]);
+
 export function isBuiltinSkill(skill: Pick<Skill, "id">): boolean {
   const id = skill.id.trim().toLowerCase();
   return BUILTIN_SKILL_IDS.has(id);
 }
 
+export function isPrimaryOfficeSkill(skill: Pick<Skill, "id">): boolean {
+  const id = skill.id.trim().toLowerCase();
+  return PRIMARY_OFFICE_SKILL_IDS.has(id);
+}
+
 /** User-installed / registry skills eligible for explicit composer selection. */
 export function composerSelectableSkills(skills: Skill[]): Skill[] {
   return skills.filter((s) => s.enabled && !isBuiltinSkill(s));
+}
+
+/** Compact composer list: keep only the office basics on the visible button. */
+export function composerPrimaryOfficeSkills(skills: Skill[]): Skill[] {
+  return composerSelectableSkills(skills).filter(isPrimaryOfficeSkill);
 }

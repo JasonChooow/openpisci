@@ -13,6 +13,10 @@ export type AppMenuItem = {
   toggle?: boolean;
   /** Visual separator row. */
   divider?: boolean;
+  /** Non-selectable section heading. */
+  section?: boolean;
+  /** Additional text used by search. */
+  searchText?: string;
   /** Override dropdown close-on-select for this row. */
   keepOpen?: boolean;
 };
@@ -86,7 +90,11 @@ export default function AppDropdown({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;
-    return items.filter((item) => item.label.toLowerCase().includes(q));
+    return items.filter((item) => {
+      if (item.divider || item.section) return false;
+      const haystack = `${item.label} ${item.searchText ?? ""}`.toLowerCase();
+      return haystack.includes(q);
+    });
   }, [items, query]);
 
   const showSearch = items.length >= 6 || Boolean(searchPlaceholder);
@@ -138,6 +146,9 @@ export default function AppDropdown({
               filtered.map((item) => {
                 if (item.divider) {
                   return <div key={item.id} className="app-dropdown-divider" role="separator" />;
+                }
+                if (item.section) {
+                  return <div key={item.id} className="app-dropdown-section" role="presentation">{item.label}</div>;
                 }
                 const rowClass = `app-dropdown-item${item.selected ? " selected" : ""}${item.action ? " action" : ""}${item.disabled ? " info" : ""}${item.toggle ? " toggle" : ""}`;
                 if (item.disabled) {

@@ -221,6 +221,25 @@
   color: var(--text-secondary);
 }
 
+.market-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.market-category-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.market-category-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 .expert-empty {
   padding: 24px;
   text-align: center;

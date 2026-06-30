@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useSelector, useDispatch } from "react-redux";
 import { boardApi, koiApi, KoiWithStats, KoiPalette, LlmProviderConfig, Memory, KoiTodo } from "../../../services/tauri";
 import { RootState, koiActions } from "../../../store";
+import { compareExpertGroupLabels, normalizeExpertGroupLabel } from "../../../utils/expertOrdering";
 import ConfirmDialog from "../../ConfirmDialog";
 import "./KoiManager.css";
 
@@ -169,15 +170,17 @@ function getKoiNameError(name: string, t: (key: string) => string): string | nul
 function KoiCard({
   koi,
   t,
+  isSummoned,
   onEdit,
   onDelete,
-  onToggleActive,
+  onToggleSummon,
 }: {
   koi: KoiWithStats;
   t: (key: string) => string;
+  isSummoned: boolean;
   onEdit: () => void;
   onDelete: () => void;
-  onToggleActive: () => void;
+  onToggleSummon?: () => void;
 }) {
   const hasActiveTodos = koi.active_todo_count > 0;
   const displayStatus = koi.status === "busy" ? "busy"
@@ -272,10 +275,11 @@ function KoiCard({
       </div>
       <div className="koi-card-actions">
         <button
-          className={`koi-btn ${koi.status === "offline" ? "koi-btn-primary" : "koi-btn-secondary"}`}
-          onClick={onToggleActive}
+          className={`koi-btn ${isSummoned ? "koi-btn-secondary" : "koi-btn-primary"}`}
+          onClick={onToggleSummon}
+          disabled={!onToggleSummon}
         >
-          {koi.status === "offline" ? t("koi.returnFromVacation") : t("koi.deactivate")}
+          {isSummoned ? t("koi.deactivate") : t("koi.summon")}
         </button>
         <button className="koi-btn koi-btn-secondary" onClick={onEdit}>
           {t("koi.editBtn")}
@@ -293,6 +297,20 @@ function KoiCard({
       )}
     </div>
   );
+}
+
+function groupKoisByRole(kois: KoiWithStats[]): Array<[string, KoiWithStats[]]> {
+  const groups = new Map<string, KoiWithStats[]>();
+  for (const koi of kois) {
+    const group = normalizeExpertGroupLabel(koi.role);
+    groups.set(group, [...(groups.get(group) ?? []), koi]);
+  }
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => compareExpertGroupLabels(a, b))
+    .map(([group, groupKois]) => [
+      group,
+      [...groupKois].sort((a, b) => a.name.localeCompare(b.name, "zh-Hans-CN")),
+    ]);
 }
 
 function KoiDialog({
@@ -538,7 +556,12 @@ function KoiDialog({
   );
 }
 
-export default function KoiManager() {
+interface KoiManagerProps {
+  activeKoiId?: string | null;
+  onSummon?: (koiId: string | null) => void;
+}
+
+export default function KoiManager({ activeKoiId = null, onSummon }: KoiManagerProps = {}) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const kois = useSelector((s: RootState) => s.koi.kois);
@@ -556,8 +579,6 @@ export default function KoiManager() {
   const [deleteTarget, setDeleteTarget] = useState<KoiWithStats | null>(null);
   const [deleteInfo, setDeleteInfo] = useState<{ name: string; icon: string; todo_count: number; memory_count: number; is_busy: boolean } | null>(null);
   const [deleting, setDeleting] = useState(false);
-  // Busy confirmation for vacation
-  const [vacationBusyTarget, setVacationBusyTarget] = useState<KoiWithStats | null>(null);
 
   const loadKois = useCallback(async () => {
     try {
@@ -683,30 +704,9 @@ export default function KoiManager() {
     }
   };
 
-  const handleToggleActive = async (koi: KoiWithStats) => {
-    try {
-      await koiApi.setActive(koi.id, koi.status === "offline");
-      loadKois();
-    } catch (e) {
-      const msg = String(e);
-      if (msg.includes("BUSY:")) {
-        // Backend returned BUSY sentinel — show confirmation
-        setVacationBusyTarget(koi);
-      } else {
-        setError(msg);
-      }
-    }
-  };
-
-  const handleForceVacation = async () => {
-    if (!vacationBusyTarget) return;
-    try {
-      await koiApi.setActive(vacationBusyTarget.id, false, true);
-      setVacationBusyTarget(null);
-      loadKois();
-    } catch (e) {
-      setError(String(e));
-    }
+  const handleToggleSummon = (koi: KoiWithStats) => {
+    if (!onSummon) return;
+    onSummon(activeKoiId === koi.id ? null : koi.id);
   };
 
   return (
@@ -733,16 +733,24 @@ export default function KoiManager() {
           <p>{t("common.noData")}</p>
         </div>
       ) : (
-        <div className="koi-grid">
-          {kois.map((koi) => (
-            <KoiCard
-              key={koi.id}
-              koi={koi}
-              t={t}
-              onEdit={() => openEdit(koi)}
-              onDelete={() => handleDeleteRequest(koi)}
-              onToggleActive={() => handleToggleActive(koi)}
-            />
+        <div className="koi-category-list">
+          {groupKoisByRole(kois).map(([group, groupKois]) => (
+            <section key={group} className="koi-category-section">
+              <h4 className="koi-category-title">{group}</h4>
+              <div className="koi-grid">
+                {groupKois.map((koi) => (
+                  <KoiCard
+                    key={koi.id}
+                    koi={koi}
+                    t={t}
+                    isSummoned={activeKoiId === koi.id}
+                    onEdit={() => openEdit(koi)}
+                    onDelete={() => handleDeleteRequest(koi)}
+                    onToggleSummon={onSummon ? () => handleToggleSummon(koi) : undefined}
+                  />
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       )}
@@ -796,30 +804,6 @@ export default function KoiManager() {
         onCancel={() => { setDeleteTarget(null); setDeleteInfo(null); }}
       />
 
-      <ConfirmDialog
-        open={!!vacationBusyTarget}
-        title={t("koi.confirmVacationTitle")}
-        message={
-          vacationBusyTarget
-            ? [
-                t("koi.confirmVacationBusyWarning").replace("{{name}}", vacationBusyTarget.name),
-                vacationBusyTarget.active_todo_count > 0
-                  ? t("koi.confirmVacationTodosWarning")
-                      .replace("{{name}}", vacationBusyTarget.name)
-                      .replace("{{count}}", String(vacationBusyTarget.active_todo_count))
-                  : "",
-              ]
-                .filter(Boolean)
-                .join("\n")
-            : ""
-        }
-        confirmLabel={t("koi.deactivate")}
-        cancelLabel={t("common.cancel")}
-        variant="danger"
-        loading={false}
-        onConfirm={handleForceVacation}
-        onCancel={() => setVacationBusyTarget(null)}
-      />
     </div>
   );
 }

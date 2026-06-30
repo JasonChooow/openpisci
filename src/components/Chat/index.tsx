@@ -30,7 +30,8 @@ import {
   isMainChatVisibleSession,
   pickMainChatActiveSession,
 } from "../../utils/session";
-import { composerSelectableSkills } from "../../utils/skills";
+import { composerPrimaryOfficeSkills, composerSelectableSkills } from "../../utils/skills";
+import { compareExpertGroupLabels, normalizeExpertGroupLabel } from "../../utils/expertOrdering";
 import {
   handleInputHistoryKeyDown,
   pushInputHistory,
@@ -64,6 +65,7 @@ const BUILT_IN_CHAT_MODELS: BuiltInChatModel[] = [
 ];
 
 type ChatScene = "office" | "code" | "design";
+const RECENT_KOI_KEY = "piscis-recent-koi-ids";
 
 const CHAT_SCENES: Array<{ id: ChatScene; label: string; icon: string; title: string }> = [
   { id: "office", label: "日常办公", icon: "☕", title: "文档、总结、问答、日常任务" },
@@ -92,6 +94,15 @@ function providerHasApiKey(settings: Settings | null | undefined, provider: stri
       return Boolean(settings.openai_api_key?.trim() || settings.custom_base_url?.trim());
     default:
       return false;
+  }
+}
+
+function loadRecentKoiIds(): string[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RECENT_KOI_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string").slice(0, 3) : [];
+  } catch {
+    return [];
   }
 }
 
@@ -480,9 +491,19 @@ interface ChatProps {
   onNavigateTab?: ChatNavigateTab;
   variant?: "task" | "im";
   onOpenSettings?: (sub: "channels" | "general" | "models") => void;
+  activeKoiId?: string | null;
+  summonKoiRequest?: { koiId: string | null; nonce: number } | null;
+  onActiveKoiChange?: (koiId: string | null) => void;
 }
 
-export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }: ChatProps = {}) {
+export default function Chat({
+  onNavigateTab,
+  variant = "task",
+  onOpenSettings,
+  activeKoiId,
+  summonKoiRequest,
+  onActiveKoiChange,
+}: ChatProps = {}) {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const { sessions, activeSessionId, pendingMainChatNav } = useSelector((s: RootState) => s.sessions);
@@ -554,7 +575,9 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachmentItem[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<Skill[]>([]);
   const [selectedKoi, setSelectedKoi] = useState<KoiWithStats | null>(null);
+  const [recentKoiIds, setRecentKoiIds] = useState<string[]>(loadRecentKoiIds);
   const [composerMenuOpen, setComposerMenuOpen] = useState<null | "mode" | "workspace" | "koi" | "skill" | "model" | "permission">(null);
+  const [skillMenuMode, setSkillMenuMode] = useState<"compact" | "all">("compact");
   const [composerMode, setComposerMode] = useState<ComposerMode>(
     () => (localStorage.getItem("piscis-composer-mode") as ComposerMode) || "craft",
   );
@@ -672,6 +695,10 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
   const reduxSkills = useSelector((state: RootState) => state.skills.skills);
   const installedSkills = useMemo(
     () => composerSelectableSkills(reduxSkills),
+    [reduxSkills],
+  );
+  const primaryOfficeSkills = useMemo(
+    () => composerPrimaryOfficeSkills(reduxSkills),
     [reduxSkills],
   );
   const [koiList, setKoiList] = useState<KoiWithStats[]>([]);
@@ -1658,7 +1685,17 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
   }, [deleteTarget, handleDeleteSession]);
 
   const appendAttachment = useCallback((item: PendingAttachmentItem) => {
-    setPendingAttachments((prev) => [...prev, item]);
+    setPendingAttachments((prev) => {
+      const nextPath = item.attachment.path?.trim().toLowerCase();
+      const nextFallback = `${item.attachment.media_type}|${item.attachment.filename ?? ""}|${item.attachment.data?.length ?? 0}`;
+      const exists = prev.some((current) => {
+        const currentPath = current.attachment.path?.trim().toLowerCase();
+        if (nextPath && currentPath) return nextPath === currentPath;
+        const currentFallback = `${current.attachment.media_type}|${current.attachment.filename ?? ""}|${current.attachment.data?.length ?? 0}`;
+        return nextFallback === currentFallback;
+      });
+      return exists ? prev : [...prev, item];
+    });
   }, []);
 
   const handleAttach = useCallback(async () => {
@@ -1708,19 +1745,55 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
     setSelectedSkills((prev) => prev.filter((s) => s.id !== skillId));
   }, []);
 
+  const rememberRecentKoi = useCallback((koiId: string) => {
+    setRecentKoiIds((prev) => {
+      const next = [koiId, ...prev.filter((id) => id !== koiId)].slice(0, 3);
+      localStorage.setItem(RECENT_KOI_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!summonKoiRequest) return;
+    if (!summonKoiRequest.koiId) {
+      setSelectedKoi(null);
+      return;
+    }
+    const koi = koiList.find((item) => item.id === summonKoiRequest.koiId);
+    if (!koi) return;
+    setSelectedKoi(koi);
+    rememberRecentKoi(koi.id);
+  }, [koiList, rememberRecentKoi, summonKoiRequest]);
+
+  useEffect(() => {
+    if (activeKoiId === undefined) return;
+    if (!activeKoiId) {
+      setSelectedKoi(null);
+      return;
+    }
+    if (selectedKoi?.id === activeKoiId) return;
+    const koi = koiList.find((item) => item.id === activeKoiId);
+    if (!koi) return;
+    setSelectedKoi(koi);
+    rememberRecentKoi(koi.id);
+  }, [activeKoiId, koiList, rememberRecentKoi, selectedKoi?.id]);
+
   const selectKoi = useCallback((koiId: string) => {
-    if (koiId === "__manage__") {
+    if (koiId === "__summon__") {
       setComposerMenuOpen(null);
-      onNavigateTab?.("school", { schoolSubTab: "koi" });
+      onNavigateTab?.("school", { marketLevel: "experts", marketScope: "installed", schoolSubTab: "koi" });
       return;
     }
     if (!koiId) {
       setSelectedKoi(null);
+      onActiveKoiChange?.(null);
       return;
     }
     const koi = koiList.find((k) => k.id === koiId) ?? null;
     setSelectedKoi(koi);
-  }, [koiList, onNavigateTab]);
+    onActiveKoiChange?.(koi?.id ?? null);
+    if (koi) rememberRecentKoi(koi.id);
+  }, [koiList, onActiveKoiChange, onNavigateTab, rememberRecentKoi]);
 
   const koiMenuItems = useMemo((): ComposerMenuItem[] => {
     const rows: ComposerMenuItem[] = [
@@ -1730,34 +1803,62 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
         icon: "🐟",
         selected: !selectedKoi,
       },
-      { id: "__manage__", label: t("chat.manageKois"), action: true },
+      { id: "__summon__", label: t("chat.summonExperts", { defaultValue: "\u53ec\u5524\u4e13\u5bb6" }), action: true },
     ];
-    for (const k of koiList) {
-      rows.push({
-        id: k.id,
-        label: `${k.name} (${k.role})`,
-        icon: k.icon,
-        selected: selectedKoi?.id === k.id,
-      });
+
+    const recentKois = recentKoiIds
+      .map((id) => koiList.find((koi) => koi.id === id))
+      .filter((koi): koi is KoiWithStats => Boolean(koi))
+      .slice(0, 3);
+
+    if (recentKois.length === 0) {
+      return rows;
+    }
+
+    const grouped = new Map<string, typeof koiList>();
+    for (const koi of recentKois) {
+      const group = normalizeExpertGroupLabel(koi.role);
+      grouped.set(group, [...(grouped.get(group) ?? []), koi]);
+    }
+
+    const sortedGroups = Array.from(grouped.entries()).sort(([a], [b]) => compareExpertGroupLabels(a, b));
+    for (const [group, groupKois] of sortedGroups) {
+      rows.push({ id: `__section__${group}`, label: group, section: true });
+      for (const k of [...groupKois].sort((a, b) => a.name.localeCompare(b.name, "zh-Hans-CN"))) {
+        rows.push({
+          id: k.id,
+          label: k.name,
+          searchText: `${k.role} ${k.description}`,
+          icon: k.icon,
+          selected: selectedKoi?.id === k.id,
+        });
+      }
     }
     return rows;
-  }, [koiList, selectedKoi, t]);
+  }, [koiList, recentKoiIds, selectedKoi, t]);
 
   const skillMenuItems = useMemo((): ComposerMenuItem[] => {
     const selectedIds = new Set(selectedSkills.map((s) => s.id));
+    const visibleSkills = skillMenuMode === "compact" ? primaryOfficeSkills : installedSkills;
     const rows: ComposerMenuItem[] = [
       { id: "__install__", label: t("chat.installSkill"), icon: "➕", action: true },
     ];
-    for (const s of installedSkills) {
+    if (skillMenuMode === "compact") {
+      rows.push({ id: "__section__office", label: t("chat.basicOfficeSkills"), section: true });
+    } else {
+      rows.push({ id: "__section__installed", label: t("chat.installedSkills"), section: true });
+    }
+    for (const s of visibleSkills) {
       rows.push({
         id: s.id,
         label: s.name,
+        searchText: s.description,
         icon: s.icon || "⚡",
         selected: selectedIds.has(s.id),
       });
     }
     return rows;
-  }, [installedSkills, selectedSkills, t]);
+  }, [installedSkills, primaryOfficeSkills, selectedSkills, skillMenuMode, t]);
 
   const handleSkillMenuSelect = useCallback((skillId: string) => {
     if (skillId === "__install__") {
@@ -2142,6 +2243,28 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
   }, [permissionRequest]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (
+      e.key === "/"
+      && !e.ctrlKey
+      && !e.metaKey
+      && !e.altKey
+      && !e.shiftKey
+      && !running
+      && !isTeamBoundSession
+      && !(e.nativeEvent as KeyboardEvent).isComposing
+    ) {
+      const target = e.currentTarget;
+      const start = target.selectionStart ?? input.length;
+      const end = target.selectionEnd ?? input.length;
+      const before = input.slice(0, start);
+      if (start === end && (before.length === 0 || /\s$/.test(before))) {
+        e.preventDefault();
+        setSkillMenuMode("all");
+        setComposerMenuOpen("skill");
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (chatInputHistoryScope) resetInputHistoryNav(chatInputHistoryScope);
@@ -2738,7 +2861,17 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
                     <div className="pending-chip pending-chip-koi" title={t("chat.personaKoi")}>
                       <span className="pending-chip-icon">{selectedKoi.icon}</span>
                       <span className="pending-chip-name">{selectedKoi.name}</span>
-                      <button type="button" className="pending-chip-remove" onClick={() => setSelectedKoi(null)} title={t("common.clear")}>✕</button>
+                      <button
+                        type="button"
+                        className="pending-chip-remove"
+                        onClick={() => {
+                          setSelectedKoi(null);
+                          onActiveKoiChange?.(null);
+                        }}
+                        title={t("common.clear")}
+                      >
+                        ✕
+                      </button>
                     </div>
                   )}
                   {selectedSkills.map((skill) => (
@@ -2876,7 +3009,10 @@ export default function Chat({ onNavigateTab, variant = "task", onOpenSettings }
                       triggerLabel={t("chat.skillSelectPlaceholder")}
                       items={skillMenuItems}
                       open={composerMenuOpen === "skill"}
-                      onOpenChange={(open) => setComposerMenuOpen(open ? "skill" : null)}
+                      onOpenChange={(open) => {
+                        if (open) setSkillMenuMode("compact");
+                        setComposerMenuOpen(open ? "skill" : null);
+                      }}
                       onSelect={handleSkillMenuSelect}
                       disabled={running}
                       searchPlaceholder={t("chat.composerSearchSkill")}

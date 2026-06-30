@@ -72,14 +72,175 @@ struct ChatPromptArtifacts {
     memory_owner_id: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SkillSelectionReason {
+    UserExplicit,
+    AutoGeneral,
+    AutoPptGeneration,
+    AutoPptVideo,
+}
+
+#[derive(Debug, Clone)]
+struct SkillSelection {
+    skill_ids: Vec<String>,
+    reason: SkillSelectionReason,
+}
+
+fn text_has_any(text: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| text.contains(needle))
+}
+
+fn is_presentation_request(text: &str) -> bool {
+    text_has_any(
+        text,
+        &[
+            "ppt",
+            "pptx",
+            "powerpoint",
+            "presentation",
+            "slide deck",
+            "slides",
+            "幻灯片",
+            "演示文稿",
+            "演示稿",
+            "路演稿",
+        ],
+    )
+}
+
+fn is_creation_request(text: &str) -> bool {
+    text_has_any(
+        text,
+        &[
+            "做",
+            "生成",
+            "制作",
+            "创建",
+            "写",
+            "输出",
+            "帮我",
+            "整理成",
+            "设计",
+            "美化",
+            "排版",
+            "make",
+            "create",
+            "generate",
+            "build",
+            "draft",
+            "produce",
+            "design",
+        ],
+    )
+}
+
+fn auto_match_preinstalled_skill_ids(content: &str) -> Option<SkillSelection> {
+    let text = content.to_lowercase();
+    let presentation = is_presentation_request(&text);
+
+    if presentation
+        && text_has_any(
+            &text,
+            &[
+                "转视频",
+                "生成视频",
+                "演讲视频",
+                "配音",
+                "字幕",
+                "to video",
+                "video",
+                "voice",
+            ],
+        )
+    {
+        return Some(SkillSelection {
+            skill_ids: vec!["ppt-to-video".to_string()],
+            reason: SkillSelectionReason::AutoPptVideo,
+        });
+    }
+
+    if presentation && (is_creation_request(&text) || text_has_any(&text, &["页", "pages", "deck"])) {
+        return Some(SkillSelection {
+            skill_ids: vec!["ppt-generator".to_string()],
+            reason: SkillSelectionReason::AutoPptGeneration,
+        });
+    }
+
+    let general_matches: &[(&[&str], &str)] = &[
+        (&["会议纪要", "会议记录", "录音转纪要", "meeting notes"], "meeting-notes-assistant"),
+        (&["word", "docx", "文档", "合同", "报告"], "word___docx"),
+        (&["excel", "xlsx", "数据分析", "数据可视化", "图表"], "data-analysis-skill"),
+        (&["pdf", "ocr"], "pdf-convert-compdf"),
+        (&["发票", "报销", "行程单"], "invoice-organizer"),
+        (&["文件分类", "整理文件", "文件整理"], "file-classifier"),
+        (&["小红书", "xhs"], "善春ai_小红书爆款文案生成器___scai_xhs_viral_copywriter"),
+        (&["公众号"], "公众号写手"),
+        (&["短视频脚本", "口播脚本", "视频脚本"], "video-script-gen"),
+        (&["热点", "爆款", "选题"], "viral-content-miner"),
+        (&["sql", "数据库查询", "写查询"], "sql-master"),
+        (&["prd", "产品需求文档"], "prd-generator"),
+        (&["测试用例", "test case"], "testcase-generator"),
+        (&["小程序", "taro", "mini program"], "taro-miniprogram-dev"),
+        (&["前端", "后端", "全栈", "写代码", "开发项目"], "fullstack-companion"),
+    ];
+
+    for (needles, skill_id) in general_matches {
+        if text_has_any(&text, needles) {
+            return Some(SkillSelection {
+                skill_ids: vec![(*skill_id).to_string()],
+                reason: SkillSelectionReason::AutoGeneral,
+            });
+        }
+    }
+
+    None
+}
+
+fn resolve_skill_selection(
+    content: &str,
+    explicit_skills: Option<Vec<String>>,
+) -> Option<SkillSelection> {
+    if let Some(skill_ids) = explicit_skills {
+        let skill_ids: Vec<String> = skill_ids
+            .into_iter()
+            .map(|id| id.trim().to_string())
+            .filter(|id| !id.is_empty())
+            .collect();
+        if !skill_ids.is_empty() {
+            return Some(SkillSelection {
+                skill_ids,
+                reason: SkillSelectionReason::UserExplicit,
+            });
+        }
+    }
+
+    auto_match_preinstalled_skill_ids(content)
+}
+
 fn merge_frontend_attachments(
     attachment: Option<FrontendAttachment>,
     attachments: Option<Vec<FrontendAttachment>>,
 ) -> Vec<FrontendAttachment> {
-    if let Some(list) = attachments.filter(|items| !items.is_empty()) {
-        return list;
-    }
-    attachment.into_iter().collect()
+    let mut items = attachments
+        .filter(|items| !items.is_empty())
+        .unwrap_or_else(|| attachment.into_iter().collect());
+    let mut seen = HashSet::new();
+    items.retain(|att| {
+        let key = att
+            .path
+            .as_deref()
+            .map(|path| format!("path:{}", path.trim().to_lowercase()))
+            .unwrap_or_else(|| {
+                format!(
+                    "inline:{}:{}:{}",
+                    att.media_type,
+                    att.filename.as_deref().unwrap_or_default().to_lowercase(),
+                    att.data.as_deref().map(str::len).unwrap_or_default()
+                )
+            });
+        seen.insert(key)
+    });
+    items
 }
 
 fn resolve_attachments_for_send(
@@ -150,24 +311,46 @@ fn resolve_attachments_for_send(
 async fn inject_explicit_skills_prefix(
     app: &AppHandle,
     content: String,
-    explicit_skills: Option<Vec<String>>,
+    selection: Option<SkillSelection>,
 ) -> String {
-    let Some(skill_ids) = explicit_skills.filter(|items| !items.is_empty()) else {
+    let Some(selection) = selection.filter(|selection| !selection.skill_ids.is_empty()) else {
         return content;
     };
     let Some(loader_arc) = load_skill_loader(app) else {
         return content;
     };
     let loader = loader_arc.lock().await;
-    let directory = loader.generate_skill_directory(&skill_ids);
-    if directory.trim().is_empty() {
+    let mut skill_prompt = loader.generate_skill_prompt(&selection.skill_ids);
+    if skill_prompt.trim().is_empty() {
         return content;
     }
-    let prefix = format!(
+    let routing_note = match selection.reason {
+        SkillSelectionReason::UserExplicit => {
+            "User-selected skill routing: the user selected these skills for this turn. Their full instructions are already embedded below."
+        }
+        SkillSelectionReason::AutoPptGeneration => {
+            "Auto-selected skill routing: this request clearly asks for PPT/presentation generation, so `ppt-generator` is mandatory. Its full instructions are already embedded below. Do not call `file_read` to read SKILL.md. Do not create a plain black deck, plain white deck, default-theme deck, or text-only slides. If the style is missing and it materially affects the result, ask one brief style question; otherwise choose a professional designed theme based on the topic. The final PPT must include deliberate visual hierarchy, colors, layouts, and styled slides."
+        }
+        SkillSelectionReason::AutoPptVideo => {
+            "Auto-selected skill routing: this request asks to turn presentation slides into video, so `ppt-to-video` is mandatory. Its full instructions are already embedded below."
+        }
+        SkillSelectionReason::AutoGeneral => {
+            "Auto-selected skill routing: this request clearly matches these installed skills. Their full instructions are already embedded below."
+        }
+    };
+    skill_prompt.push('\n');
+    skill_prompt.push_str(routing_note);
+    let _legacy_prefix = format!(
         "## 用户指定技能（本回合必须执行）\n\
          请立即对每个技能使用 `file_read` 读取其 SKILL.md 并严格遵循，再处理用户正文：\n\
          {}\n\n",
-        directory
+        skill_prompt
+    );
+    let prefix = format!(
+        "## Mandatory selected skill instructions\n\
+         The selected skill instructions are embedded in this message. Do not call `file_read` to read the selected SKILL.md again; start from the embedded instructions and the user's request.\n\
+         {}\n\n",
+        skill_prompt
     );
     if content.trim().is_empty() {
         prefix
@@ -1526,8 +1709,16 @@ pub async fn chat_send(
     };
     let (mut effective_content, media_attachments) =
         resolve_attachments_for_send(&content, &merged_attachments, vision_capable);
+    let skill_selection = resolve_skill_selection(&effective_content, explicit_skills);
+    if let Some(selection) = &skill_selection {
+        tracing::info!(
+            "chat_send: skill routing selected {:?} via {:?}",
+            selection.skill_ids,
+            selection.reason
+        );
+    }
     effective_content =
-        inject_explicit_skills_prefix(&app, effective_content, explicit_skills).await;
+        inject_explicit_skills_prefix(&app, effective_content, skill_selection).await;
 
     // Save user message to DB (use effective_content which may include file path annotation)
     // clear_plan defaults to true; pass false to preserve an existing plan (continue previous tasks).

@@ -1120,6 +1120,72 @@ fn run_impl() {
 
             {
                 let db_arc = state.db.clone();
+                let app_handle_clone = app_handle.clone();
+                tauri::async_runtime::block_on(async {
+                    let app_dir = app_handle_clone
+                        .path()
+                        .app_data_dir()
+                        .unwrap_or_else(|_| std::path::PathBuf::from(".piscis"));
+                    let marker = app_dir.join("qinchuang_experts_initialized_v6");
+                    if marker.exists() {
+                        return;
+                    }
+
+                    let seeded = {
+                        let db = db_arc.lock().await;
+                        crate::builtin_qinchuang::seed_experts(&db)
+                    };
+
+                    match seeded {
+                        Ok(count) => {
+                            if let Err(e) = std::fs::write(&marker, count.to_string()) {
+                                tracing::warn!(
+                                    "Qinchuang expert seed: failed to write marker: {}",
+                                    e
+                                );
+                            }
+                            info!("Qinchuang expert seed: created {} built-in experts", count);
+                        }
+                        Err(e) => tracing::warn!("Qinchuang expert seed failed: {}", e),
+                    }
+                });
+            }
+
+            {
+                let db_arc = state.db.clone();
+                let app_handle_clone = app_handle.clone();
+                tauri::async_runtime::block_on(async {
+                    let app_dir = app_handle_clone
+                        .path()
+                        .app_data_dir()
+                        .unwrap_or_else(|_| std::path::PathBuf::from(".piscis"));
+                    let marker = app_dir.join("skillhub_preinstalled_skills_v3");
+                    if marker.exists() {
+                        return;
+                    }
+
+                    let seeded = {
+                        let db = db_arc.lock().await;
+                        crate::builtin_skillhub::seed_preinstalled_skills(&db, &app_dir)
+                    };
+
+                    match seeded {
+                        Ok(count) => {
+                            if let Err(e) = std::fs::write(&marker, count.to_string()) {
+                                tracing::warn!(
+                                    "SkillHub preinstall: failed to write marker: {}",
+                                    e
+                                );
+                            }
+                            info!("SkillHub preinstall: installed {} bundled skills", count);
+                        }
+                        Err(e) => tracing::warn!("SkillHub preinstall failed: {}", e),
+                    }
+                });
+            }
+
+            {
+                let db_arc = state.db.clone();
                 tauri::async_runtime::block_on(async {
                     let db = db_arc.lock().await;
                     let _ = db.recover_stale_koi_status();

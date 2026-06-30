@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Download } from "lucide-react";
 import MarketFeaturedRow, { MarketLoadMore } from "../Market/MarketFeaturedRow";
 import { marketSourceLabel } from "../../utils/marketSource";
+import { compareExpertGroupLabels, normalizeExpertGroupLabel } from "../../utils/expertOrdering";
 import {
   MARKET_PAGE_SIZE,
   splitFeaturedCatalog,
@@ -15,6 +16,8 @@ export interface MarketCatalogItem {
   description: string;
   source?: string;
   featured?: boolean;
+  category?: string | null;
+  subcategory?: string | null;
 }
 
 interface MarketCatalogGridProps<T extends MarketCatalogItem> {
@@ -46,6 +49,15 @@ export default function MarketCatalogGrid<T extends MarketCatalogItem>({
   );
 
   const { visible, hasMore, loadMore, total, visibleCount } = useLazyList(rest, MARKET_PAGE_SIZE);
+  const groupedVisible = useMemo(() => {
+    const groups = new Map<string, T[]>();
+    for (const item of visible) {
+      const parts = [item.category, item.subcategory].filter(Boolean);
+      const group = parts.length > 0 ? normalizeExpertGroupLabel(parts.join(" / ")) : marketSourceLabel(item.source);
+      groups.set(group, [...(groups.get(group) ?? []), item]);
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) => compareExpertGroupLabels(a, b));
+  }, [visible]);
 
   const renderCard = (item: T, compact = false) => {
     const installed = isInstalled?.(item) ?? false;
@@ -93,8 +105,15 @@ export default function MarketCatalogGrid<T extends MarketCatalogItem>({
           {featured.map((item) => renderCard(item, true))}
         </MarketFeaturedRow>
       )}
-      <div className="expert-market-grid">
-        {visible.map((item) => renderCard(item))}
+      <div className="market-category-list">
+        {groupedVisible.map(([group, groupItems]) => (
+          <section key={group} className="market-category-section">
+            <h3 className="market-category-title">{group}</h3>
+            <div className="expert-market-grid">
+              {groupItems.map((item) => renderCard(item))}
+            </div>
+          </section>
+        ))}
       </div>
       <MarketLoadMore
         hasMore={hasMore}

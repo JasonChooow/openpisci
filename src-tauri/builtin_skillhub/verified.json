@@ -1,0 +1,170 @@
+[
+  {
+    "slug": "meeting-notes-assistant",
+    "name": "meeting-notes-assistant",
+    "description": "会议纪要智能助手。使用本地 Whisper 音频转写（离线、隐私安全），生成结构化会议纪要（时间、议题、结论、待办、关键词），提取 Action Items。支持 Word / PDF / 邮件输出，适合录音转写、会议归档与待办分发。触发关键词：「整理会议纪要」、「生成会议纪要」、「录音转纪要」。",
+    "url": "https://skillhub.cn/skills/meeting-notes-assistant",
+    "bytes": 15540
+  },
+  {
+    "slug": "word-docx",
+    "name": "Word / DOCX",
+    "description": "Create, inspect, and edit Microsoft Word documents and DOCX files with reliable styles, numbering, tracked changes, tables, sections, and compatibility checks. Use when (1) the task is about Word or `.docx`; (2) the file includes tracked changes, comments, fields, tables, templates, or page layout constraints; (3) the document must survive round-trip editing without formatting drift.",
+    "url": "https://skillhub.cn/skills/word-docx",
+    "bytes": 7887
+  },
+  {
+    "slug": "data-analysis-skill",
+    "name": "data-analysis-skill",
+    "description": "数据分析技能包 - 自动抓取、清洗、可视化、生成报告。适合数据分析师、运营人员，告别 Excel 手工操作。",
+    "url": "https://skillhub.cn/skills/data-analysis-skill",
+    "bytes": 4080
+  },
+  {
+    "slug": "ppt-generator-skill",
+    "name": "ppt-generator",
+    "description": "Generate designed PPT presentations from a topic, industry, style, language, and optional template. Use for making PPT decks, slide decks, or presentation files.",
+    "url": "https://skillhub.cn/skills/ppt-generator-skill",
+    "bytes": 15795
+  },
+  {
+    "slug": "pdf-convert-compdf",
+    "name": "pdf-convert-compdf",
+    "description": "PDF conversion toolkit featuring AI layout analysis and OCR. Converts PDFs to Word, Markdown, JSON, PPT, CSV, HTML, and XML for seamless LLM data processing.",
+    "url": "https://skillhub.cn/skills/pdf-convert-compdf",
+    "bytes": 23268
+  },
+  {
+    "slug": "file-classifier",
+    "name": "file-classifier",
+    "description": "文件分类整理工具。对指定原目录进行全量递归遍历，按专业领域自适应分类规则完成文件盘点、分类体系适配、规范重命名、无冲突复制迁移到新目录。支持用户指定原目录和新目录路径，全程只读不修改原目录。每次任务执行自动生成唯一前缀（如2026040201），用于标识该批次所有输出文件。",
+    "url": "https://skillhub.cn/skills/file-classifier",
+    "bytes": 7590
+  },
+  {
+    "slug": "invoice-organizer",
+    "name": "invoice-organizer",
+    "description": "中国电子发票与行程单批量整理工具。扫描指定文件夹的PDF/OFD文件，自动识别文档类型（发票/行程单/结账单），提取关键字段，生成Excel统计汇总表（含明细+按月/季度/年度/费用类别汇总）。当用户需要整理发票、统计报销、查看发票明细时使用此skill。",
+    "url": "https://skillhub.cn/skills/invoice-organizer",
+    "bytes": 21118
+  },
+  {
+    "slug": "bigmodel-image-video",
+    "name": "bigmodel-image-video",
+    "description": "使用 BigModel (CogView/CogVideoX) API 生成高质量图片和视频。当用户需要\"生成图片\"、\"制作视频\"、\"AI 绘画\"、\"创建封面\"、\"设计海报\"、\"视觉内容生成\"、或任何需要创建图像/视频内容的场景时使用此技能。即使没有明确提到\"生成\"，只要用户需要创建、设计或制作视觉内容（如小说封面、产品图片、宣传图、短视频等），都应该主动使用此技能。",
+    "url": "https://skillhub.cn/skills/bigmodel-image-video",
+    "bytes": 7785
+  },
+  {
+    "slug": "xdesign",
+    "name": "x-design",
+    "description": "设计流程引擎，将想法到可交付物的全流程压缩为对话；当用户需要创建/设计/迭代视觉产物如幻灯片、原型、动画、UI设计、落地页或设计系统时使用",
+    "url": "https://skillhub.cn/skills/xdesign",
+    "bytes": 20125
+  },
+  {
+    "slug": "video-script-gen",
+    "name": "video-script-gen",
+    "description": "短视频口播脚本生成器。输入产品/话题，自动生成5分钟以内抖音/视频号口播脚本，包含开场钩子、叙事结构、话术技巧、BGM推荐和互动引导。适用场景：AI科普/印刷知识/产品介绍/行业干货。触发词：生成脚本/口播脚本/短视频文案/抖音脚本",
+    "url": "https://skillhub.cn/skills/video-script-gen",
+    "bytes": 9993
+  },
+  {
+    "slug": "ai-film-production",
+    "name": "ai-film-production",
+    "description": "一人成军AI制片完整流程指导，采用双主线+闭环反馈模式，包含分镜创作、定调筹备、动态制作、剪辑粗剪与定剪全流程",
+    "url": "https://skillhub.cn/skills/ai-film-production",
+    "bytes": 16113
+  },
+  {
+    "slug": "ppt-to-video",
+    "name": "ppt-to-video",
+    "description": "This skill converts PDF presentation slides, a speech manuscript, and a reference voice into a complete narrated presentation video with synchronized subtitles. It should be used when the user wants to generate a presentation video from PPT/PDF slides with voice cloning, text-to-speech, and subtitle generation. Trigger phrases include PPT to video, generate presentation video, slides to video, 演讲视频, PPT转视频, 幻灯片生成视频, voice cloning presentation, or any request involving converting slide decks into narrated videos with speech synthesis.",
+    "url": "https://skillhub.cn/skills/ppt-to-video",
+    "bytes": 19083
+  },
+  {
+    "slug": "gongzhonghao-xieshou",
+    "name": "公众号写手",
+    "description": "|",
+    "url": "https://skillhub.cn/skills/gongzhonghao-xieshou",
+    "bytes": 16399
+  },
+  {
+    "slug": "xiaohongshu-copywriter",
+    "name": "善春AI·小红书爆款文案生成器 | SCAI XHS Viral Copywriter",
+    "description": "5种爆款文案框架，标题公式+AI配图提示词+标签推荐，品牌变量可配置，中英双语 | 5 viral frameworks, headline formulas, AI image prompts, configurable brand variable, bilingual",
+    "url": "https://skillhub.cn/skills/xiaohongshu-copywriter",
+    "bytes": 11064
+  },
+  {
+    "slug": "unclecheng-reduce-ai-perception-v2",
+    "name": "humanizer",
+    "description": "去除文本中的AI写作痕迹，让文字读起来更像人类写作。当用户要求'去AI味'、'降AI味'、'让回复更像人话'、'润色'、'改写得更自然'时使用。检测并修复：AI高频词汇、过度结构化、虚假客观性、机械化连接词、完美主义陷阱、公式化结尾、过度修饰、情感缺失等问题。",
+    "url": "https://skillhub.cn/skills/unclecheng-reduce-ai-perception-v2",
+    "bytes": 14110
+  },
+  {
+    "slug": "seo-competitor-analysis",
+    "name": "seo-competitor-analysis",
+    "description": "Perform deep SEO competitor analysis, including keyword research, backlink checking, and content strategy mapping. Use when the user wants to analyze a website's competitors or improve their own SEO ranking by studying the competition.",
+    "url": "https://skillhub.cn/skills/seo-competitor-analysis",
+    "bytes": 1430
+  },
+  {
+    "slug": "viral-content-miner",
+    "name": "viral-content-miner",
+    "description": "热点分析与爆款挖掘工具。当用户询问\"全网最新话题\"、\"最近有什么热点\"、\"XX话题热度分析\"、\"XX有什么爆款内容\"、\"选题推荐\"、\"热点追踪\"、\"爆款挖掘\"或\"内容定位建议\"时，必须使用本skill。自动挖掘抖音、小红书、公众号、快手、B站、微博、视频号、知乎、新闻门户等平台的爆款内容，聚合热门关键词，分析爆款规律，提供创作角度建议。适用于选题策划、热点追踪、内容定位、竞品分析等场景。",
+    "url": "https://skillhub.cn/skills/viral-content-miner",
+    "bytes": 31450
+  },
+  {
+    "slug": "tencentads-delivery-smart-create",
+    "name": "tencentads-delivery-smart-create",
+    "description": "专用于创建智投(AIM+)营销单元（原广告组）的 SDK 化技能。当用户意图涉及智投、AIM+、艾米、智能投放、自动投放、小店智投、smart delivery 的**创建**场景时，使用本技能。覆盖场景：小店艾米、商品艾米、线索艾米、内容艾米、APP艾米(游戏/阅读/AI应用)、小游戏跑量、爆剧跑量、小说智投、全域通、视频号直播智投等。本技能通过专用脚本（而非全局 CLI 工具）调用 API，脚本已处理复杂分支、字段过滤和数据转换。",
+    "url": "https://skillhub.cn/skills/tencentads-delivery-smart-create",
+    "bytes": 65516
+  },
+  {
+    "slug": "pitchskill",
+    "name": "pitch-skill",
+    "description": "必赢逻辑引擎（Pitch Skill）— 专为广告/营销Agency的比稿竞标场景设计的AI影子智囊团。把资深策略总监脑子里的「玄学感悟」拆解为可计算的赢标逻辑。当用户需要在竞争性提案中赢下客户（多个供应商竞标、客户发RFP选Agency、评审团打分选方案）时使用此技能。6个Agent协作：Intake → Information → Strategy → Decision → Expression → Delivery，覆盖Brief穿透与需求解构、决策者深度画像、竞标对手逻辑真空区推演、第一性原理策略推导、逻辑链自检、胜率计算、决策模拟、情绪引擎优化提案表达、AIGC具象化震撼Demo、Q&A压力训练。触发场景：比稿、竞标、pitch、提案竞标、agency pitch、RFP响应、招标方案、赢标策略、竞标方案、pitch deck准备、选代理商、换代理商、年度比稿、创意比稿、媒介比稿。也适用于客户要求正式presentation给管理层评审的场景。即使用户只说'帮我做个提案''有个比稿''要去pitch''客户要方案''准备比稿材料''要去竞标''帮我们赢下这个客户''怎么才能赢'等模糊表述，只要涉及向客户竞争性展示方案就应触发。不适用于：内部营销方案、融资路演、PPT美化、竞品调研、品牌定位、培训汇报等非竞争性场景。",
+    "url": "https://skillhub.cn/skills/pitchskill",
+    "bytes": 11123
+  },
+  {
+    "slug": "prd-generator",
+    "name": "prd-generator",
+    "description": ">",
+    "url": "https://skillhub.cn/skills/prd-generator",
+    "bytes": 6248
+  },
+  {
+    "slug": "fullstack-companion",
+    "name": "fullstack-companion",
+    "description": "全栈开发伴侣 — 自动检测当前项目类型（前端/后端/全栈），路由到对应的开发模式，内置后端开发、前端开发、代码规范三套子流程",
+    "url": "https://skillhub.cn/skills/fullstack-companion",
+    "bytes": 4292
+  },
+  {
+    "slug": "taro-miniprogram-dev",
+    "name": "taro-miniprogram-dev",
+    "description": "Taro + React + TypeScript 微信小程序开发框架技能。适用于：(1) 从零初始化 Taro 项目并编译为微信小程序；(2) 创建页面、组件、样式；(3) 搭建 services 请求层（接入真实后端或 Mock 数据）；(4) 配置 TabBar、页面路由、设计系统。触发关键词：小程序开发、Taro开发、微信小程序、mini program、Taro框架、项目初始化。",
+    "url": "https://skillhub.cn/skills/taro-miniprogram-dev",
+    "bytes": 3244
+  },
+  {
+    "slug": "sql-master",
+    "name": "sql-master",
+    "description": "SQL 查询、数据获取智能体。覆盖 SQL 全链路能力：自然语言转生产级 SQL、慢查询诊断与执行计划分析、索引设计与优化、数仓建模、SQL 原理深度科普、查询结果可视化。支持 MySQL / PostgreSQL / Hive / Spark SQL / ClickHouse / BigQuery 多方言。触发场景：(1) 写 SQL / 生成查询，(2) SQL 慢/优化/调优，(3) 执行计划分析 EXPLAIN，(4) 索引设计，(5) 数仓建模 / 分层设计，(6) SQL 原理问题（事务/锁/MVCC/Join算法等），(7) 表结构设计 DDL，(8) SQL 报错诊断，(9) 任何\"帮我写个查询\"、\"这个SQL为什么慢\"、\"怎么建索引\"类请求，(10) 查询结果可视化 / 出图 / 图表 / 数据展示。",
+    "url": "https://skillhub.cn/skills/sql-master",
+    "bytes": 14515
+  },
+  {
+    "slug": "testcase-generator-skill",
+    "name": "testcase-generator",
+    "description": "|",
+    "url": "https://skillhub.cn/skills/testcase-generator-skill",
+    "bytes": 3818
+  }
+]
