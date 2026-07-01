@@ -5,11 +5,32 @@
 pub use piscis_kernel::store::{db, settings, Database, Settings};
 
 use anyhow::Result;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex;
 
 use crate::lsp::manager::LspManager;
+
+pub fn default_workspace_path() -> String {
+    dirs::document_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("9xbot")
+        .to_string_lossy()
+        .into_owned()
+}
+
+fn should_migrate_default_workspace(path: &str) -> bool {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return true;
+    }
+    PathBuf::from(trimmed)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.eq_ignore_ascii_case("piscis"))
+        .unwrap_or(false)
+}
 
 /// Global application state managed by Tauri
 #[derive(Clone)]
@@ -80,6 +101,11 @@ impl AppState {
 
         let config_path = app_dir.join("config.json");
         let mut settings = Settings::load(&config_path)?;
+        if should_migrate_default_workspace(&settings.workspace_root) {
+            settings.workspace_root = default_workspace_path();
+            let _ = std::fs::create_dir_all(&settings.workspace_root);
+            settings.save().map_err(|e| anyhow::anyhow!("{e}"))?;
+        }
         if crate::commands::config::bundled_mcp::strip_legacy_robotz_mcp_server(&mut settings) {
             settings.save().map_err(|e| anyhow::anyhow!("{e}"))?;
         }

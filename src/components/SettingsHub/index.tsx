@@ -10,8 +10,6 @@ import {
   Lightbulb,
   ScrollText,
   Archive,
-  Info,
-  FlaskConical,
 } from "lucide-react";
 import { SettingsFormProvider } from "./useSettingsForm";
 import SettingsSaveBar from "./SettingsSaveBar";
@@ -76,6 +74,12 @@ export default function SettingsHub({
     });
   }, [activeSubTab]);
 
+  useEffect(() => {
+    if (activeSubTab === "about" || activeSubTab === "debug") {
+      onSubTabChange("general");
+    }
+  }, [activeSubTab, onSubTabChange]);
+
   const items: NavItem[] = [
     { id: "general", label: t("settingsHub.general"), icon: <SlidersHorizontal size={ICON_SIZE} strokeWidth={1.5} />, group: "pref" },
     { id: "models", label: t("settingsHub.models"), icon: <Brain size={ICON_SIZE} strokeWidth={1.5} />, group: "agent" },
@@ -86,8 +90,6 @@ export default function SettingsHub({
     { id: "memory", label: t("nav.memory"), icon: <Lightbulb size={ICON_SIZE} strokeWidth={1.5} />, group: "data" },
     { id: "audit", label: t("nav.audit"), icon: <ScrollText size={ICON_SIZE} strokeWidth={1.5} />, group: "data" },
     { id: "archive", label: t("settingsHub.archive"), icon: <Archive size={ICON_SIZE} strokeWidth={1.5} />, group: "data" },
-    { id: "about", label: t("nav.about"), icon: <Info size={ICON_SIZE} strokeWidth={1.5} />, group: "other" },
-    { id: "debug", label: t("nav.debug"), icon: <FlaskConical size={ICON_SIZE} strokeWidth={1.5} />, group: "other" },
   ];
 
   const openToolsMcp = () => {

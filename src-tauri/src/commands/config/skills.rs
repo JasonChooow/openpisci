@@ -82,6 +82,16 @@ pub async fn list_skills(state: State<'_, AppState>) -> Result<SkillList, String
     // Filter out any stale "unnamed" entries left by failed skill parses
     let skills: Vec<_> = skills
         .into_iter()
+        .map(|mut s| {
+            s.name = s
+                .name
+                .replace("善春AI·", "")
+                .replace("善春AI", "")
+                .trim()
+                .trim_start_matches(|ch| matches!(ch, '·' | '|' | '-' | '—' | '：' | ':' | '，' | ',' | ' '))
+                .to_string();
+            s
+        })
         .filter(|s| s.name != "unnamed" && s.id != "unnamed")
         .collect();
     let total = skills.len();

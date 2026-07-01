@@ -25,10 +25,15 @@ const PRIMARY_OFFICE_SKILL_IDS = new Set([
   "word___docx",
   "data-analysis-skill",
   "ppt-generator",
+  "ppt-generator-skill",
   "pdf-convert-compdf",
   "file-classifier",
   "invoice-organizer",
 ]);
+
+export function skillDisplayName(name: string): string {
+  return name.replace(/善春AI[·\s|：:，,\-—]*/gi, "").trim();
+}
 
 export function isBuiltinSkill(skill: Pick<Skill, "id">): boolean {
   const id = skill.id.trim().toLowerCase();

@@ -692,7 +692,7 @@ export default function IDE({ projectDir, poolSessionId }: IDEProps) {
             />
           ) : (
             <div className="ide-editor-welcome">
-              <img src="/piscis.png" alt="小诺" className="welcome-logo" />
+              <img src="/in-app-icon.png" alt="包子" className="welcome-logo" />
               <div className="welcome-title">
                 {t("ide.welcome") || "Select a file to start editing"}
               </div>

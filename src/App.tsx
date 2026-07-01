@@ -538,6 +538,11 @@ function AppContent() {
           {conversationMounted && (
             <div className="tab-panel" hidden={!conversationVisible}>
               <div className={activeTab === "assistant" ? "assistant-page" : "conversation-shell"}>
+                {activeTab === "assistant" && (
+                  <div className="assistant-hero-illustration" aria-hidden="true">
+                    <img src="/assistant-illustration.png" alt="" />
+                  </div>
+                )}
                 <Chat
                   variant={activeTab === "assistant" ? "im" : "task"}
                   activeKoiId={activeKoiId}

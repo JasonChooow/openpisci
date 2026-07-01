@@ -7,7 +7,6 @@ import {
   Search,
   Filter,
 } from "lucide-react";
-import { brand } from "../../brand";
 import TaskSearchPanel from "./TaskSearchPanel";
 import type { TaskDateFilter } from "./taskFilters";
 
@@ -105,8 +104,8 @@ export default function SidebarHeader({
   return (
     <div className="sidebar-header">
       <div className="sidebar-brand">
-        <img src={brand.logoPath} className="logo" alt={brand.displayNameZh} />
-        <span className="app-name">{brand.productName}</span>
+        <span className="sidebar-brand-name">9X bot</span>
+        <span className="sidebar-brand-version">v1.0.1</span>
       </div>
       <div className="sidebar-header-actions">
         <div className="sidebar-search-anchor" ref={searchRef}>

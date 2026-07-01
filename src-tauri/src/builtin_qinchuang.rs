@@ -219,6 +219,7 @@ fn force_deleted_name(name: &str) -> bool {
     matches!(
         name,
         "小红书专家"
+            | "微信公众号管理"
             | "软件架构师"
             | "高级开发者"
             | "代码审查员"
@@ -243,6 +244,7 @@ fn force_deleted_source(source_path: &str) -> bool {
                 | "engineering/engineering-threat-detection-engineer.md"
                 | "security/security-threat-detection-engineer.md"
                 | "hr/hr-recruiter.md"
+                | "marketing/marketing-wechat-official-account.md"
                 | "marketing/marketing-xiaohongshu-specialist.md"
                 | "testing/testing-reality-checker.md"
                 | "testing/testing-evidence-collector.md"

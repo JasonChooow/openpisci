@@ -109,7 +109,12 @@ export default function Onboarding({ onComplete }: Props) {
       <div style={{ maxWidth: 480, width: "100%" }}>
         {step === "welcome" && (
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 64, marginBottom: 16 }}>🐟</div>
+            <img
+              src="/in-app-icon.png"
+              alt=""
+              aria-hidden="true"
+              style={{ width: 72, height: 72, objectFit: "contain", marginBottom: 16 }}
+            />
             <h1 style={{ fontSize: 28, fontWeight: 700, color: "var(--text-primary)", marginBottom: 12 }}>
               {t("onboarding.welcomeTitle")}
             </h1>
@@ -258,7 +263,7 @@ export default function Onboarding({ onComplete }: Props) {
               {t("onboarding.doneDesc")}
             </p>
             <button className="btn btn-primary" style={{ padding: "12px 32px", fontSize: 16 }} onClick={onComplete}>
-              {t("onboarding.startChatting")}
+              {t("onboarding.startChatting").replace("🐟", "").trim()}
             </button>
           </div>
         )}

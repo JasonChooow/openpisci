@@ -1,14 +1,30 @@
 {
-  "id": "xiaonuo",
-  "displayNameZh": "小诺",
-  "displayNameEn": "XiaoNuo",
+  "id": "baozi",
+  "displayNameZh": "包子",
+  "displayNameEn": "Baozi",
   "productName": "9X bot",
   "windowTitle": "9X bot",
   "overlayTitle": "9X bot Overlay",
-  "logoPath": "/app-icon.png",
+  "logoPath": "/in-app-icon.png",
   "i18nReplace": {
-    "zh": {},
-    "en": {}
+    "zh": {
+      "小诺": "包子",
+      "OpenPiscis": "9X bot",
+      "Piscis": "9Xbot",
+      "piscis": "9xbot",
+      "🐟": "",
+      "🐠": "",
+      "🐋": ""
+    },
+    "en": {
+      "XiaoNuo": "Baozi",
+      "OpenPiscis": "9X bot",
+      "Piscis": "9Xbot",
+      "piscis": "9xbot",
+      "🐟": "",
+      "🐠": "",
+      "🐋": ""
+    }
   },
   "githubRepo": "njbinbin/openpisci",
   "bundleIdentifier": "com.piscis.desktop"

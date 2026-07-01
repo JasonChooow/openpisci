@@ -106,7 +106,7 @@ python scripts/storage.py list --limit 10
 
 ### 3) 配置 LLM（必做，否则纪要内容为空）
 
-`generate_notes.py` 默认调用 OpenAI 兼容接口。在 `~/.workbuddy/meeting-notes-config.json` 中配置：
+`generate_notes.py` 默认调用 OpenAI 兼容接口。在 `~/.9xbot/meeting-notes-config.json` 中配置：
 
 ```json
 {
@@ -146,23 +146,23 @@ python scripts/send_email.py --config
 python scripts/send_email.py --config --config-path smoke-test/email-config.json
 ```
 
-配置会写入 `~/.workbuddy/meeting-notes-config.json` 的 `email` 字段，并保留已有的 LLM 配置。
+配置会写入 `~/.9xbot/meeting-notes-config.json` 的 `email` 字段，并保留已有的 LLM 配置。
 
 ### 5) 配置文件位置
 
-- 配置文件：`~/.workbuddy/meeting-notes-config.json`
-- 会议主库：`~/.workbuddy/meeting_notes.db`
-- 频道库：`~/.workbuddy/meeting_channels.db`
-- 模板目录：`~/.workbuddy/meeting_notes_templates/`
+- 配置文件：`~/.9xbot/meeting-notes-config.json`
+- 会议主库：`~/.9xbot/meeting_notes.db`
+- 频道库：`~/.9xbot/meeting_channels.db`
+- 模板目录：`~/.9xbot/meeting_notes_templates/`
 
 ### 6) 指定隔离数据库目录（联调 / smoke test 推荐）
 
-`storage.py` / `channels.py` / `meeting_analytics.py` 已支持 `--db-dir` 参数，也兼容环境变量 `WORKBUDDY_HOME`。
+`storage.py` / `channels.py` / `meeting_analytics.py` 已支持 `--db-dir` 参数，也兼容环境变量 `XBOT_HOME`。
 
 ```bash
-python scripts/storage.py --db-dir smoke-test/real-audio/home/.workbuddy list --limit 10
-python scripts/channels.py --db-dir smoke-test/real-audio/home/.workbuddy meetings 1
-python scripts/meeting_analytics.py --db-dir smoke-test/real-audio/home/.workbuddy --period week
+python scripts/storage.py --db-dir smoke-test/real-audio/home/.9xbot list --limit 10
+python scripts/channels.py --db-dir smoke-test/real-audio/home/.9xbot meetings 1
+python scripts/meeting_analytics.py --db-dir smoke-test/real-audio/home/.9xbot --period week
 ```
 
 ## 目录结构
@@ -365,7 +365,7 @@ AI：先生成结构化纪要，再输出 Word，并给出飞书发布内容
 
 ## 配置管理
 
-查看当前配置：`cat ~/.workbuddy/meeting-notes-config.json`
+查看当前配置：`cat ~/.9xbot/meeting-notes-config.json`
 
 修改配置：说 "修改会议纪要配置"
 

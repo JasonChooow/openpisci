@@ -2,21 +2,21 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Session } from "../../services/tauri";
 import { parseUtcTimestamp } from "../../utils/parseTimestamp";
 
-/** Map a session.source value to a compact display emoji. */
+/** Map a session.source value to a compact display marker. */
 function sourceIcon(source: string): string {
-  if (source === "chat" || !source) return "👤";
-  if (source === "cli") return "🐟";
-  if (source.includes("telegram")) return "✈";
-  if (source.includes("feishu") || source.includes("lark")) return "📘";
-  if (source.includes("wechat")) return "🟢";
-  if (source.includes("wecom")) return "💬";
-  if (source.includes("dingtalk")) return "📎";
-  if (source.includes("slack")) return "⚡";
-  if (source.includes("discord")) return "🎮";
-  if (source.includes("teams")) return "🟦";
-  if (source.includes("matrix")) return "⬛";
-  if (source.includes("webhook")) return "🔗";
-  return "📩";
+  if (source === "chat" || !source) return "聊";
+  if (source === "cli") return "包";
+  if (source.includes("telegram")) return "TG";
+  if (source.includes("feishu") || source.includes("lark")) return "飞";
+  if (source.includes("wechat")) return "微";
+  if (source.includes("wecom")) return "企";
+  if (source.includes("dingtalk")) return "钉";
+  if (source.includes("slack")) return "SL";
+  if (source.includes("discord")) return "DC";
+  if (source.includes("teams")) return "TM";
+  if (source.includes("matrix")) return "MX";
+  if (source.includes("webhook")) return "WH";
+  return "会";
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -114,7 +114,7 @@ export default function SessionPicker({
 
   const renderRow = (s: Session) => {
     const icon = sourceIcon(s.source);
-    const title = (s.title ?? t("chat.defaultTitle")).replace(/^🐠\s*/, "");
+    const title = (s.title ?? t("chat.defaultTitle")).replace(/^[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]\s*/u, "");
     return (
       <div
         key={s.id}
@@ -131,7 +131,7 @@ export default function SessionPicker({
           title={t("chat.deleteChat")}
           onClick={(e) => onDelete(e, s.id, title)}
         >
-          ✕
+          ×
         </button>
       </div>
     );

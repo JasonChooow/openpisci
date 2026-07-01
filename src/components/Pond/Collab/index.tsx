@@ -104,9 +104,9 @@ function parseMeta(metadata: string): Record<string, unknown> {
 function MessageBubble({ msg, kois }: { msg: PoolMessage; kois: KoiWithStats[] }) {
   const sender = kois.find((k) => k.id === msg.sender_id);
   const isPiscis = msg.sender_id === "piscis";
-  const icon = isPiscis ? "🐋" : sender?.icon ?? "🐟";
+  const icon = isPiscis ? "包" : sender?.icon ?? "🐟";
   const color = isPiscis ? "#7c3aed" : sender?.color ?? "#6b7280";
-  const name = isPiscis ? "小诺" : sender?.name ?? msg.sender_id;
+  const name = isPiscis ? "包子" : sender?.name ?? msg.sender_id;
   const meta = parseMeta(msg.metadata);
 
   return (

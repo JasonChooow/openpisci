@@ -74,20 +74,38 @@ body {
 
 .sidebar-brand {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 1px;
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
+  text-align: center;
 }
 
-.sidebar-brand .logo {
-  flex-shrink: 0;
+.sidebar-brand-name {
+  max-width: 100%;
+  color: #6f737b;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.sidebar-brand .app-name {
-  flex: 1;
-  min-width: 0;
+.sidebar-brand-version {
+  max-width: 100%;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .color-mode-toggle {
@@ -257,6 +275,26 @@ body {
 
 .tab-panel[hidden] {
   display: none !important;
+}
+
+.assistant-page {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 94%, white 6%) 0%, var(--bg-primary) 42%);
+}
+
+.assistant-hero-illustration {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  padding: 18px 24px 0;
+  pointer-events: none;
+}
+
+.assistant-hero-illustration img {
+  width: min(760px, 82%);
+  max-height: 150px;
+  object-fit: contain;
+  object-position: center bottom;
 }
 
 /* ============================================================

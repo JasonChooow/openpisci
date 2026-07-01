@@ -1126,7 +1126,7 @@ fn run_impl() {
                         .path()
                         .app_data_dir()
                         .unwrap_or_else(|_| std::path::PathBuf::from(".piscis"));
-                    let marker = app_dir.join("qinchuang_experts_initialized_v6");
+                    let marker = app_dir.join("qinchuang_experts_initialized_v7");
                     if marker.exists() {
                         return;
                     }
@@ -1159,7 +1159,7 @@ fn run_impl() {
                         .path()
                         .app_data_dir()
                         .unwrap_or_else(|_| std::path::PathBuf::from(".piscis"));
-                    let marker = app_dir.join("skillhub_preinstalled_skills_v3");
+                    let marker = app_dir.join("skillhub_preinstalled_skills_v4");
                     if marker.exists() {
                         return;
                     }

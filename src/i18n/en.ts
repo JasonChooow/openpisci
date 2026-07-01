@@ -239,7 +239,7 @@ const en = {
 
   // Getting started
   guide: {
-    prompt: "Hi, I'm a new user. Please briefly introduce what XiaoNuo can do and how I should get started.",
+    prompt: "Hi, I'm a new user. Please briefly introduce what 9Xbot (Baozi) can do and how I should get started.",
   },
 
   // Placeholder pages

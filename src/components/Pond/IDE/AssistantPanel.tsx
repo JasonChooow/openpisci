@@ -352,7 +352,7 @@ export default function AssistantPanel({
   return (
     <div className="ide-terminal-panel ide-assistant-panel" style={height ? { height } : undefined}>
       <div className="ide-terminal-header">
-        <span className="term-title">{t("ide.assistantTitle") || "小诺 助手"}</span>
+        <span className="term-title">{t("ide.assistantTitle") || "包子 助手"}</span>
         <div style={{ flex: 1 }} />
         <button
           className="ide-assistant-open-main"
@@ -370,7 +370,7 @@ export default function AssistantPanel({
       <div className="ide-assistant-body" ref={bodyRef}>
         {lines.length === 0 && pendingCards.length === 0 && !permissionRequest && (
           <div className="ide-assistant-empty">
-            {t("ide.assistantHint") || "Ask Piscis in plain language."}
+            {t("ide.assistantHint") || "Ask Baozi in plain language."}
           </div>
         )}
         {lines.map((line, i) => (
@@ -439,7 +439,7 @@ export default function AssistantPanel({
               sendCurrent();
             }
           }}
-          placeholder={t("ide.assistantInputPlaceholder") || "Ask Piscis..."}
+          placeholder={t("ide.assistantInputPlaceholder") || "Ask Baozi..."}
           rows={1}
           disabled={busy}
           spellCheck={false}

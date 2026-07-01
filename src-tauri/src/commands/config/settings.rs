@@ -12,7 +12,7 @@ pub async fn get_settings(state: State<'_, AppState>) -> Result<Settings, String
 
 #[tauri::command]
 pub async fn get_default_workspace() -> Result<String, String> {
-    Ok(crate::store::settings::default_workspace_path())
+    Ok(crate::store::default_workspace_path())
 }
 
 #[tauri::command]
@@ -68,7 +68,7 @@ pub async fn save_settings(state: State<'_, AppState>, updates: Value) -> Result
     if let Some(v) = updates["workspace_root"].as_str() {
         // workspace_root must never be empty — fall back to default if blank
         let resolved = if v.trim().is_empty() {
-            crate::store::settings::default_workspace_path()
+            crate::store::default_workspace_path()
         } else {
             v.to_string()
         };

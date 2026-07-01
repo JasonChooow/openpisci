@@ -71,7 +71,7 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
 
-  /* 导航选中态 pill 背景（WorkBuddy 式中性灰底，各色彩模式可覆盖） */
+  /* 导航选中态 pill 背景（9X bot 式中性灰底，各色彩模式可覆盖） */
   --nav-active-bg: var(--bg-hover);
 
   /* 字体 — 包含 Segoe UI Emoji 确保 Windows 上 emoji 正常渲染 */

@@ -32,8 +32,8 @@ export default function About() {
   return (
     <div className="about-page">
       <div className="about-hero">
-        <img src="/piscis.png" className="about-logo" alt="小诺" />
-        <h1 className="about-title">小诺 XiaoNuo</h1>
+        <img src="/in-app-icon.png" className="about-logo" alt="包子" />
+        <h1 className="about-title">9X bot</h1>
         <p className="about-tagline">{t("about.tagline")}</p>
         <span className="about-version">v{version}</span>
       </div>

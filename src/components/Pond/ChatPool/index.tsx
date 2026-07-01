@@ -85,9 +85,9 @@ function MessageBubble({
 }) {
   const sender = kois.find((k) => k.id === msg.sender_id);
   const isPiscis = msg.sender_id === "piscis";
-  const icon = isPiscis ? "🐋" : sender?.icon ?? "🐟";
+  const icon = isPiscis ? "包" : sender?.icon ?? "🐟";
   const color = isPiscis ? "#7c3aed" : sender?.color ?? "#6b7280";
-  const name = isPiscis ? "小诺" : sender?.name ?? msg.sender_id;
+  const name = isPiscis ? "包子" : sender?.name ?? msg.sender_id;
   const meta = parseMeta(msg.metadata);
 
   return (
@@ -587,8 +587,8 @@ export default function ChatPool() {
             <button className="collab-icon-btn" disabled={!activeSessionId} title={t("pool.memberPickerTitle") || "Add members"} onClick={() => { if (activeSessionId) setMemberPickerOpen(true); }}>⚙</button>
           </div>
           <div className="chatpool-participant">
-            <span className="chatpool-participant-icon">🐋</span>
-            <span className="chatpool-participant-name">小诺</span>
+            <span className="chatpool-participant-icon">包</span>
+            <span className="chatpool-participant-name">包子</span>
             <span className="chatpool-participant-badge">{t("pool.mainAgent")}</span>
           </div>
           {poolMembers.map((koi) => (

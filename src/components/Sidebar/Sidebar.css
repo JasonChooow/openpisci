@@ -1,5 +1,5 @@
 /* ============================================================
-   小诺 — WorkBuddy-style minimal sidebar
+   小诺 — 9X bot-style minimal sidebar
    ============================================================ */
 
 .sidebar-scroll {
@@ -228,16 +228,25 @@
   height: 30px;
   flex-shrink: 0;
   border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
+  background: #fff;
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 600;
+  overflow: hidden;
+  border: 1px solid var(--border);
 }
 
 .account-avatar-lg {
   width: 38px;
   height: 38px;
   font-size: 15px;
+}
+
+.account-avatar img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
 }
 
 .account-meta {
@@ -827,9 +836,9 @@
 .task-search-popover {
   position: absolute;
   top: calc(100% + 6px);
-  right: 0;
+  left: 0;
   z-index: 80;
-  width: min(280px, calc(100vw - 24px));
+  width: min(216px, calc(100vw - 24px));
   padding: 10px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -945,13 +954,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(2px);
 }
 
 .account-login-dialog {
   width: 360px;
   max-width: calc(100vw - 48px);
-  background: var(--bg);
+  background: var(--bg-primary, #fff);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 20px;
@@ -959,6 +969,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  opacity: 1;
 }
 
 .account-login-title {
@@ -987,7 +998,7 @@
   padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--bg);
+  background: var(--bg-secondary, #fff);
   color: var(--text-primary);
   font-size: 13px;
 }

@@ -57,7 +57,6 @@ export default function AccountMenu({
   const signedIn = !!account?.signed_in;
   const displayName = account?.name || t("account.guestName");
   const displayStatus = signedIn ? t("account.signedIn") : t("account.signedOut");
-  const avatarInitial = displayName.trim().charAt(0) || t("account.initial");
 
   const submitLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,7 +129,9 @@ export default function AccountMenu({
         onClick={() => setOpen((v) => !v)}
         title={t("account.title")}
       >
-        <span className="account-avatar">{avatarInitial}</span>
+        <span className="account-avatar">
+          <img src="/in-app-icon.png" alt="" />
+        </span>
         <span className="account-meta">
           <span className="account-name">{displayName}</span>
           <span className="account-status">{displayStatus}</span>
@@ -164,7 +165,9 @@ export default function AccountMenu({
       {open && (
         <div className="account-menu" role="menu">
           <div className="account-menu-header">
-            <span className="account-avatar account-avatar-lg">{avatarInitial}</span>
+            <span className="account-avatar account-avatar-lg">
+              <img src="/in-app-icon.png" alt="" />
+            </span>
             <div className="account-menu-id">
               <span className="account-name">{displayName}</span>
               <span className="account-status">{displayStatus}</span>

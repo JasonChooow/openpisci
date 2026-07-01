@@ -24,6 +24,39 @@ For each meaningful adjustment, record:
 
 ## Changes So Far
 
+### 2026-07-01. 9X bot UI polish, PPT robustness, and installer branding
+
+- Problem: The 9X bot branch needed a coworker-friendly testing build with clearer branding, simpler first-run entry points, fewer exposed technical details, and more reliable PPT generation from real business documents.
+- Files changed:
+  - `src/components/Chat/index.tsx`
+  - `src/components/Chat/Chat.css`
+  - `src/components/Chat/ChatPanels.tsx`
+  - `src/components/Chat/ChatRightPanel.tsx`
+  - `src/components/Sidebar/SidebarHeader.tsx`
+  - `src/components/Sidebar/AccountMenu.tsx`
+  - `src/components/SettingsHub/index.tsx`
+  - `src/components/ui/AppDropdown.css`
+  - `src/utils/skills.ts`
+  - `src-tauri/builtin_skillhub/ppt-generator-skill/SKILL.md`
+  - `src-tauri/builtin_skillhub/ppt-generator-skill/scripts/generate.js`
+  - `src-tauri/src/commands/chat.rs`
+  - `src-tauri/src/app/bootstrap.rs`
+  - `src-tauri/tauri.conf.json`
+  - `src-tauri/icons/installer.ico`
+- Summary:
+  - Reworked visible assistant branding to Baozi/包子 and 9X bot assets across the main UI.
+  - Added a cleaner white/minimal theme and hid About/Debug settings from normal users.
+  - Improved the chat composer visual treatment, input auto-sizing, expert/skill compact menus, and model selector readability.
+  - Added first-screen quick action prompts so office/code/design examples open a new chat and prefill a useful starter prompt.
+  - Hardened bundled PPT generation for Word/PDF/TXT/Markdown/PPTX/Excel/image inputs, including source-first slide JSON generation, layout variation, placeholder detection, compare-column de-duplication, and non-technical error handling.
+  - Refreshed the SkillHub preinstall marker so updated bundled skills are reseeded locally.
+  - Added a custom NSIS installer/uninstaller icon generated from `E:\9xbot\9Xbot UI\Installer icon.png`.
+- Verification:
+  - `npm run build:web` passed.
+  - `cargo check --manifest-path src-tauri\Cargo.toml` passed during the PPT/UI hardening pass.
+  - `node --check src-tauri\builtin_skillhub\ppt-generator-skill\scripts\generate.js` passed.
+- Upstream value: Mixed. PPT robustness, attachment handling, composer sizing, and task panel compaction are generally upstream-worthy. 9X bot branding, Baozi visuals, bundled Qinchuang experts, and installer artwork are branch-specific.
+
 ### 2026-06-30. 9X bot bundled experts, skills, PPT workflow, and composer fixes
 
 - Problem: Non-technical company users had to manually install useful experts and skills before the product felt ready to use. PPT generation was especially fragile: the SkillHub PPT skill had been seeded as a single `SKILL.md`, so its referenced `templates/`, `references/`, and generation scripts were missing. This caused plain black/white decks, failed PowerPoint COM attempts, and repeated attempts to read `SKILL.md` from outside the workspace.

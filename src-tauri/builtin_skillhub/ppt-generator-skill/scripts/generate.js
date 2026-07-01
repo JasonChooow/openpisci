@@ -14,7 +14,9 @@ const pages = clamp(Number(args.pages || args.page || 10), 3, 30);
 const style = args.style || args.template || "简约商务";
 const lang = args.lang || "zh";
 const out = args.out || defaultOutput(topic);
-const slides = args.slidesJson ? readSlidesJson(args.slidesJson) : buildDefaultSlides(topic, pages, lang);
+const fromSlidesJson = Boolean(args.slidesJson);
+const slides = fromSlidesJson ? readSlidesJson(args.slidesJson) : buildDefaultSlides(topic, pages, lang);
+validateSlides(slides, { strict: fromSlidesJson });
 const theme = chooseTheme(style, topic);
 
 await generateDeck({ topic, slides, theme, out });
@@ -42,13 +44,12 @@ async function loadPptxGen() {
     const mod = await import("pptxgenjs");
     return mod.default;
   } catch {
-    console.error("[ppt-generator] Installing local dependency pptxgenjs...");
     const cacheDir = path.join(scriptDir, ".npm-cache");
     fs.mkdirSync(cacheDir, { recursive: true });
     const result = runNpmInstall(cacheDir);
     if (result.status !== 0) {
-      const detail = result.error ? ` ${result.error.message}` : "";
-      throw new Error(`Failed to install local dependencies.${detail} Please check Node.js/npm and network access.`);
+      const detail = result.error ? result.error.message : cleanText(result.stderr || result.stdout || "");
+      throw new Error(`PPT engine initialization failed. Please retry after checking Node.js/npm or network access. ${detail}`.trim());
     }
     const mod = await import("pptxgenjs");
     return mod.default;
@@ -56,17 +57,24 @@ async function loadPptxGen() {
 }
 
 function runNpmInstall(cacheDir) {
-  if (process.platform === "win32") {
-    return spawnSync("cmd.exe", ["/d", "/c", "npm install --prefer-offline=false"], {
-      cwd: scriptDir,
-      stdio: "inherit",
-      env: { ...process.env, npm_config_cache: cacheDir },
-    });
-  }
-  return spawnSync("npm", ["install", "--cache", cacheDir, "--prefer-offline=false"], {
+  const env = {
+    ...process.env,
+    npm_config_cache: cacheDir,
+    npm_config_registry: process.env.npm_config_registry || "https://registry.npmmirror.com",
+    npm_config_fund: "false",
+    npm_config_audit: "false",
+  };
+  const options = {
     cwd: scriptDir,
-    stdio: "inherit",
-  });
+    encoding: "utf8",
+    timeout: 120000,
+    maxBuffer: 1024 * 1024,
+    env,
+  };
+  if (process.platform === "win32") {
+    return spawnSync("cmd.exe", ["/d", "/c", "npm install --prefer-offline=false"], options);
+  }
+  return spawnSync("npm", ["install", "--cache", cacheDir, "--prefer-offline=false"], options);
 }
 
 function clamp(value, min, max) {
@@ -83,19 +91,144 @@ function defaultOutput(topic) {
 function readSlidesJson(file) {
   const raw = fs.readFileSync(file, "utf8");
   const parsed = JSON.parse(raw);
-  if (Array.isArray(parsed)) return normalizeSlides(parsed);
-  if (Array.isArray(parsed.slides)) return normalizeSlides(parsed.slides);
+  if (Array.isArray(parsed)) return prepareSlides(normalizeSlides(parsed));
+  if (Array.isArray(parsed.slides)) return prepareSlides(normalizeSlides(parsed.slides));
   throw new Error("slides-json must be an array or an object with a slides array");
 }
 
 function normalizeSlides(items) {
-  return items.map((item, index) => ({
-    title: String(item.title || `第 ${index + 1} 页`),
-    subtitle: item.subtitle ? String(item.subtitle) : "",
-    bullets: Array.isArray(item.bullets) ? item.bullets.map(String).slice(0, 5) : [],
-    note: item.note ? String(item.note) : "",
-    layout: item.layout ? String(item.layout) : "",
-  }));
+  return items.map((raw, index) => {
+    const item = raw && typeof raw === "object" ? raw : { title: raw };
+    const bullets = normalizeBodyItems(item);
+    return {
+      title: cleanText(item.title || item.heading || item.name || `第 ${index + 1} 页`),
+      subtitle: cleanText(item.subtitle || item.subTitle || item.description || ""),
+      bullets,
+      note: cleanText(item.note || item.speakerNote || item.remark || ""),
+      layout: cleanText(item.layout || item.type || ""),
+      metric: cleanText(item.metric || item.stat || item.number || item.value || item.kpi || ""),
+      metricLabel: cleanText(item.metricLabel || item.statLabel || item.valueLabel || item.label || ""),
+      leftTitle: cleanText(item.leftTitle || item.beforeTitle || item.optionATitle || ""),
+      rightTitle: cleanText(item.rightTitle || item.afterTitle || item.optionBTitle || ""),
+      leftItems: normalizeSideItems(item.leftItems || item.left || item.before || item.optionA),
+      rightItems: normalizeSideItems(item.rightItems || item.right || item.after || item.optionB),
+    };
+  });
+}
+
+function prepareSlides(slides) {
+  const bodyLayouts = ["cards", "stat", "matrix", "timeline", "compare", "list"];
+  let bodyIndex = 0;
+  const normalized = slides.map((slide) => {
+    const requested = String(slide.layout || "").toLowerCase();
+    const isFixed = requested === "cover" || requested === "agenda" || requested === "closing";
+    if (isFixed) return { ...slide, layout: requested };
+    if (bodyLayouts.includes(requested)) {
+      bodyIndex += 1;
+      return { ...slide, layout: requested };
+    }
+    const layout = bodyLayouts[bodyIndex % bodyLayouts.length];
+    bodyIndex += 1;
+    return { ...slide, layout };
+  });
+
+  const counts = normalized.reduce((acc, slide) => {
+    if (!bodyLayouts.includes(slide.layout)) return acc;
+    acc[slide.layout] = (acc[slide.layout] || 0) + 1;
+    return acc;
+  }, {});
+  const bodyCount = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  const dominant = Object.entries(counts).find(([, count]) => bodyCount >= 4 && count === bodyCount);
+  if (!dominant) return normalized;
+
+  let i = 0;
+  return normalized.map((slide) => {
+    if (!bodyLayouts.includes(slide.layout)) return slide;
+    const next = { ...slide, layout: bodyLayouts[i % bodyLayouts.length] };
+    i += 1;
+    return next;
+  });
+}
+
+function cleanText(value) {
+  if (value == null) return "";
+  return String(value).replace(/\s+/g, " ").trim();
+}
+
+function normalizeBodyItems(item) {
+  const values = [];
+  appendBody(values, item.bullets);
+  appendBody(values, item.items);
+  appendBody(values, item.points);
+  appendBody(values, item.content);
+  appendBody(values, item.cards);
+  appendBody(values, item.sections);
+  appendBody(values, item.details);
+  appendBody(values, item.takeaways);
+  const cleaned = unique(values.map(cleanText).filter(Boolean));
+  if (cleaned.length) return cleaned.slice(0, 6);
+  return [item.subtitle, item.note, item.description, item.summary].map(cleanText).filter(Boolean).slice(0, 3);
+}
+
+function appendBody(target, value) {
+  if (!value) return;
+  if (typeof value === "string") {
+    value.split(/\r?\n|[；;]/).map(cleanText).filter(Boolean).forEach((text) => target.push(text));
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry) => appendBody(target, entry));
+    return;
+  }
+  if (typeof value === "object") {
+    const title = cleanText(value.title || value.label || value.name || "");
+    const body = cleanText(value.text || value.body || value.content || value.description || value.value || "");
+    if (title && body) target.push(`${title}：${body}`);
+    else if (title || body) target.push(title || body);
+    if (Array.isArray(value.items) || Array.isArray(value.bullets) || Array.isArray(value.points)) {
+      appendBody(target, value.items || value.bullets || value.points);
+    }
+  }
+}
+
+function normalizeSideItems(value) {
+  const values = [];
+  appendBody(values, value);
+  return unique(values.map(cleanText).filter(Boolean)).slice(0, 4);
+}
+
+function unique(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = item.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+const forbiddenGeneratedPlaceholders = [
+  "核心观点",
+  "关键路径",
+  "下一步行动",
+  "Key signal",
+];
+
+function validateSlides(slides, { strict = false } = {}) {
+  if (!Array.isArray(slides) || slides.length === 0) {
+    throw new Error("No slides were provided. Please extract source content and build a complete slides JSON first.");
+  }
+  slides.forEach((slide, index) => {
+    const layout = String(slide.layout || "").toLowerCase();
+    const content = [slide.title, slide.subtitle, slide.note, ...(slide.bullets || [])].map(cleanText).filter(Boolean);
+    const bodyAllowedEmpty = layout === "cover" || layout === "closing";
+    if (strict && !bodyAllowedEmpty && (!slide.bullets || slide.bullets.length === 0)) {
+      throw new Error(`Slide ${index + 1} has no body content. Extract real points from the uploaded source before generating.`);
+    }
+    if (strict && content.some((text) => forbiddenGeneratedPlaceholders.some((placeholder) => text.includes(placeholder)))) {
+      throw new Error(`Slide ${index + 1} still contains template placeholder text. Replace it with source-derived content.`);
+    }
+  });
 }
 
 function buildDefaultSlides(topic, pages, lang) {
@@ -138,6 +271,11 @@ function chooseTheme(style, topic) {
     { name: "高端黑", aliases: ["高端", "奢华", "黑金", "premium"], bg: "111111", primary: "222222", secondary: "3A3324", accent: "D4AF37", text: "FFF7E6", dark: true },
     { name: "珊瑚活力", aliases: ["营销", "创意", "coral"], bg: "FFF7EF", primary: "F96167", secondary: "F9E795", accent: "2F3C7E", text: "20223A" },
     { name: "暖陶简约", aliases: ["文化", "暖陶", "terracotta"], bg: "FBF8EF", primary: "B85042", secondary: "E7E8D1", accent: "A7BEAE", text: "2D2A26" },
+    { name: "海洋渐变", aliases: ["医疗", "健康", "海洋", "蓝绿", "ocean"], bg: "F2FAFC", primary: "065A82", secondary: "D4EEF5", accent: "1C7293", text: "21295C" },
+    { name: "炭灰极简", aliases: ["极简", "设计", "灰白", "minimal", "charcoal"], bg: "F7F7F5", primary: "36454F", secondary: "E9EAEC", accent: "212121", text: "1F2933" },
+    { name: "青绿信任", aliases: ["环保", "公益", "信任", "青绿", "teal"], bg: "F2FFFB", primary: "028090", secondary: "CFF7EA", accent: "00A896", text: "103B3F" },
+    { name: "莓果奶油", aliases: ["美妆", "时尚", "莓果", "奶油", "berry"], bg: "FBF7F1", primary: "6D2E46", secondary: "ECE2D0", accent: "A26769", text: "2A1721" },
+    { name: "樱桃大胆", aliases: ["品牌", "发布会", "樱桃", "大胆", "bold"], bg: "FCF6F5", primary: "990011", secondary: "F7D9D7", accent: "2F3C7E", text: "2B1518" },
     { name: "MBE插画", aliases: ["mbe", "校园", "新生", "卡通", "插画"], bg: "FFFFFF", primary: "000000", secondary: "F8FAFC", accent: "FFD600", text: "111111", outline: true },
     { name: "复古卡通", aliases: ["复古", "手绘", "猫咪", "molle", "手账"], bg: "FFFDF5", primary: "F9E79F", secondary: "FFE8B6", accent: "B85042", text: "2C2C2C", outline: true },
   ];
@@ -173,6 +311,7 @@ async function generateDeck({ topic, slides, theme, out }) {
     if (layout === "matrix") return drawMatrix(s, slide, theme);
     if (layout === "timeline") return drawTimeline(s, slide, theme);
     if (layout === "compare") return drawCompare(s, slide, theme);
+    if (layout === "list") return drawList(s, slide, theme);
     if (layout === "closing") return drawClosing(s, slide, theme);
     return drawCards(s, slide, theme);
   });
@@ -181,7 +320,7 @@ async function generateDeck({ topic, slides, theme, out }) {
 }
 
 function pickLayout(index) {
-  return ["cards", "stat", "matrix", "timeline", "compare"][index % 5];
+  return ["cards", "stat", "matrix", "timeline", "compare", "list"][index % 6];
 }
 
 function paintBackground(slide, theme, index) {
@@ -247,16 +386,40 @@ function drawCards(slide, item, theme) {
   });
 }
 
+function drawList(slide, item, theme) {
+  addTitle(slide, item.title, theme);
+  const bullets = ensureBullets(item).slice(0, 5);
+  bullets.forEach((text, i) => {
+    const y = 1.55 + i * 0.78;
+    slide.addShape("roundRect", { x: 1.0, y, w: 10.75, h: 0.55, rectRadius: 0.08, fill: { color: theme.dark ? theme.primary : "FFFFFF", transparency: theme.dark ? 0 : 3 }, line: { color: theme.secondary, transparency: 25 } });
+    slide.addShape("ellipse", { x: 1.25, y: y + 0.17, w: 0.18, h: 0.18, fill: { color: theme.accent }, line: { color: theme.accent } });
+    slide.addText(text, { x: 1.65, y: y + 0.12, w: 9.55, h: 0.26, ...bodyStyle(theme, 15), margin: 0, fit: "shrink" });
+  });
+}
+
 function drawStat(slide, item, theme, index) {
   addTitle(slide, item.title, theme);
   const bullets = ensureBullets(item).slice(0, 3);
+  const metric = item.metric || findMetric(bullets) || `${Math.max(1, bullets.length)} 项`;
+  const metricLabel = item.metricLabel || inferMetricLabel(item, metric);
   slide.addShape("roundRect", { x: 0.95, y: 1.55, w: 4.15, h: 4.45, rectRadius: 0.12, fill: { color: theme.accent, transparency: 4 }, line: { color: theme.accent } });
-  slide.addText(`${index + 2}x`, { x: 1.25, y: 2.18, w: 3.45, h: 0.85, fontSize: 46, bold: true, color: theme.dark ? "111111" : "FFFFFF", align: "center", margin: 0 });
-  slide.addText("Key signal", { x: 1.45, y: 3.15, w: 3.05, h: 0.25, fontSize: 14, bold: true, color: theme.dark ? "111111" : "FFFFFF", align: "center", margin: 0 });
+  slide.addText(metric, { x: 1.25, y: 2.18, w: 3.45, h: 0.85, fontSize: 44, bold: true, color: theme.dark ? "111111" : "FFFFFF", align: "center", margin: 0, fit: "shrink" });
+  slide.addText(metricLabel, { x: 1.45, y: 3.15, w: 3.05, h: 0.25, fontSize: 14, bold: true, color: theme.dark ? "111111" : "FFFFFF", align: "center", margin: 0, fit: "shrink" });
   bullets.forEach((text, i) => {
     slide.addShape("roundRect", { x: 5.65, y: 1.7 + i * 1.25, w: 5.8, h: 0.82, rectRadius: 0.1, fill: { color: theme.dark ? theme.primary : "FFFFFF", transparency: theme.dark ? 0 : 0 }, line: { color: theme.secondary, transparency: 20 } });
     slide.addText(text, { x: 6.0, y: 1.92 + i * 1.25, w: 5.05, h: 0.28, ...bodyStyle(theme, 15), margin: 0 });
   });
+}
+
+function findMetric(items) {
+  const match = items.map(String).join(" ").match(/(\d+(?:\.\d+)?\s*(?:%|％|万|亿|千|元|人|家|项|\+)?)/);
+  return match ? match[1].replace(/\s+/g, "") : "";
+}
+
+function inferMetricLabel(item, metric) {
+  const source = ensureBullets(item).find((text) => String(text).includes(metric)) || item.title || "";
+  const label = String(source).replace(metric, "").replace(/[：:，,。.\-\s]+/g, " ").trim();
+  return label.slice(0, 14) || "核心指标";
 }
 
 function drawMatrix(slide, item, theme) {
@@ -284,12 +447,19 @@ function drawTimeline(slide, item, theme) {
 function drawCompare(slide, item, theme) {
   addTitle(slide, item.title, theme);
   const bullets = ensureBullets(item);
-  ["挑战", "应对"].forEach((label, i) => {
+  const midpoint = Math.ceil(bullets.length / 2);
+  const leftItems = item.leftItems && item.leftItems.length ? item.leftItems : bullets.slice(0, midpoint);
+  const rightItems = item.rightItems && item.rightItems.length ? item.rightItems : bullets.slice(midpoint);
+  const columns = [
+    { title: item.leftTitle || "重点价值", items: leftItems.length ? leftItems : bullets.slice(0, 2) },
+    { title: item.rightTitle || "落地支持", items: rightItems.length ? rightItems : bullets.slice(2, 4) },
+  ];
+  columns.forEach((column, i) => {
     const x = 1.1 + i * 5.65;
     slide.addShape("roundRect", { x, y: 1.45, w: 5.05, h: 4.65, rectRadius: 0.12, fill: { color: i === 0 ? theme.dark ? theme.primary : "FFFFFF" : theme.secondary, transparency: theme.dark ? 0 : 0 }, line: { color: i === 0 ? theme.secondary : theme.accent, transparency: 20 } });
-    slide.addText(label, { x: x + 0.35, y: 1.78, w: 4.2, h: 0.32, ...titleStyle(theme, 20), color: i === 1 && !theme.dark ? theme.text : theme.text, margin: 0 });
-    bullets.slice(0, 3).forEach((text, j) => {
-      slide.addText(`• ${text}`, { x: x + 0.48, y: 2.45 + j * 0.68, w: 4.0, h: 0.32, ...bodyStyle(theme, 14), margin: 0 });
+    slide.addText(column.title, { x: x + 0.35, y: 1.78, w: 4.2, h: 0.32, ...titleStyle(theme, 20), color: theme.text, margin: 0 });
+    column.items.slice(0, 3).forEach((text, j) => {
+      slide.addText(`• ${text}`, { x: x + 0.48, y: 2.45 + j * 0.68, w: 4.0, h: 0.32, ...bodyStyle(theme, 14), margin: 0, fit: "shrink" });
     });
   });
 }
@@ -306,6 +476,6 @@ function addTitle(slide, title, theme) {
 }
 
 function ensureBullets(item) {
-  const bullets = item.bullets && item.bullets.length ? item.bullets : [item.subtitle || item.note || "核心观点", "关键路径", "下一步行动"];
+  const bullets = item.bullets && item.bullets.length ? item.bullets : [item.subtitle, item.note].map(cleanText).filter(Boolean);
   return bullets.slice(0, 5);
 }

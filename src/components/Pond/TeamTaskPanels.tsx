@@ -235,8 +235,8 @@ export function MembersPanel({
         </div>
         <div className="chatpool-orgspec-body chatpool-participants-body">
           <div className="chatpool-participant">
-            <span className="chatpool-participant-icon">🐋</span>
-            <span className="chatpool-participant-name">小诺</span>
+            <span className="chatpool-participant-icon">包</span>
+            <span className="chatpool-participant-name">包子</span>
             <span className="chatpool-participant-badge" title={t("pool.actAsPiscisRole")}>
               {t("pool.mainAgent")}
             </span>

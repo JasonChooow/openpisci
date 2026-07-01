@@ -1,21 +1,37 @@
 {
-  "id": "xiaonuo",
-  "displayNameZh": "小诺",
-  "displayNameEn": "XiaoNuo",
+  "id": "baozi",
+  "displayNameZh": "包子",
+  "displayNameEn": "Baozi",
   "productName": "9X bot",
   "windowTitle": "9X bot",
   "overlayTitle": "9X bot Overlay",
   "proWindowTitle": "9X bot · 专业功能",
   "copyright": "Copyright 2025 9X bot Team",
   "shortDescription": "9X bot - Open-source cross-platform AI Agent Desktop",
-  "longDescription": "9X bot is an open-source cross-platform AI agent desktop for Windows, macOS, and Linux. XiaoNuo (小诺) is the main coordinator agent inside the app — with chat, memory, skills, MCP tools, browser automation, and team-based multi-agent orchestration, all running locally against the LLM provider of your choice.",
-  "logoPath": "/app-icon.png",
+  "longDescription": "9X bot is an open-source cross-platform AI agent desktop for Windows, macOS, and Linux. Baozi (包子) is the main coordinator agent inside the app — with chat, memory, skills, MCP tools, browser automation, and team-based multi-agent orchestration, all running locally against the LLM provider of your choice.",
+  "logoPath": "/in-app-icon.png",
   "bundleIdentifier": "com.piscis.desktop",
   "githubRepo": "njbinbin/openpisci",
   "iconSource": "brands/xiaonuo/icon-source.png",
   "chatEmptyHeroSource": "brands/xiaonuo/chat-hero-source.png",
   "i18nReplace": {
-    "zh": {},
-    "en": {}
+    "zh": {
+      "小诺": "包子",
+      "OpenPiscis": "9X bot",
+      "Piscis": "9Xbot",
+      "piscis": "9xbot",
+      "🐟": "",
+      "🐠": "",
+      "🐋": ""
+    },
+    "en": {
+      "XiaoNuo": "Baozi",
+      "OpenPiscis": "9X bot",
+      "Piscis": "9Xbot",
+      "piscis": "9xbot",
+      "🐟": "",
+      "🐠": "",
+      "🐋": ""
+    }
   }
 }

@@ -344,7 +344,7 @@ function KoiDialog({
 
   const icons = palette?.icons ?? [
     "🐟", "🐠", "🐡", "🦈", "🐋", "🐳", "🦑", "🐙",
-    "🦐", "🦀", "🐢", "🦭", "🐬", "🦞", "🐚", "🪸",
+    "🎨", "💻", "📊", "✍️", "🔬", "⚖️", "🏗️", "🧪",
   ];
   const colors = palette?.colors ?? [
     ["#7c3aed", "Violet"],

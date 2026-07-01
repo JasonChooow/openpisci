@@ -221,7 +221,7 @@ export default function OverlayApp() {
           <span className={`hud-dot ${status === "running" ? "hud-dot-running" : ""}`} />
 
           {/* Label */}
-          <span className="hud-title" data-tauri-drag-region>🐟 小诺</span>
+          <span className="hud-title" data-tauri-drag-region>包子</span>
 
           {/* Current tool name (when running) */}
           {lastTool && (

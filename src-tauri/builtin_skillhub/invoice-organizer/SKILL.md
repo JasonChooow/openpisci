@@ -69,33 +69,33 @@ description: 中国电子发票与行程单批量整理工具。扫描指定文�
 # ⚠️ --month 表示文件夹月份（不是发票开票日期）
 # 定位到月份文件夹（如20260331），该文件夹下所有文件都属于该月份
 # 分类结果也放在月份文件夹下的"按类别整理/"目录
-python ~/.workbuddy/skills/invoice-organizer/scripts/invoice_extractor.py "<目标目录>" --month 2026-03
+python ~/.9xbot/skills/invoice-organizer/scripts/invoice_extractor.py "<目标目录>" --month 2026-03
 # 输出: <目标目录>/2026年/20260331/发票统计汇总表_2026-03.xlsx
 # 分类: <目标目录>/2026年/20260331/按类别整理/
 ```
 
 **按年整理：**
 ```bash
-python ~/.workbuddy/skills/invoice-organizer/scripts/invoice_extractor.py "<目标目录>" --year 2025
+python ~/.9xbot/skills/invoice-organizer/scripts/invoice_extractor.py "<目标目录>" --year 2025
 # 输出: <目标目录>/2025年/发票统计汇总表_2025.xlsx
 ```
 
 **指定文件夹（全量）：**
 ```bash
 # 直接指定子文件夹
-python ~/.workbuddy/skills/invoice-organizer/scripts/invoice_extractor.py "<目标目录>/2024年/发票-20241031"
+python ~/.9xbot/skills/invoice-organizer/scripts/invoice_extractor.py "<目标目录>/2024年/发票-20241031"
 # 输出: <目标目录>/2024年/发票-20241031/发票统计汇总表.xlsx
 ```
 
 **全量整理：**
 ```bash
-python ~/.workbuddy/skills/invoice-organizer/scripts/invoice_extractor.py "<目标目录>"
+python ~/.9xbot/skills/invoice-organizer/scripts/invoice_extractor.py "<目标目录>"
 # 输出: <目标目录>/发票统计汇总表.xlsx
 ```
 
 **查看可用年份/月份：**
 ```bash
-python ~/.workbuddy/skills/invoice-organizer/scripts/invoice_extractor.py "<目标目录>" --list
+python ~/.9xbot/skills/invoice-organizer/scripts/invoice_extractor.py "<目标目录>" --list
 ```
 
 **其他参数：**
@@ -200,7 +200,7 @@ wb.save(output_path)
 6. **旧版发票**：印章覆盖格式的发票，部分字段（购买方、销售方）提取可能不完整，需要人工核对
 7. **批次对应**：保持文件路径中的年份和报销批次信息，便于追溯
 8. **OFD格式**：已支持OFD解析，自动识别三种内部结构（XBRL机票/CustomDatas普通发票/Content.xml文本提取）
-9. **增量缓存**：提取结果缓存在 `<根目录>/.workbuddy/invoice_cache.json`，重复运行只处理新增/修改的文件，大幅提升速度
+9. **增量缓存**：提取结果缓存在 `<根目录>/.9xbot/invoice_cache.json`，重复运行只处理新增/修改的文件，大幅提升速度
 10. **按月报销**：推荐使用 `--month` 参数按月整理，输出文件名带月份后缀，避免覆盖
 11. **按年整理**：使用 `--year` 参数，输出文件放在年份文件夹下
 12. **智能引导**：不指定 --year 或 --month 时，自动扫描目录结构并提示可用选项

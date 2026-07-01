@@ -1,4 +1,4 @@
-import { Component, useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo, type ErrorInfo, type ReactNode } from "react";
+﻿import { Component, useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo, type ErrorInfo, type ReactNode } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
@@ -9,7 +9,7 @@ import { RootState, chatActions, sessionsActions, skillsActions, poolActions, To
 import { artifactsApi, chatApi, journalApi, sessionsApi, gatewayApi, koiApi, AgentEventType, ChannelInfo, type ChatMessage, type SessionArtifact, type JournalChange, type KoiWithStats } from "../../services/tauri";
 import { skillsApi, type Skill, type ComposerMode } from "../../services/tauri";
 import RoundedSearch from "../ui/RoundedSearch";
-import { Search, History, Share2, Mic, PanelRight } from "lucide-react";
+import { Search, History, Share2, Mic, PanelRight, ChevronDown, ChevronUp } from "lucide-react";
 import { PlanPanel, ArtifactsPanel, ToolStepCard } from "./ChatPanels";
 import ChatRightPanel from "./ChatRightPanel";
 import TeamCollabPanel from "./TeamCollabPanel";
@@ -30,7 +30,7 @@ import {
   isMainChatVisibleSession,
   pickMainChatActiveSession,
 } from "../../utils/session";
-import { composerPrimaryOfficeSkills, composerSelectableSkills } from "../../utils/skills";
+import { composerPrimaryOfficeSkills, composerSelectableSkills, skillDisplayName } from "../../utils/skills";
 import { compareExpertGroupLabels, normalizeExpertGroupLabel } from "../../utils/expertOrdering";
 import {
   handleInputHistoryKeyDown,
@@ -66,12 +66,34 @@ const BUILT_IN_CHAT_MODELS: BuiltInChatModel[] = [
 
 type ChatScene = "office" | "code" | "design";
 const RECENT_KOI_KEY = "piscis-recent-koi-ids";
+const RECENT_SKILL_KEY = "piscis-recent-skill-ids";
 
 const CHAT_SCENES: Array<{ id: ChatScene; label: string; icon: string; title: string }> = [
-  { id: "office", label: "日常办公", icon: "☕", title: "文档、总结、问答、日常任务" },
-  { id: "code", label: "代码开发", icon: "⌘", title: "代码、工具调用、项目开发" },
-  { id: "design", label: "设计创意", icon: "◌", title: "图片、视频、海报、PPT、网页设计" },
+  { id: "office", label: "日常办公", icon: "💼", title: "文档、总结、问答、日常任务" },
+  { id: "code", label: "代码开发", icon: "💻", title: "代码、工具调用、项目开发" },
+  { id: "design", label: "设计创意", icon: "🎨", title: "图片、视频、海报、PPT、网页设计" },
 ];
+
+const CHAT_WELCOME_ACTIONS: Record<ChatScene, Array<{ label: string; prompt: string }>> = {
+  office: [
+    { label: "文档处理", prompt: "帮我处理一个文档" },
+    { label: "会议总结", prompt: "帮我整理会议总结" },
+    { label: "邮件撰写", prompt: "帮我写一封邮件" },
+    { label: "更多", prompt: "我想了解更多日常办公场景可以怎么用" },
+  ],
+  code: [
+    { label: "代码审查", prompt: "帮我审查一段代码" },
+    { label: "修复报错", prompt: "帮我修复一个代码报错" },
+    { label: "生成脚本", prompt: "帮我生成一个脚本" },
+    { label: "更多", prompt: "我想了解更多代码开发场景可以怎么用" },
+  ],
+  design: [
+    { label: "网站设计", prompt: "帮我设计一个网站页面" },
+    { label: "PPT设计", prompt: "帮我设计一份PPT" },
+    { label: "视觉海报", prompt: "帮我设计一张视觉海报" },
+    { label: "更多", prompt: "我想了解更多设计创意场景可以怎么用" },
+  ],
+};
 
 function providerHasApiKey(settings: Settings | null | undefined, provider: string): boolean {
   if (!settings) return false;
@@ -101,6 +123,15 @@ function loadRecentKoiIds(): string[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(RECENT_KOI_KEY) || "[]");
     return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string").slice(0, 3) : [];
+  } catch {
+    return [];
+  }
+}
+
+function loadRecentSkillIds(): string[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RECENT_SKILL_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string").slice(0, 5) : [];
   } catch {
     return [];
   }
@@ -574,6 +605,7 @@ export default function Chat({
   // Composer: one-shot attachments/skills per send; Koi persona stays until user clears
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachmentItem[]>([]);
   const [selectedSkills, setSelectedSkills] = useState<Skill[]>([]);
+  const [recentSkillIds, setRecentSkillIds] = useState<string[]>(loadRecentSkillIds);
   const [selectedKoi, setSelectedKoi] = useState<KoiWithStats | null>(null);
   const [recentKoiIds, setRecentKoiIds] = useState<string[]>(loadRecentKoiIds);
   const [composerMenuOpen, setComposerMenuOpen] = useState<null | "mode" | "workspace" | "koi" | "skill" | "model" | "permission">(null);
@@ -829,6 +861,12 @@ export default function Chat({
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const artifactsUnlistenRef = useRef<UnlistenFn | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const resizeComposerInput = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
+  }, []);
   // Whether the user is scrolled near the bottom (so we auto-scroll on new messages)
   const isNearBottomRef = useRef(true);
   // Sync guard during loadMoreHistory (suppress auto-scroll + re-entrancy)
@@ -1022,6 +1060,9 @@ export default function Chat({
   const hasTaskPanel = activePlan.length > 0 || steps.length > 0 || activeArtifacts.length > 0;
   const [taskPanelOpen, setTaskPanelOpen] = useState(true);
   const [taskPanelTab, setTaskPanelTab] = useState<"todo" | "tools" | "artifacts">("todo");
+  const [toolStepsExpanded, setToolStepsExpanded] = useState(false);
+  const visibleToolSteps = toolStepsExpanded || steps.length <= 3 ? steps : steps.slice(-3);
+  const hiddenToolStepCount = Math.max(0, steps.length - visibleToolSteps.length);
   // Top-bar task tab click: toggle the panel when re-selecting the active tab,
   // otherwise switch to the tab and make sure the panel is open.
   const selectTaskTab = useCallback(
@@ -1066,6 +1107,9 @@ export default function Chat({
     }
     prevRunningRef.current = running;
   }, [running, activePlan.length, steps.length, activeArtifacts.length]);
+  useLayoutEffect(() => {
+    resizeComposerInput();
+  }, [input, pendingAttachments.length, selectedSkills.length, selectedKoi?.id, resizeComposerInput]);
   useEffect(() => {
     if (!hasTaskPanel) return;
     if (taskPanelTab === "todo" && activePlan.length === 0 && steps.length > 0) {
@@ -1082,6 +1126,9 @@ export default function Chat({
       setTaskPanelTab("tools");
     }
   }, [taskPanelTab, activePlan.length, steps.length, activeArtifacts.length, hasTaskPanel]);
+  useEffect(() => {
+    setToolStepsExpanded(false);
+  }, [displaySessionId]);
   const activeSessionKind = classifySession(displaySession);
   const isImSession = activeSessionKind === "im";
   isImSessionRef.current = isImSession;
@@ -1579,7 +1626,7 @@ export default function Chat({
     el.scrollTop = el.scrollHeight;
   }, [steps]);
 
-  const handleNewSession = useCallback(async () => {
+  const handleNewSession = useCallback(async (draft?: string) => {
     if (variant === "im") return;
     setSessionFilter("chat");
     setOpenPicker(null);
@@ -1587,6 +1634,10 @@ export default function Chat({
       const session = await sessionsApi.create(t("chat.newChat"));
       dispatch(sessionsActions.addSession(session));
       dispatch(sessionsActions.setActiveSession(session.id));
+      if (draft) {
+        setInput(draft);
+        requestAnimationFrame(() => textareaRef.current?.focus());
+      }
     } catch (e) {
       setSendError(t("chat.failedCreate", { error: String(e) }));
     }
@@ -1739,6 +1790,11 @@ export default function Chat({
     setSelectedSkills((prev) =>
       prev.some((s) => s.id === skill.id) ? prev : [...prev, skill],
     );
+    setRecentSkillIds((prev) => {
+      const next = [skill.id, ...prev.filter((id) => id !== skill.id)].slice(0, 5);
+      localStorage.setItem(RECENT_SKILL_KEY, JSON.stringify(next));
+      return next;
+    });
   }, [installedSkills, onNavigateTab]);
 
   const removeSkill = useCallback((skillId: string) => {
@@ -1800,10 +1856,10 @@ export default function Chat({
       {
         id: "",
         label: t("chat.koiDefaultOption"),
-        icon: "🐟",
+        icon: "🤖",
         selected: !selectedKoi,
       },
-      { id: "__summon__", label: t("chat.summonExperts", { defaultValue: "\u53ec\u5524\u4e13\u5bb6" }), action: true },
+      { id: "__summon__", label: t("chat.summonExperts", { defaultValue: "\u53ec\u5524\u4e13\u5bb6" }), icon: "🎓", action: true },
     ];
 
     const recentKois = recentKoiIds
@@ -1839,26 +1895,33 @@ export default function Chat({
 
   const skillMenuItems = useMemo((): ComposerMenuItem[] => {
     const selectedIds = new Set(selectedSkills.map((s) => s.id));
-    const visibleSkills = skillMenuMode === "compact" ? primaryOfficeSkills : installedSkills;
+    const recentSkills = recentSkillIds
+      .map((id) => installedSkills.find((skill) => skill.id === id))
+      .filter((skill): skill is Skill => Boolean(skill))
+      .slice(0, 5);
+    const compactSkills = recentSkills.length > 0
+      ? recentSkills
+      : (primaryOfficeSkills.length > 0 ? primaryOfficeSkills : installedSkills).slice(0, 5);
+    const visibleSkills = skillMenuMode === "compact" ? compactSkills : installedSkills;
     const rows: ComposerMenuItem[] = [
       { id: "__install__", label: t("chat.installSkill"), icon: "➕", action: true },
     ];
     if (skillMenuMode === "compact") {
-      rows.push({ id: "__section__office", label: t("chat.basicOfficeSkills"), section: true });
+      rows.push({ id: "__section__office", label: recentSkills.length > 0 ? t("chat.recentSkills", { defaultValue: "最近使用" }) : t("chat.basicOfficeSkills"), section: true });
     } else {
       rows.push({ id: "__section__installed", label: t("chat.installedSkills"), section: true });
     }
     for (const s of visibleSkills) {
       rows.push({
         id: s.id,
-        label: s.name,
+        label: skillDisplayName(s.name),
         searchText: s.description,
         icon: s.icon || "⚡",
         selected: selectedIds.has(s.id),
       });
     }
     return rows;
-  }, [installedSkills, primaryOfficeSkills, selectedSkills, skillMenuMode, t]);
+  }, [installedSkills, primaryOfficeSkills, recentSkillIds, selectedSkills, skillMenuMode, t]);
 
   const handleSkillMenuSelect = useCallback((skillId: string) => {
     if (skillId === "__install__") {
@@ -2605,8 +2668,40 @@ export default function Chat({
                         </div>
                       )}
                       {taskPanelTab === "tools" && steps.length > 0 && (
-                        <div className="tool-steps-scroll" ref={toolStepsScrollRef}>
-                          {steps.map((step) => (
+                        <div
+                          className={`tool-steps-scroll ${toolStepsExpanded ? "tool-steps-expanded" : "tool-steps-compact"}`}
+                          ref={toolStepsScrollRef}
+                        >
+                          {steps.length > 3 && (
+                            <div className="tool-steps-compact-head">
+                              <span>
+                                {toolStepsExpanded
+                                  ? t("chat.toolStepsAllVisible", {
+                                      count: steps.length,
+                                      defaultValue: `全部 ${steps.length} 条工具记录`,
+                                    })
+                                  : t("chat.toolStepsLatestVisible", {
+                                      count: steps.length,
+                                      visible: visibleToolSteps.length,
+                                      hidden: hiddenToolStepCount,
+                                      defaultValue: `最新 ${visibleToolSteps.length} 条 / 共 ${steps.length} 条`,
+                                    })}
+                              </span>
+                              <button
+                                type="button"
+                                className="tool-steps-compact-toggle"
+                                onClick={() => setToolStepsExpanded((value) => !value)}
+                              >
+                                {toolStepsExpanded
+                                  ? t("common.collapse", { defaultValue: "收起" })
+                                  : t("common.expand", { defaultValue: "展开全部" })}
+                                {toolStepsExpanded
+                                  ? <ChevronUp size={14} strokeWidth={1.6} />
+                                  : <ChevronDown size={14} strokeWidth={1.6} />}
+                              </button>
+                            </div>
+                          )}
+                          {visibleToolSteps.map((step) => (
                             <ToolStepCard
                               key={step.id}
                               step={step}
@@ -2617,7 +2712,7 @@ export default function Chat({
                                     const el = toolStepsScrollRef.current;
                                     if (el) {
                                       const cards = el.querySelectorAll<HTMLElement>(".tool-step-card");
-                                      const idx = steps.findIndex((s) => s.id === step.id);
+                                      const idx = visibleToolSteps.findIndex((s) => s.id === step.id);
                                       if (idx >= 0 && cards[idx]) {
                                         cards[idx].scrollIntoView({ block: "nearest", behavior: "smooth" });
                                       }
@@ -2755,7 +2850,10 @@ export default function Chat({
                 pendingLiveCards.length === 0 && (
                   <div className="chat-messages-empty">
                     <div className="chat-empty-start">
-                      <img src="/chat-empty-hero.png" alt="" className="chat-empty-hero" aria-hidden="true" />
+                      <div className="chat-empty-heading">
+                        <span>9X bot</span>
+                        <strong>你的职场超能力</strong>
+                      </div>
                       <div className="chat-empty-scenes" role="tablist" aria-label="Chat scene">
                         {CHAT_SCENES.map((scene) => (
                           <button
@@ -2833,28 +2931,29 @@ export default function Chat({
               </div>
             )}
 
+              {!isImSession && (activeMessages.length > 0 || running || pendingLiveCards.length > 0) && (
+                <div className="chat-scene-tabs chat-scene-tabs-composer" role="tablist" aria-label="Chat scene">
+                  {CHAT_SCENES.map((scene) => (
+                    <button
+                      key={scene.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={chatScene === scene.id}
+                      className={`chat-scene-tab${chatScene === scene.id ? " active" : ""}`}
+                      title={scene.title}
+                      onClick={() => setChatScene(scene.id)}
+                      disabled={running}
+                    >
+                      <span className="chat-scene-icon" aria-hidden>{scene.icon}</span>
+                      <span>{scene.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             {!isImSession && <div
               className={`input-area${isDragging ? " drag-over" : ""}`}
             >
-              {(activeMessages.length > 0 || running || pendingLiveCards.length > 0) && (
-              <div className="chat-scene-tabs" role="tablist" aria-label="Chat scene">
-                {CHAT_SCENES.map((scene) => (
-                  <button
-                    key={scene.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={chatScene === scene.id}
-                    className={`chat-scene-tab${chatScene === scene.id ? " active" : ""}`}
-                    title={scene.title}
-                    onClick={() => setChatScene(scene.id)}
-                    disabled={running}
-                  >
-                    <span className="chat-scene-icon" aria-hidden>{scene.icon}</span>
-                    <span>{scene.label}</span>
-                  </button>
-                ))}
-              </div>
-              )}
+              <img src="/dialog-decoration.png" alt="" className="chat-input-decoration" aria-hidden="true" />
               {(selectedKoi || selectedSkills.length > 0 || pendingAttachments.length > 0) && (
                 <div className="pending-composer-strip">
                   {selectedKoi && (
@@ -2877,7 +2976,7 @@ export default function Chat({
                   {selectedSkills.map((skill) => (
                     <div key={skill.id} className="pending-chip pending-chip-skill" title={t("chat.selectedSkill")}>
                       <span className="pending-chip-icon">{skill.icon || "⚡"}</span>
-                      <span className="pending-chip-name">{skill.name}</span>
+                      <span className="pending-chip-name">{skillDisplayName(skill.name)}</span>
                       <button type="button" className="pending-chip-remove" onClick={() => removeSkill(skill.id)} title={t("common.clear")}>✕</button>
                     </div>
                   ))}
@@ -2903,7 +3002,7 @@ export default function Chat({
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
-                placeholder={t("chat.inputPlaceholder")}
+                placeholder={`${t("chat.inputPlaceholder")}  / 调用技能`}
                 rows={3}
                 disabled={running}
               />
@@ -2986,7 +3085,7 @@ export default function Chat({
                   <div className="composer-selector koi-selector">
                     <ComposerDropdown
                       menuId="koi"
-                      icon="🐟"
+                      icon="🎓"
                       triggerLabel={
                         selectedKoi
                           ? `${selectedKoi.icon} ${selectedKoi.name}`
@@ -3110,7 +3209,7 @@ export default function Chat({
                         return rows;
                       });
                       const items: ComposerMenuItem[] = [
-                        { id: "", label: defaultLabel, icon: "Auto", selected: !selectedModelProviderId },
+                        { id: "", label: defaultLabel, icon: "⚙️", selected: !selectedModelProviderId },
                         { id: "_model_builtin_header", label: "内置模型", disabled: true },
                         ...builtInItems,
                         { id: "_model_custom_header", label: "自定义模型", disabled: true },
@@ -3274,7 +3373,7 @@ export default function Chat({
         ) : sessionFilter === "cli" ? (
           <div className="empty-state">
             <div className="empty-state-icon" aria-hidden="true" style={{ fontSize: 48 }}>
-              🐟
+              包
             </div>
             <div className="empty-state-title">{t("chat.cliEmptyTitle")}</div>
             <div className="empty-state-desc">{t("chat.cliEmptyDesc")}</div>
@@ -3297,7 +3396,7 @@ export default function Chat({
               </div>
             )}
             <div className="chat-welcome-copy">
-              <div className="chat-welcome-brand">WorkBuddy</div>
+              <div className="chat-welcome-brand">9X bot</div>
               <div className="chat-welcome-title">
                 {chatScene === "design"
                   ? "你的设计超能力"
@@ -3323,23 +3422,18 @@ export default function Chat({
               ))}
             </div>
             <div className="chat-welcome-actions">
-              {(chatScene === "design"
-                ? ["网站设计", "PPT设计", "视觉海报", "更多"]
-                : chatScene === "code"
-                  ? ["代码审查", "修复报错", "生成脚本", "更多"]
-                  : ["文档处理", "会议总结", "邮件撰写", "更多"]
-              ).map((label) => (
+              {CHAT_WELCOME_ACTIONS[chatScene].map((action) => (
                 <button
-                  key={label}
+                  key={action.label}
                   type="button"
                   className="chat-welcome-action"
-                  onClick={() => setInput(label === "更多" ? "" : `帮我做${label}`)}
+                  onClick={() => void handleNewSession(action.prompt)}
                 >
-                  {label}
+                  {action.label}
                 </button>
               ))}
             </div>
-            <button className="btn btn-primary" onClick={handleNewSession}>
+            <button className="btn btn-primary" onClick={() => void handleNewSession()}>
               {t("chat.newChatBtn")}
             </button>
           </div>
