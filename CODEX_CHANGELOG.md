@@ -24,6 +24,23 @@ For each meaningful adjustment, record:
 
 ## Changes So Far
 
+### 2026-07-01. 0.8.66 installer icon refresh
+
+- Problem: The generated desktop installer could still appear with a default-looking icon in Windows Explorer, despite the NSIS installer icon being configured.
+- Files changed:
+  - `package.json`
+  - `package-lock.json`
+  - `src-tauri/Cargo.toml`
+  - `src-tauri/tauri.conf.json`
+  - `src-tauri/icons/installer.ico`
+- Summary:
+  - Bumped the packaged app version from `0.8.65` to `0.8.66`.
+  - Regenerated the installer `.ico` from `E:\9xbot\9Xbot UI\Installer icon.png` with 16, 32, 48, 64, 128, and 256 px entries for better Windows Explorer display.
+- Verification:
+  - `npm run tauri -- build` passed and produced `9X bot_0.8.66_x64-setup.exe`.
+  - Extracted the installer executable icon after build and confirmed it uses the regenerated 9X bot installer artwork.
+- Upstream value: Local-only 9X bot packaging/branding.
+
 ### 2026-07-01. 9X bot UI polish, PPT robustness, and installer branding
 
 - Problem: The 9X bot branch needed a coworker-friendly testing build with clearer branding, simpler first-run entry points, fewer exposed technical details, and more reliable PPT generation from real business documents.
