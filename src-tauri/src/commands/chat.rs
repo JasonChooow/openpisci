@@ -26,7 +26,7 @@ use piscis_kernel::policy::PolicyGate;
 use piscis_kernel::project_context::render_project_instruction_context;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -78,6 +78,80 @@ enum SkillSelectionReason {
     AutoGeneral,
     AutoPptGeneration,
     AutoPptVideo,
+}
+
+fn is_auto_workspace_session_source(source: &str) -> bool {
+    source.trim().eq_ignore_ascii_case("chat")
+}
+
+fn sanitize_session_workspace_name(title: Option<&str>) -> String {
+    let raw = title
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("新对话");
+    let mut out = String::new();
+    let mut last_separator = false;
+
+    for ch in raw.chars() {
+        let is_invalid = matches!(ch, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*')
+            || ch.is_control();
+        let mapped = if is_invalid || ch.is_whitespace() {
+            '-'
+        } else {
+            ch
+        };
+
+        if mapped == '-' {
+            if !out.is_empty() && !last_separator {
+                out.push('-');
+                last_separator = true;
+            }
+        } else {
+            out.push(mapped);
+            last_separator = false;
+        }
+
+        if out.chars().count() >= 40 {
+            break;
+        }
+    }
+
+    let cleaned = out.trim_matches(['-', '.', ' ']).to_string();
+    if cleaned.is_empty() {
+        "新对话".to_string()
+    } else {
+        cleaned
+    }
+}
+
+fn build_auto_session_workspace_root(
+    default_workspace_root: &str,
+    session_id: &str,
+    title: Option<&str>,
+) -> Option<String> {
+    let root = default_workspace_root.trim();
+    if root.is_empty() {
+        return None;
+    }
+
+    let name = sanitize_session_workspace_name(title);
+    let short_id: String = session_id
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .take(8)
+        .collect();
+    let suffix = if short_id.is_empty() {
+        "session".to_string()
+    } else {
+        short_id
+    };
+
+    Some(
+        PathBuf::from(root)
+            .join(format!("{name}-{suffix}"))
+            .to_string_lossy()
+            .into_owned(),
+    )
 }
 
 #[derive(Debug, Clone)]
@@ -1095,13 +1169,38 @@ pub(crate) async fn resolve_session_workspace_root(
     default_workspace_root: String,
 ) -> Result<String, String> {
     let db = state.db.lock().await;
-    let override_root = db
+    let Some(session) = db
         .get_session(session_id)
         .map_err(|e| e.to_string())?
-        .and_then(|session| session.workspace_root)
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty());
-    Ok(override_root.unwrap_or(default_workspace_root))
+    else {
+        return Ok(default_workspace_root);
+    };
+
+    if let Some(override_root) = session
+        .workspace_root
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        return Ok(override_root.to_string());
+    }
+
+    if !is_auto_workspace_session_source(&session.source) {
+        return Ok(default_workspace_root);
+    }
+
+    let Some(session_workspace_root) = build_auto_session_workspace_root(
+        &default_workspace_root,
+        &session.id,
+        session.title.as_deref(),
+    ) else {
+        return Ok(default_workspace_root);
+    };
+
+    std::fs::create_dir_all(&session_workspace_root).map_err(|e| e.to_string())?;
+    db.set_session_workspace(&session.id, Some(&session_workspace_root))
+        .map_err(|e| e.to_string())?;
+    Ok(session_workspace_root)
 }
 
 pub(crate) fn apply_session_settings_overrides(
@@ -1126,13 +1225,33 @@ pub async fn create_session(
     title: Option<String>,
     source: Option<String>,
 ) -> Result<Session, String> {
+    let default_workspace_root = {
+        let settings = state.settings.lock().await;
+        settings.workspace_root.clone()
+    };
     let db = state.db.lock().await;
     let source = source
         .as_deref()
         .filter(|s| !s.trim().is_empty())
         .unwrap_or("chat");
-    db.create_session_with_source(title.as_deref(), source)
-        .map_err(|e| e.to_string())
+    let mut session = db
+        .create_session_with_source(title.as_deref(), source)
+        .map_err(|e| e.to_string())?;
+
+    if is_auto_workspace_session_source(source) {
+        if let Some(session_workspace_root) = build_auto_session_workspace_root(
+            &default_workspace_root,
+            &session.id,
+            session.title.as_deref(),
+        ) {
+            std::fs::create_dir_all(&session_workspace_root).map_err(|e| e.to_string())?;
+            db.set_session_workspace(&session.id, Some(&session_workspace_root))
+                .map_err(|e| e.to_string())?;
+            session.workspace_root = Some(session_workspace_root);
+        }
+    }
+
+    Ok(session)
 }
 
 #[tauri::command]
@@ -1161,9 +1280,59 @@ pub async fn rename_session(
     session_id: String,
     title: String,
 ) -> Result<(), String> {
+    let default_workspace_root = {
+        let settings = state.settings.lock().await;
+        settings.workspace_root.clone()
+    };
     let db = state.db.lock().await;
+    let existing = db.get_session(&session_id).map_err(|e| e.to_string())?;
     db.rename_session(&session_id, &title)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    if let Some(session) = existing.filter(|session| is_auto_workspace_session_source(&session.source))
+    {
+        let current_workspace = session
+            .workspace_root
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        let should_update_workspace = match current_workspace {
+            Some(current) => build_auto_session_workspace_root(
+                &default_workspace_root,
+                &session.id,
+                session.title.as_deref(),
+            )
+            .is_some_and(|expected| paths_match_for_pool_binding(&expected, current)),
+            None => true,
+        };
+
+        if should_update_workspace {
+            if let Some(next_workspace) = build_auto_session_workspace_root(
+                &default_workspace_root,
+                &session.id,
+                Some(&title),
+            ) {
+                if let Some(current) = current_workspace {
+                    let current_path = Path::new(current);
+                    let next_path = Path::new(&next_workspace);
+                    if current_path.exists() && !next_path.exists() {
+                        if std::fs::rename(current_path, next_path).is_err() {
+                            std::fs::create_dir_all(&next_workspace)
+                                .map_err(|e| e.to_string())?;
+                        }
+                    } else {
+                        std::fs::create_dir_all(&next_workspace).map_err(|e| e.to_string())?;
+                    }
+                } else {
+                    std::fs::create_dir_all(&next_workspace).map_err(|e| e.to_string())?;
+                }
+                db.set_session_workspace(&session.id, Some(&next_workspace))
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -5532,9 +5701,10 @@ pub async fn get_context_preview(
 mod tests {
     use super::{
         build_context_messages, build_main_chat_system_prompt, collapse_superseded_tool_failures,
-        derive_headless_session_source, extract_tool_minimals_from_history,
-        minimal_tool_result_blocks, paths_match_for_pool_binding, resolve_headless_memory_owner_id,
-        resolve_headless_scene_kind, resolve_pool_session_for_workspace, HeadlessRunOptions,
+        build_auto_session_workspace_root, derive_headless_session_source,
+        extract_tool_minimals_from_history, minimal_tool_result_blocks,
+        paths_match_for_pool_binding, resolve_headless_memory_owner_id, resolve_headless_scene_kind,
+        resolve_pool_session_for_workspace, sanitize_session_workspace_name, HeadlessRunOptions,
         SESSION_SOURCE_PISCIS_HEARTBEAT_GLOBAL, SESSION_SOURCE_PISCIS_POOL,
     };
     use crate::commands::config::scene::SceneKind;
@@ -5560,6 +5730,33 @@ mod tests {
             tool_results_json: None,
             turn_index: Some(turn_index),
         }
+    }
+
+    #[test]
+    fn sanitize_session_workspace_name_keeps_readable_chinese_title() {
+        assert_eq!(
+            sanitize_session_workspace_name(Some("共享合伙人 PPT 方案")),
+            "共享合伙人-PPT-方案"
+        );
+    }
+
+    #[test]
+    fn build_auto_session_workspace_root_uses_safe_title_and_short_id() {
+        let root = build_auto_session_workspace_root(
+            r"C:\Users\ZHOU\Documents\9xbot",
+            "12345678-aaaa-bbbb-cccc-123456789000",
+            Some(r#"方案: A/B * 复盘?"#),
+        )
+        .expect("workspace root");
+        let folder_name = std::path::Path::new(&root)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .expect("folder name");
+
+        assert!(root.ends_with(r"方案-A-B-复盘-12345678"));
+        assert!(!folder_name.contains('*'));
+        assert!(!folder_name.contains('?'));
+        assert!(!folder_name.contains(':'));
     }
 
     fn assistant_tool_use(id: &str, name: &str, input: serde_json::Value) -> LlmMessage {

@@ -580,7 +580,7 @@ node scripts/get-enum-options.mjs '{"category":"targeting"}'
 ```json
 "wechat_ad_behavior": {
   "excluded_actions": ["GDT_WECHAT_OFFICIAL_ACCOUNT_FOLLOWED"],
-  "wechat_official_account_id": ["wx18c408376c727a19"]
+  "wechat_official_account_id": ["<WECHAT_OFFICIAL_ACCOUNT_ID>"]
 }
 ```
 - 涉及公众号行为时，需同时传 `wechat_official_account_id`（用户给的公众号 ID）

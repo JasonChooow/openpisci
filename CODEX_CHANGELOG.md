@@ -24,6 +24,34 @@ For each meaningful adjustment, record:
 
 ## Changes So Far
 
+### 2026-07-02. Secret scanning cleanup for bundled Tencent Ads skill
+
+- Problem: GitHub secret scanning flagged a concrete WeChat/Tencent ecosystem id inside a bundled Tencent Ads skill example.
+- Files changed:
+  - `src-tauri/builtin_skillhub/tencentads-delivery-smart-create/SKILL.md`
+- Summary:
+  - Replaced the concrete `wechat_official_account_id` example value with a placeholder.
+  - Re-scanned bundled skill/frontend/backend files for the same `wx` id pattern and found no remaining matches.
+- Verification:
+  - `rg "wx[0-9a-fA-F]{16}" ...` returned no remaining matches in the checked source and bundled skill paths.
+- Upstream value: Generally useful; example docs should not include real platform identifiers.
+
+### 2026-07-02. Per-chat workspace folders
+
+- Problem: Regular chat sessions inherited the global workspace root directly, so files produced across different conversations were collected in the same folder.
+- Files changed:
+  - `src-tauri/src/commands/chat.rs`
+- Summary:
+  - Added automatic per-chat workspace folder creation under the global workspace root.
+  - New regular chat sessions now receive a folder named from the chat title plus a short session id.
+  - Existing regular chat sessions without a workspace override are backfilled the first time their workspace is resolved.
+  - When a regular chat is renamed before files are produced, its automatic workspace folder follows the clearer chat title.
+  - Manual per-session workspace selections, IDE sessions, team/project sessions, and non-chat sources continue to use their explicit paths.
+- Verification:
+  - `cargo check --manifest-path src-tauri\Cargo.toml` passed.
+  - Full `cargo test ... session_workspace` is blocked by an unrelated existing `pool_event_bridge.rs` test fixture error about missing `member_koi_ids`.
+- Upstream value: Generally useful; it prevents workspace clutter while preserving existing explicit workspace overrides.
+
 ### 2026-07-01. 0.8.66 installer icon refresh
 
 - Problem: The generated desktop installer could still appear with a default-looking icon in Windows Explorer, despite the NSIS installer icon being configured.
