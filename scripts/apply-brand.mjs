@@ -23,7 +23,15 @@ if (!fs.existsSync(brandPath)) {
 const brand = JSON.parse(fs.readFileSync(brandPath, "utf8"));
 
 function writeJson(filePath, data) {
-  fs.writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  writeTextIfChanged(filePath, `${JSON.stringify(data, null, 2)}\n`);
+}
+
+function writeTextIfChanged(filePath, content) {
+  if (fs.existsSync(filePath) && fs.readFileSync(filePath, "utf8") === content) {
+    return false;
+  }
+  fs.writeFileSync(filePath, content, "utf8");
+  return true;
 }
 
 function escapeRust(s) {
@@ -59,7 +67,7 @@ pub const DISPLAY_NAME_EN: &str = "${escapeRust(brand.displayNameEn)}";
 pub const PRO_WINDOW_TITLE: &str = "${escapeRust(brand.proWindowTitle)}";
 pub const GITHUB_REPO: &str = "${escapeRust(brand.githubRepo)}";
 `;
-fs.writeFileSync(rustOut, rustSrc, "utf8");
+writeTextIfChanged(rustOut, rustSrc);
 
 // ─── Tauri bundle metadata ─────────────────────────────────────────────────
 const tauriPath = path.join(ROOT, "src-tauri/tauri.conf.json");
@@ -85,22 +93,22 @@ writeJson(tauriPath, tauri);
 const indexPath = path.join(ROOT, "index.html");
 let indexHtml = fs.readFileSync(indexPath, "utf8");
 indexHtml = indexHtml.replace(/<title>[^<]*<\/title>/, `<title>${brand.windowTitle}</title>`);
-fs.writeFileSync(indexPath, indexHtml, "utf8");
+writeTextIfChanged(indexPath, indexHtml);
 
 // ─── Icons (optional) ──────────────────────────────────────────────────────
 const iconSource = path.join(ROOT, brand.iconSource || "");
 if (iconSource && fs.existsSync(iconSource)) {
   console.log(`[brand] Generating icons from ${brand.iconSource}`);
   const heroSource = path.join(ROOT, brand.chatEmptyHeroSource || "");
-  const pyArgs = ["scripts/make_icons.py", "--source", iconSource];
+  const iconArgs = [path.join("scripts", "make_icons.mjs"), "--source", iconSource];
   if (heroSource && fs.existsSync(heroSource)) {
-    pyArgs.push("--hero", heroSource);
+    iconArgs.push("--hero", heroSource);
   }
-  const py = spawnSync("python3", pyArgs, {
+  const iconGen = spawnSync(process.execPath, iconArgs, {
     cwd: ROOT,
     stdio: "inherit",
   });
-  if (py.status !== 0) {
+  if (iconGen.status !== 0) {
     console.warn("[brand] Icon generation failed (non-fatal)");
   }
 } else {
@@ -108,6 +116,6 @@ if (iconSource && fs.existsSync(iconSource)) {
 }
 
 // ─── Active brand marker (for debugging) ───────────────────────────────────
-fs.writeFileSync(path.join(ROOT, ".brand-active"), `${brand.id}\n`, "utf8");
+writeTextIfChanged(path.join(ROOT, ".brand-active"), `${brand.id}\n`);
 
 console.log(`[brand] Applied "${brand.id}" (${brand.displayNameZh} / ${brand.displayNameEn})`);

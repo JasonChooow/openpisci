@@ -26,6 +26,8 @@ export type AppDropdownProps = {
   triggerLabel: string;
   triggerTitle?: string;
   items: AppMenuItem[];
+  /** Optional full list used only after the user types in the search box. */
+  searchItems?: AppMenuItem[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (id: string) => void;
@@ -45,6 +47,7 @@ export default function AppDropdown({
   triggerLabel,
   triggerTitle,
   items,
+  searchItems,
   open,
   onOpenChange,
   onSelect,
@@ -90,12 +93,13 @@ export default function AppDropdown({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;
-    return items.filter((item) => {
+    const sourceItems = searchItems ?? items;
+    return sourceItems.filter((item) => {
       if (item.divider || item.section) return false;
       const haystack = `${item.label} ${item.searchText ?? ""}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [items, query]);
+  }, [items, query, searchItems]);
 
   const showSearch = items.length >= 6 || Boolean(searchPlaceholder);
   const panelPlacementClass =

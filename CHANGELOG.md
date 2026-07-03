@@ -6,6 +6,36 @@ This project follows [Semantic Versioning](https://semver.org/) and
 
 ---
 
+## [1.0.1] - 2026-07-03
+
+### Added
+
+- **Non-interrupting chat guidance**: while Baozi is running, typing in the composer now stages a lightweight guidance command instead of stopping the active run. Guidance is delivered to the active agent, stored in conversation history, and rendered as a visually distinct message.
+- **Global expert and skill search**: composer expert/skill search now reaches the installed catalog instead of only recent items; market expert discovery also exposes search.
+- **Per-chat workspace naming**: automatic local workspaces now use a readable `conversation-title_MMDD-HHMM` pattern, with collision handling for repeated names.
+- **Standard installer naming**: Windows installer copies are now standardized as `9X-bot-installer-{version}.exe`.
+
+### Changed
+
+- **Attachment picker**: simplified uploads to a single "all files" option so non-technical users do not need to choose between image, document, and code categories.
+- **9X bot packaging version**: aligned package, Tauri, and Rust app versions to `1.0.1`.
+- **Installer icon generation**: the brand icon generation script now refreshes `installer.ico` together with the app icon so the Windows installer uses the correct 9X bot artwork.
+- **Chat readability**: improved message and code-field readability for shared screenshots and colleague testing.
+
+### Fixed
+
+- **Interrupted connector cleanup**: confirmed the connector settings section is present again and not left in a deleted state.
+- **Guidance display hygiene**: search, history, and share output hide internal guidance markers while keeping the guidance content in context.
+
+### Verification
+
+- `npm run build:web` passed.
+- `cargo check --manifest-path src-tauri\Cargo.toml` passed.
+- The local development app loads at `http://localhost:5174/`.
+- `npm test` is still blocked before test execution by the existing Vitest/Vite `vite/module-runner` package export mismatch.
+
+---
+
 ## [0.8.64] - 2026-06-12
 
 ### Changed

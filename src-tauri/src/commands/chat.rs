@@ -24,6 +24,7 @@ use piscis_kernel::llm::{
 };
 use piscis_kernel::policy::PolicyGate;
 use piscis_kernel::project_context::render_project_instruction_context;
+use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -126,8 +127,8 @@ fn sanitize_session_workspace_name(title: Option<&str>) -> String {
 
 fn build_auto_session_workspace_root(
     default_workspace_root: &str,
-    session_id: &str,
     title: Option<&str>,
+    created_at: DateTime<Utc>,
 ) -> Option<String> {
     let root = default_workspace_root.trim();
     if root.is_empty() {
@@ -135,23 +136,96 @@ fn build_auto_session_workspace_root(
     }
 
     let name = sanitize_session_workspace_name(title);
-    let short_id: String = session_id
-        .chars()
-        .filter(|ch| ch.is_ascii_alphanumeric())
-        .take(8)
-        .collect();
-    let suffix = if short_id.is_empty() {
-        "session".to_string()
-    } else {
-        short_id
-    };
+    let time_code = created_at.with_timezone(&Local).format("%m%d-%H%M");
 
     Some(
         PathBuf::from(root)
-            .join(format!("{name}-{suffix}"))
+            .join(format!("{name}_{time_code}"))
             .to_string_lossy()
             .into_owned(),
     )
+}
+
+fn build_unique_auto_session_workspace_root(
+    default_workspace_root: &str,
+    title: Option<&str>,
+    created_at: DateTime<Utc>,
+) -> Option<String> {
+    build_unique_auto_session_workspace_root_allowing(
+        default_workspace_root,
+        title,
+        created_at,
+        None,
+    )
+}
+
+fn build_unique_auto_session_workspace_root_allowing(
+    default_workspace_root: &str,
+    title: Option<&str>,
+    created_at: DateTime<Utc>,
+    allowed_existing: Option<&str>,
+) -> Option<String> {
+    let base = build_auto_session_workspace_root(default_workspace_root, title, created_at)?;
+    if allowed_existing
+        .is_some_and(|current| paths_match_for_pool_binding(&base, current))
+        || !Path::new(&base).exists()
+    {
+        return Some(base);
+    }
+
+    for idx in 2..1000 {
+        let candidate = format!("{base}-{idx}");
+        if allowed_existing
+            .is_some_and(|current| paths_match_for_pool_binding(&candidate, current))
+            || !Path::new(&candidate).exists()
+        {
+            return Some(candidate);
+        }
+    }
+
+    Some(format!("{base}-{}", Utc::now().timestamp()))
+}
+
+fn is_auto_session_workspace_path(
+    current: &str,
+    default_workspace_root: &str,
+    title: Option<&str>,
+    created_at: DateTime<Utc>,
+) -> bool {
+    let Some(expected) = build_auto_session_workspace_root(default_workspace_root, title, created_at)
+    else {
+        return false;
+    };
+    if paths_match_for_pool_binding(&expected, current) {
+        return true;
+    }
+
+    let current_path = Path::new(current);
+    let expected_path = Path::new(&expected);
+    let Some(current_parent) = current_path.parent() else {
+        return false;
+    };
+    let Some(expected_parent) = expected_path.parent() else {
+        return false;
+    };
+    if !paths_match_for_pool_binding(
+        &current_parent.to_string_lossy(),
+        &expected_parent.to_string_lossy(),
+    ) {
+        return false;
+    }
+
+    let Some(current_name) = current_path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    let Some(expected_name) = expected_path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    let Some(rest) = current_name.strip_prefix(expected_name) else {
+        return false;
+    };
+    rest.strip_prefix('-')
+        .is_some_and(|suffix| !suffix.is_empty() && suffix.chars().all(|ch| ch.is_ascii_digit()))
 }
 
 #[derive(Debug, Clone)]
@@ -1189,10 +1263,10 @@ pub(crate) async fn resolve_session_workspace_root(
         return Ok(default_workspace_root);
     }
 
-    let Some(session_workspace_root) = build_auto_session_workspace_root(
+    let Some(session_workspace_root) = build_unique_auto_session_workspace_root(
         &default_workspace_root,
-        &session.id,
         session.title.as_deref(),
+        session.created_at,
     ) else {
         return Ok(default_workspace_root);
     };
@@ -1239,10 +1313,10 @@ pub async fn create_session(
         .map_err(|e| e.to_string())?;
 
     if is_auto_workspace_session_source(source) {
-        if let Some(session_workspace_root) = build_auto_session_workspace_root(
+        if let Some(session_workspace_root) = build_unique_auto_session_workspace_root(
             &default_workspace_root,
-            &session.id,
             session.title.as_deref(),
+            session.created_at,
         ) {
             std::fs::create_dir_all(&session_workspace_root).map_err(|e| e.to_string())?;
             db.set_session_workspace(&session.id, Some(&session_workspace_root))
@@ -1297,20 +1371,21 @@ pub async fn rename_session(
             .map(str::trim)
             .filter(|value| !value.is_empty());
         let should_update_workspace = match current_workspace {
-            Some(current) => build_auto_session_workspace_root(
+            Some(current) => is_auto_session_workspace_path(
+                current,
                 &default_workspace_root,
-                &session.id,
                 session.title.as_deref(),
-            )
-            .is_some_and(|expected| paths_match_for_pool_binding(&expected, current)),
+                session.created_at,
+            ),
             None => true,
         };
 
         if should_update_workspace {
-            if let Some(next_workspace) = build_auto_session_workspace_root(
+            if let Some(next_workspace) = build_unique_auto_session_workspace_root_allowing(
                 &default_workspace_root,
-                &session.id,
                 Some(&title),
+                session.created_at,
+                current_workspace,
             ) {
                 if let Some(current) = current_workspace {
                     let current_path = Path::new(current);
@@ -2016,6 +2091,12 @@ pub async fn chat_send(
         }
     }
 
+    let (guide_tx, guide_rx) = tokio::sync::mpsc::channel::<String>(32);
+    {
+        let mut channels = state.guide_channels.lock().await;
+        channels.insert(session_id.clone(), guide_tx);
+    }
+
     // Build cancellation token
     let cancel = Arc::new(AtomicBool::new(false));
     {
@@ -2152,7 +2233,7 @@ pub async fn chat_send(
     )
     .with_streaming(enable_streaming)
     .with_hooks(hooks)
-    .into_agent_loop(client, None, Some(state.confirmation_responses.clone()));
+    .into_agent_loop(client, Some(guide_rx), Some(state.confirmation_responses.clone()));
 
     let ctx = ToolContext {
         session_id: session_id.clone(),
@@ -2176,6 +2257,7 @@ pub async fn chat_send(
     let session_id_clone = session_id.clone();
     let db_arc = state.db.clone();
     let cancel_flags_arc = state.cancel_flags.clone();
+    let guide_channels_arc = state.guide_channels.clone();
     let model_clone = model.clone();
     let max_tokens_clone = max_tokens;
     let provider_clone = provider.clone();
@@ -2348,6 +2430,10 @@ pub async fn chat_send(
         {
             let mut flags = cancel_flags_arc.lock().await;
             flags.remove(&session_id_clone);
+        }
+        {
+            let mut channels = guide_channels_arc.lock().await;
+            channels.remove(&session_id_clone);
         }
     });
 
@@ -3580,12 +3666,51 @@ pub async fn chat_cancel(state: State<'_, AppState>, session_id: String) -> Resu
         let db = state.db.lock().await;
         let _ = db.update_session_status(&session_id, "idle");
     }
+    {
+        let mut channels = state.guide_channels.lock().await;
+        channels.remove(&session_id);
+    }
     let payload = serde_json::to_value(&AgentEvent::Cancelled).unwrap_or_default();
     let _ = state
         .app_handle
         .emit(&format!("agent_event_{}", session_id), payload.clone());
     let _ = state.app_handle.emit("agent_broadcast", payload);
     Ok(())
+}
+
+/// Add non-interrupting guidance to the currently running agent turn.
+#[tauri::command]
+pub async fn chat_guide(
+    state: State<'_, AppState>,
+    session_id: String,
+    content: String,
+) -> Result<ChatMessage, String> {
+    let content = content.trim();
+    if content.is_empty() {
+        return Err("引导内容不能为空。".to_string());
+    }
+
+    let sender = {
+        let channels = state.guide_channels.lock().await;
+        channels.get(&session_id).cloned()
+    };
+    let Some(sender) = sender else {
+        return Err("当前会话没有正在运行的任务，无法发送引导。".to_string());
+    };
+
+    let guidance = format!(
+        "User guidance for the current run. Do not restart or discard current work; use this as a steering note:\n{}",
+        content
+    );
+    sender
+        .send(guidance)
+        .await
+        .map_err(|_| "当前任务已经结束，引导未送达。".to_string())?;
+
+    let history_content = format!("[Guidance] {}", content);
+    let db = state.db.lock().await;
+    db.append_message(&session_id, "user", &history_content)
+        .map_err(|e| e.to_string())
 }
 
 /// Budget-aware truncation for injected context (memory, task state, skills).
@@ -3781,11 +3906,12 @@ Every tangible output you produce in a session MUST be submitted as an artifact 
 ### Self-check before ending a run
 Before your final user-facing reply, scan the turn for any file path you wrote, screenshot you captured, or URL you delivered. If any such path/URL is missing from the artifacts list, submit it now. The user's Artifacts panel must reflect the full set of tangible outputs.
 
-## ⚡ First Step: Always Check Skills
-Before doing anything else, call `skill_list` to see all available skills.
-- If one skill clearly applies → read its SKILL.md with `file_read`, then follow it exactly.
-- If none apply → proceed with your built-in capabilities below.
-This applies to every new task, no exceptions.
+## Skill Use Policy
+Do not start every turn by calling `skill_list`.
+- For ordinary tasks such as writing a small script, explaining code, checking a file, summarizing a short message, or answering a direct question, begin directly with the task.
+- Use `skill_list` only when the user explicitly asks for skills, selects/names a skill, or the request clearly needs a specialized installed workflow such as PPT generation, meeting notes, invoice processing, OCR/PDF conversion, data analysis, marketing copy, PRD, SQL, test cases, mini-program work, or another domain workflow.
+- If selected-skill instructions are already embedded in the user message, do not call `skill_list` and do not re-read SKILL.md; follow the embedded instructions.
+- Do not tell the user "let me check available skills" unless you are actually using skill discovery for one of the cases above.
 
 ## Tool Selection Decision Tree
 
@@ -5710,7 +5836,7 @@ mod tests {
     use crate::commands::config::scene::SceneKind;
     use crate::pool::PoolSession;
     use crate::store::db::ChatMessage;
-    use chrono::Utc;
+    use chrono::{Local, TimeZone, Utc};
     use piscis_kernel::llm::{ContentBlock, LlmMessage, MessageContent};
     use serde_json::json;
 
@@ -5741,11 +5867,15 @@ mod tests {
     }
 
     #[test]
-    fn build_auto_session_workspace_root_uses_safe_title_and_short_id() {
+    fn build_auto_session_workspace_root_uses_safe_title_and_time_code() {
+        let created_at = Local
+            .with_ymd_and_hms(2026, 7, 3, 14, 28, 30)
+            .unwrap()
+            .with_timezone(&Utc);
         let root = build_auto_session_workspace_root(
             r"C:\Users\ZHOU\Documents\9xbot",
-            "12345678-aaaa-bbbb-cccc-123456789000",
             Some(r#"方案: A/B * 复盘?"#),
+            created_at,
         )
         .expect("workspace root");
         let folder_name = std::path::Path::new(&root)
@@ -5753,7 +5883,7 @@ mod tests {
             .and_then(|name| name.to_str())
             .expect("folder name");
 
-        assert!(root.ends_with(r"方案-A-B-复盘-12345678"));
+        assert!(root.ends_with(r"方案-A-B-复盘_0703-1428"));
         assert!(!folder_name.contains('*'));
         assert!(!folder_name.contains('?'));
         assert!(!folder_name.contains(':'));

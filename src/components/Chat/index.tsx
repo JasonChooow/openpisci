@@ -9,7 +9,7 @@ import { RootState, chatActions, sessionsActions, skillsActions, poolActions, To
 import { artifactsApi, chatApi, journalApi, sessionsApi, gatewayApi, koiApi, AgentEventType, ChannelInfo, type ChatMessage, type SessionArtifact, type JournalChange, type KoiWithStats } from "../../services/tauri";
 import { skillsApi, type Skill, type ComposerMode } from "../../services/tauri";
 import RoundedSearch from "../ui/RoundedSearch";
-import { Search, History, Share2, Mic, PanelRight, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, History, Share2, Mic, PanelRight, ChevronDown, ChevronUp, SendHorizontal } from "lucide-react";
 import { PlanPanel, ArtifactsPanel, ToolStepCard } from "./ChatPanels";
 import ChatRightPanel from "./ChatRightPanel";
 import TeamCollabPanel from "./TeamCollabPanel";
@@ -67,6 +67,7 @@ const BUILT_IN_CHAT_MODELS: BuiltInChatModel[] = [
 type ChatScene = "office" | "code" | "design";
 const RECENT_KOI_KEY = "piscis-recent-koi-ids";
 const RECENT_SKILL_KEY = "piscis-recent-skill-ids";
+const GUIDANCE_MESSAGE_PREFIXES = ["[Guidance] ", "[Guidance]", "[[9XBOT_GUIDANCE]]"];
 
 const CHAT_SCENES: Array<{ id: ChatScene; label: string; icon: string; title: string }> = [
   { id: "office", label: "日常办公", icon: "💼", title: "文档、总结、问答、日常任务" },
@@ -139,6 +140,20 @@ function loadRecentSkillIds(): string[] {
 
 function builtInModelLabel(model: BuiltInChatModel): string {
   return `${model.label}  ${model.tier}`;
+}
+
+function getGuidanceMessageText(content: string): string | null {
+  for (const prefix of GUIDANCE_MESSAGE_PREFIXES) {
+    if (content.startsWith(prefix)) {
+      return content.slice(prefix.length).trimStart();
+    }
+  }
+  return null;
+}
+
+function getDisplayMessageContent(message: Pick<ChatMessage, "role" | "content">): string {
+  if (message.role !== "user") return message.content;
+  return getGuidanceMessageText(message.content) ?? message.content;
 }
 
 function isImageGenerationModel(model: string): boolean {
@@ -545,6 +560,8 @@ export default function Chat({
 
   const [input, setInput] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
+  const [pendingGuidance, setPendingGuidance] = useState<string | null>(null);
+  const [guidanceSending, setGuidanceSending] = useState(false);
   // File-journal review: files the agent changed in the last turn, per session.
   const [reviewBySession, setReviewBySession] = useState<Record<string, JournalChange[]>>({});
   const [undoingReview, setUndoingReview] = useState(false);
@@ -923,7 +940,7 @@ export default function Chat({
     if (!chatInputHistoryScope) return;
     const texts = rawMessages
       .filter((m) => m.role === "user" && !m.id.startsWith("optimistic_"))
-      .map((m) => m.content);
+      .map((m) => getDisplayMessageContent(m));
     seedInputHistory(chatInputHistoryScope, texts);
   }, [chatInputHistoryScope, rawMessages]);
 
@@ -1099,14 +1116,22 @@ export default function Chat({
     // When a run finishes (true → false), automatically re-focus the chat
     // input so the user can keep typing without an extra mouse click.
     if (!running && prevRunningRef.current) {
-      // The textarea is briefly `disabled` while running; defer one tick so
-      // the browser re-enables it before we focus.
       requestAnimationFrame(() => {
         textareaRef.current?.focus();
       });
     }
     prevRunningRef.current = running;
   }, [running, activePlan.length, steps.length, activeArtifacts.length]);
+  useEffect(() => {
+    setPendingGuidance(null);
+    setGuidanceSending(false);
+  }, [displaySessionId]);
+  useEffect(() => {
+    if (!running) {
+      setPendingGuidance(null);
+      setGuidanceSending(false);
+    }
+  }, [running]);
   useLayoutEffect(() => {
     resizeComposerInput();
   }, [input, pendingAttachments.length, selectedSkills.length, selectedKoi?.id, resizeComposerInput]);
@@ -1754,8 +1779,6 @@ export default function Chat({
       const selected = await openFileDialog({
         multiple: true,
         filters: [
-          { name: t("chat.attachImages"), extensions: ["png", "jpg", "jpeg", "gif", "webp"] },
-          { name: t("chat.attachFiles"), extensions: ["pdf", "txt", "md", "csv", "json", "ts", "tsx", "js", "jsx", "py", "rs", "go", "java", "c", "cpp", "h", "yaml", "toml", "xml", "html", "css"] },
           { name: t("chat.attachAll"), extensions: ["*"] },
         ],
       });
@@ -1893,6 +1916,39 @@ export default function Chat({
     return rows;
   }, [koiList, recentKoiIds, selectedKoi, t]);
 
+  const koiSearchMenuItems = useMemo((): ComposerMenuItem[] => {
+    const rows: ComposerMenuItem[] = [
+      {
+        id: "",
+        label: t("chat.koiDefaultOption"),
+        icon: "🤖",
+        selected: !selectedKoi,
+      },
+      { id: "__summon__", label: t("chat.summonExperts", { defaultValue: "\u53ec\u5524\u4e13\u5bb6" }), icon: "🎓", action: true },
+    ];
+
+    const grouped = new Map<string, typeof koiList>();
+    for (const koi of koiList) {
+      const group = normalizeExpertGroupLabel(koi.role);
+      grouped.set(group, [...(grouped.get(group) ?? []), koi]);
+    }
+
+    const sortedGroups = Array.from(grouped.entries()).sort(([a], [b]) => compareExpertGroupLabels(a, b));
+    for (const [group, groupKois] of sortedGroups) {
+      rows.push({ id: `__section__search-${group}`, label: group, section: true });
+      for (const k of [...groupKois].sort((a, b) => a.name.localeCompare(b.name, "zh-Hans-CN"))) {
+        rows.push({
+          id: k.id,
+          label: k.name,
+          searchText: `${k.role} ${k.description}`,
+          icon: k.icon,
+          selected: selectedKoi?.id === k.id,
+        });
+      }
+    }
+    return rows;
+  }, [koiList, selectedKoi, t]);
+
   const skillMenuItems = useMemo((): ComposerMenuItem[] => {
     const selectedIds = new Set(selectedSkills.map((s) => s.id));
     const recentSkills = recentSkillIds
@@ -1922,6 +1978,24 @@ export default function Chat({
     }
     return rows;
   }, [installedSkills, primaryOfficeSkills, recentSkillIds, selectedSkills, skillMenuMode, t]);
+
+  const skillSearchMenuItems = useMemo((): ComposerMenuItem[] => {
+    const selectedIds = new Set(selectedSkills.map((s) => s.id));
+    const rows: ComposerMenuItem[] = [
+      { id: "__install__", label: t("chat.installSkill"), icon: "➕", action: true },
+      { id: "__section__search-installed", label: t("chat.installedSkills"), section: true },
+    ];
+    for (const s of installedSkills) {
+      rows.push({
+        id: s.id,
+        label: skillDisplayName(s.name),
+        searchText: s.description,
+        icon: s.icon || "⚡",
+        selected: selectedIds.has(s.id),
+      });
+    }
+    return rows;
+  }, [installedSkills, selectedSkills, t]);
 
   const handleSkillMenuSelect = useCallback((skillId: string) => {
     if (skillId === "__install__") {
@@ -2222,6 +2296,16 @@ export default function Chat({
     selectedSkills.length ||
     selectedKoi,
   );
+  const canStageGuidance = running && Boolean(input.trim());
+
+  const handleStageGuidance = useCallback(() => {
+    const content = input.trim();
+    if (!running || !content) return;
+    setPendingGuidance(content);
+    setInput("");
+    setSendError(null);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [input, running]);
 
   const handleSend = useCallback(async () => {
     if (!canSend || !displaySessionId || running) return;
@@ -2263,6 +2347,25 @@ export default function Chat({
       chatApi.cancel(displaySessionId);
     }
   }, [displaySessionId]);
+
+  const handleSendGuidance = useCallback(async () => {
+    const content = pendingGuidance?.trim();
+    if (!displaySessionId || !running || !content || guidanceSending) return;
+    setGuidanceSending(true);
+    setSendError(null);
+    try {
+      const message = await chatApi.guide(displaySessionId, content);
+      dispatch(chatActions.appendMessage({ sessionId: displaySessionId, message }));
+      setPendingGuidance(null);
+      setInfoNotice(t("chat.guidanceSent"));
+      setTimeout(() => setInfoNotice(null), 3000);
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    } catch (e) {
+      setSendError(`${e}`);
+    } finally {
+      setGuidanceSending(false);
+    }
+  }, [dispatch, displaySessionId, guidanceSending, pendingGuidance, running, t]);
 
   const reviewChanges = displaySessionId ? reviewBySession[displaySessionId] ?? [] : [];
 
@@ -2331,6 +2434,10 @@ export default function Chat({
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (chatInputHistoryScope) resetInputHistoryNav(chatInputHistoryScope);
+      if (running) {
+        handleStageGuidance();
+        return;
+      }
       handleSend();
       return;
     }
@@ -2548,7 +2655,15 @@ export default function Chat({
                 title={t("chat.share")}
                 onClick={async () => {
                   const md = activeMessages
-                    .map((m) => `**${m.role === "user" ? t("chat.you") : t("chat.piscis")}**:\n\n${m.content}`)
+                    .map((m) => {
+                      const guidanceText = m.role === "user" ? getGuidanceMessageText(m.content) : null;
+                      const roleLabel = guidanceText !== null
+                        ? t("chat.guidanceCommand")
+                        : m.role === "user"
+                          ? t("chat.you")
+                          : t("chat.piscis");
+                      return `**${roleLabel}**:\n\n${getDisplayMessageContent(m)}`;
+                    })
                     .join("\n\n---\n\n");
                   try {
                     await navigator.clipboard.writeText(md);
@@ -2589,7 +2704,7 @@ export default function Chat({
                       const list = (topbarPanel === "history"
                         ? activeMessages.filter((m) => m.role === "user")
                         : q
-                          ? activeMessages.filter((m) => (m.content || "").toLowerCase().includes(q))
+                          ? activeMessages.filter((m) => getDisplayMessageContent(m).toLowerCase().includes(q))
                           : activeMessages.filter((m) => m.role === "user")
                       );
                       if (list.length === 0) {
@@ -2598,29 +2713,33 @@ export default function Chat({
                       return list
                         .slice()
                         .reverse()
-                        .map((m) => (
-                          <button
-                            key={m.id}
-                            type="button"
-                            className={`chat-topbar-result chat-topbar-result-${m.role}`}
-                            onClick={() => {
-                              const el = document.getElementById(`chatmsg-${m.id}`);
-                              if (el) {
-                                el.scrollIntoView({ behavior: "smooth", block: "center" });
-                                el.classList.add("message-flash");
-                                setTimeout(() => el.classList.remove("message-flash"), 1600);
-                              }
-                              setTopbarPanel(null);
-                            }}
-                          >
-                            <span className="chat-topbar-result-role">
-                              {m.role === "user" ? t("chat.you") : t("chat.piscis")}
-                            </span>
-                            <span className="chat-topbar-result-text">
-                              {(m.content || "").replace(/\s+/g, " ").trim().slice(0, 80) || "—"}
-                            </span>
-                          </button>
-                        ));
+                        .map((m) => {
+                          const guidanceText = m.role === "user" ? getGuidanceMessageText(m.content) : null;
+                          const displayText = getDisplayMessageContent(m);
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              className={`chat-topbar-result chat-topbar-result-${m.role}${guidanceText !== null ? " chat-topbar-result-guidance" : ""}`}
+                              onClick={() => {
+                                const el = document.getElementById(`chatmsg-${m.id}`);
+                                if (el) {
+                                  el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                  el.classList.add("message-flash");
+                                  setTimeout(() => el.classList.remove("message-flash"), 1600);
+                                }
+                                setTopbarPanel(null);
+                              }}
+                            >
+                              <span className="chat-topbar-result-role">
+                                {guidanceText !== null ? t("chat.guidanceCommand") : m.role === "user" ? t("chat.you") : t("chat.piscis")}
+                              </span>
+                              <span className="chat-topbar-result-text">
+                                {displayText.replace(/\s+/g, " ").trim().slice(0, 80) || "—"}
+                              </span>
+                            </button>
+                          );
+                        });
                     })()}
                   </div>
                 </div>
@@ -2769,13 +2888,18 @@ export default function Chat({
                     ));
                   }
                 }
+                const guidanceText = msg.role === "user" ? getGuidanceMessageText(msg.content) : null;
                 return (
-                  <div key={msg.id} id={`chatmsg-${msg.id}`} className={`message message-${msg.role}`}>
+                  <div
+                    key={msg.id}
+                    id={`chatmsg-${msg.id}`}
+                    className={`message message-${msg.role}${guidanceText !== null ? " message-guidance" : ""}`}
+                  >
                     <div className="message-role">
-                      {msg.role === "user" ? t("chat.you") : t("chat.piscis")}
+                      {guidanceText !== null ? t("chat.guidanceCommand") : msg.role === "user" ? t("chat.you") : t("chat.piscis")}
                     </div>
                     <div className="message-content">
-                      <MessageContent content={msg.content} />
+                      <MessageContent content={guidanceText ?? msg.content} />
                     </div>
                   </div>
                 );
@@ -2995,6 +3119,35 @@ export default function Chat({
                   ))}
                 </div>
               )}
+              {pendingGuidance && (
+                <div className="pending-guidance-strip">
+                  <div className="pending-guidance-copy">
+                    <span className="pending-guidance-label">{t("chat.guidanceCommand")}</span>
+                    <span className="pending-guidance-text">{pendingGuidance}</span>
+                  </div>
+                  <div className="pending-guidance-actions">
+                    <button
+                      type="button"
+                      className="pending-guidance-clear"
+                      onClick={() => setPendingGuidance(null)}
+                      disabled={guidanceSending}
+                      title={t("common.clear")}
+                    >
+                      ✕
+                    </button>
+                    <button
+                      type="button"
+                      className="pending-guidance-send"
+                      onClick={handleSendGuidance}
+                      disabled={!running || guidanceSending}
+                      title={t("chat.sendGuidance")}
+                    >
+                      <span>{guidanceSending ? t("chat.guidanceSending") : t("chat.sendGuidance")}</span>
+                      <SendHorizontal size={14} strokeWidth={1.8} />
+                    </button>
+                  </div>
+                </div>
+              )}
               <textarea
                 ref={textareaRef}
                 className="chat-input"
@@ -3002,9 +3155,8 @@ export default function Chat({
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
-                placeholder={`${t("chat.inputPlaceholder")}  / 调用技能`}
+                placeholder={running ? t("chat.guidancePlaceholder") : `${t("chat.inputPlaceholder")}  / 调用技能`}
                 rows={3}
-                disabled={running}
               />
               <div className="input-actions">
                 <div className="composer-selectors">
@@ -3092,6 +3244,7 @@ export default function Chat({
                           : t("chat.koiSelectPlaceholder")
                       }
                       items={koiMenuItems}
+                      searchItems={koiSearchMenuItems}
                       open={composerMenuOpen === "koi"}
                       onOpenChange={(open) => setComposerMenuOpen(open ? "koi" : null)}
                       onSelect={selectKoi}
@@ -3107,6 +3260,7 @@ export default function Chat({
                       icon="⚡"
                       triggerLabel={t("chat.skillSelectPlaceholder")}
                       items={skillMenuItems}
+                      searchItems={skillSearchMenuItems}
                       open={composerMenuOpen === "skill"}
                       onOpenChange={(open) => {
                         if (open) setSkillMenuMode("compact");
@@ -3353,9 +3507,15 @@ export default function Chat({
                   </svg>
                 </button>
                 {running ? (
-                  <button className="btn btn-danger" onClick={handleCancel}>
-                    ⏹ {t("common.stop")}
-                  </button>
+                  canStageGuidance ? (
+                    <button className="btn btn-primary" onClick={handleStageGuidance}>
+                      {t("common.send")} ↵
+                    </button>
+                  ) : (
+                    <button className="btn btn-danger" onClick={handleCancel}>
+                      ⏹ {t("common.stop")}
+                    </button>
+                  )
                 ) : (
                   <button
                     className="btn btn-primary"

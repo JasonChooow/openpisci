@@ -1,6 +1,6 @@
 {
   "name": "piscis-desktop",
-  "version": "0.8.66",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,6 +14,8 @@
     "build:web": "npm run brand:apply && tsc && vite build",
     "build:headless": "cargo build -p piscis-cli --release --bin openpiscis-headless --manifest-path src-tauri/Cargo.toml",
     "build:tauri": "npm run build:web",
+    "installer:rename": "node scripts/standardize-installer-name.mjs",
+    "package:windows": "npm run tauri -- build && npm run installer:rename",
     "dev": "npm run brand:apply && vite",
     "preview": "vite preview",
     "tauri": "tauri",

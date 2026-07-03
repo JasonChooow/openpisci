@@ -226,6 +226,8 @@ export const chatApi = {
   },
   cancel: (sessionId: string) =>
     invoke<void>("chat_cancel", { sessionId }),
+  guide: (sessionId: string, content: string) =>
+    invoke<ChatMessage>("chat_guide", { sessionId, content }),
   listLlmProviderModels: (providerId: string) =>
     invoke<LlmModelList>("list_llm_provider_models", { providerId }),
   onEvent: (sessionId: string, handler: (event: AgentEventType) => void): Promise<UnlistenFn> =>

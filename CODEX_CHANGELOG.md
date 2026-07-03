@@ -24,6 +24,46 @@ For each meaningful adjustment, record:
 
 ## Changes So Far
 
+### 2026-07-03. 9X bot v1.0.1 guidance, workspace, search, upload, and installer polish
+
+- Problem: The coworker-facing build needed a simpler active-run guidance flow, less confusing expert/skill search and upload behavior, readable workspace folders, and a reliable installer name/icon for sharing.
+- Files changed:
+  - `src/components/Chat/index.tsx`
+  - `src/components/Chat/Chat.css`
+  - `src/components/Market/MarketCatalogGrid.tsx`
+  - `src/components/ui/AppDropdown.tsx`
+  - `src/i18n/zh.ts`
+  - `src/i18n/en.ts`
+  - `src/services/tauri/chat.ts`
+  - `src/services/tauri/tauri.test.ts`
+  - `src-tauri/src/commands/chat.rs`
+  - `src-tauri/src/store/mod.rs`
+  - `src-tauri/src/app/bootstrap.rs`
+  - `scripts/apply-brand.mjs`
+  - `scripts/make_icons.mjs`
+  - `scripts/standardize-installer-name.mjs`
+  - `package.json`
+  - `package-lock.json`
+  - `src-tauri/Cargo.toml`
+  - `src-tauri/Cargo.lock`
+  - `src-tauri/tauri.conf.json`
+  - `src-tauri/icons/*`
+- Summary:
+  - Added non-interrupting chat guidance for active Baozi runs. The composer can stage an "引导命令", send it to the running agent, and persist it into conversation history with a visually lighter message style.
+  - Search and share paths strip internal guidance markers while preserving guidance content in context.
+  - Updated composer expert/skill search to target the installed catalog rather than only recent items, and added market expert search.
+  - Simplified attachment upload to "all files" only.
+  - Changed automatic session workspace folders to `title_MMDD-HHMM` with collision handling.
+  - Standardized package version to `1.0.1`.
+  - Updated icon generation so `installer.ico` is refreshed from the same 9X bot artwork as the app icon.
+  - Added a package script that copies the Windows installer to `9X-bot-installer-{version}.exe` after packaging.
+- Verification:
+  - `npm run build:web` passed.
+  - `cargo check --manifest-path src-tauri\Cargo.toml` passed.
+  - Local app loaded at `http://localhost:5174/`; homepage and scene switching rendered correctly in the in-app browser.
+  - `npm test` remains blocked by the existing Vitest/Vite `vite/module-runner` package export mismatch before tests execute.
+- Upstream value: Mixed. Guidance, workspace naming, catalog search, upload simplification, and package naming may be upstream-worthy as UX improvements. 9X bot branding and installer artwork are branch-specific.
+
 ### 2026-07-02. Secret scanning cleanup for bundled Tencent Ads skill
 
 - Problem: GitHub secret scanning flagged a concrete WeChat/Tencent ecosystem id inside a bundled Tencent Ads skill example.

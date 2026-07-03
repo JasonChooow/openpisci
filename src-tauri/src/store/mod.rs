@@ -44,6 +44,9 @@ pub struct AppState {
     /// Active agent cancellation tokens: session_id -> cancel flag
     pub cancel_flags:
         Arc<Mutex<std::collections::HashMap<String, Arc<std::sync::atomic::AtomicBool>>>>,
+    /// Active agent guidance channels: session_id -> notification sender.
+    pub guide_channels:
+        Arc<Mutex<std::collections::HashMap<String, tokio::sync::mpsc::Sender<String>>>>,
     /// Shared browser manager (Chrome for Testing)
     pub browser: robotz_browser::SharedBrowserManager,
     /// Cron scheduler for recurring tasks
@@ -127,6 +130,7 @@ impl AppState {
             confirm_flags,
             plan_state: Arc::new(Mutex::new(std::collections::HashMap::new())),
             cancel_flags: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            guide_channels: Arc::new(Mutex::new(std::collections::HashMap::new())),
             browser: robotz_browser::create_browser_manager(browser_options),
             scheduler: Arc::new(scheduler),
             scheduled_job_ids: Arc::new(Mutex::new(std::collections::HashMap::new())),

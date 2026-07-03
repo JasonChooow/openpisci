@@ -77,7 +77,9 @@ describe("chatApi", () => {
       personaKoiId: null,
       clearPlan: true,
       mode: null,
+      scene: null,
       modelOverride: null,
+      modelProviderId: null,
     });
   });
 
@@ -85,6 +87,15 @@ describe("chatApi", () => {
     mockInvoke.mockResolvedValueOnce(null);
     await chatApi.cancel("sess1");
     expect(mockInvoke).toHaveBeenCalledWith("chat_cancel", { sessionId: "sess1" });
+  });
+
+  it("guide() calls chat_guide with sessionId and content", async () => {
+    mockInvoke.mockResolvedValueOnce(null);
+    await chatApi.guide("sess1", "focus on the local time script");
+    expect(mockInvoke).toHaveBeenCalledWith("chat_guide", {
+      sessionId: "sess1",
+      content: "focus on the local time script",
+    });
   });
 });
 

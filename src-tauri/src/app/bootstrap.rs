@@ -395,6 +395,7 @@ fn run_impl() {
                 let plan_state = state.plan_state.clone();
                 let browser = state.browser.clone();
                 let cancel_flags = state.cancel_flags.clone();
+                let guide_channels = state.guide_channels.clone();
                 let confirm_resp = state.confirmation_responses.clone();
                 let interactive_resp = state.interactive_responses.clone();
                 let app_h = app_handle.clone();
@@ -446,6 +447,7 @@ fn run_impl() {
                                         plan_state: plan_state.clone(),
                                         browser: browser.clone(),
                                         cancel_flags: cancel_flags.clone(),
+                                        guide_channels: guide_channels.clone(),
                                         confirmation_responses: confirm_resp.clone(),
                                         interactive_responses: interactive_resp.clone(),
                                         app_handle: app_h.clone(),
@@ -612,6 +614,7 @@ fn run_impl() {
                                     plan_state: plan_state.clone(),
                                     browser: browser.clone(),
                                     cancel_flags: cancel_flags.clone(),
+                                    guide_channels: guide_channels.clone(),
                                     confirmation_responses: confirm_resp.clone(),
                                     interactive_responses: interactive_resp.clone(),
                                     app_handle: app_h.clone(),
@@ -688,6 +691,7 @@ fn run_impl() {
                                     plan_state: plan_state.clone(),
                                     browser: browser.clone(),
                                     cancel_flags: cancel_flags.clone(),
+                                    guide_channels: guide_channels.clone(),
                                     confirmation_responses: confirm_resp.clone(),
                                     interactive_responses: interactive_resp.clone(),
                                     app_handle: app_h.clone(),
@@ -830,6 +834,7 @@ fn run_impl() {
                 let plan_state_arc = state.plan_state.clone();
                 let browser_arc = state.browser.clone();
                 let cancel_flags_arc = state.cancel_flags.clone();
+                let guide_channels_arc = state.guide_channels.clone();
                 let confirm_resp_arc = state.confirmation_responses.clone();
                 let interactive_resp_arc = state.interactive_responses.clone();
                 let app_h = app_handle.clone();
@@ -875,6 +880,7 @@ fn run_impl() {
                             plan_state: plan_state_arc.clone(),
                             browser: browser_arc.clone(),
                             cancel_flags: cancel_flags_arc.clone(),
+                            guide_channels: guide_channels_arc.clone(),
                             confirmation_responses: confirm_resp_arc.clone(),
                             interactive_responses: interactive_resp_arc.clone(),
                             app_handle: app_h.clone(),
@@ -1424,6 +1430,7 @@ fn run_impl() {
             commands::chat::list_llm_provider_models,
             commands::chat::chat_send,
             commands::chat::chat_cancel,
+            commands::chat::chat_guide,
             commands::journal::journal_list_changes,
             commands::journal::journal_undo_last,
             commands::chat::get_context_preview,

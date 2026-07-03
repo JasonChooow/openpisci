@@ -1,3 +1,26 @@
+## v1.0.1 - 9X bot guidance, workspace, and installer polish
+
+### Highlights
+
+- **不中断引导**: 包子执行任务时可以继续输入补充要求，先暂存为“引导命令”，再发送给当前任务；引导会进入上下文，并在对话里用更轻的样式区分。
+- **专家/技能搜索优化**: 对话框下方专家和技能搜索改为面向完整已安装清单，市场专家区也补上搜索入口。
+- **上传更简单**: 附件上传统一为“所有文件”，减少普通同事选择文件类型的成本。
+- **本地工作区命名**: 自动工作区改为 `对话名_0703-1428` 这类可读命名，并保留重名保护。
+- **安装包规范**: 版本统一到 `1.0.1`，Windows 安装包标准命名为 `9X-bot-installer-1.0.1.exe`。
+
+### Packaging
+
+- Installer icon now refreshes from the same 9X bot artwork as the app icon, preventing stale/default installer imagery.
+- Package metadata is aligned across `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`.
+
+### Validation
+
+- `npm run build:web` passed.
+- `cargo check --manifest-path src-tauri\Cargo.toml` passed.
+- `npm test` remains blocked by an existing Vitest/Vite startup mismatch before tests execute.
+
+### Previous releases
+
 ## v0.8.64 - 9X bot rebrand, marketplace, and release polish
 
 ### Highlights

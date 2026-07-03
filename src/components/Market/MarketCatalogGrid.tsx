@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Download } from "lucide-react";
 import MarketFeaturedRow, { MarketLoadMore } from "../Market/MarketFeaturedRow";
@@ -42,10 +42,30 @@ export default function MarketCatalogGrid<T extends MarketCatalogItem>({
   showFeatured = true,
 }: MarketCatalogGridProps<T>) {
   const { t } = useTranslation();
+  const [query, setQuery] = useState("");
+
+  const filteredItems = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((item) => {
+      const haystack = [
+        item.name,
+        item.description,
+        item.id,
+        item.category,
+        item.subcategory,
+        item.source,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [items, query]);
 
   const { featured, rest } = useMemo(
-    () => (showFeatured ? splitFeaturedCatalog(items) : { featured: [] as T[], rest: items }),
-    [items, showFeatured],
+    () => (showFeatured && !query.trim() ? splitFeaturedCatalog(filteredItems) : { featured: [] as T[], rest: filteredItems }),
+    [filteredItems, query, showFeatured],
   );
 
   const { visible, hasMore, loadMore, total, visibleCount } = useLazyList(rest, MARKET_PAGE_SIZE);
@@ -100,27 +120,53 @@ export default function MarketCatalogGrid<T extends MarketCatalogItem>({
 
   return (
     <>
-      {showFeatured && featured.length > 0 && (
-        <MarketFeaturedRow title={t("market.featuredTitle")}>
-          {featured.map((item) => renderCard(item, true))}
-        </MarketFeaturedRow>
-      )}
-      <div className="market-category-list">
-        {groupedVisible.map(([group, groupItems]) => (
-          <section key={group} className="market-category-section">
-            <h3 className="market-category-title">{group}</h3>
-            <div className="expert-market-grid">
-              {groupItems.map((item) => renderCard(item))}
-            </div>
-          </section>
-        ))}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            className="input"
+            style={{ flex: 1, minWidth: 180 }}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("expert.searchPlaceholder", { defaultValue: "搜索专家、团队或分类" })}
+          />
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setQuery((value) => value.trim())}
+            style={{ flexShrink: 0 }}
+          >
+            {t("common.search")}
+          </button>
+        </div>
       </div>
-      <MarketLoadMore
-        hasMore={hasMore}
-        loaded={visibleCount}
-        total={total}
-        onLoadMore={loadMore}
-      />
+      {filteredItems.length === 0 && (
+        <div className="expert-empty">{emptyLabel}</div>
+      )}
+      {filteredItems.length > 0 && (
+        <>
+          {showFeatured && featured.length > 0 && (
+            <MarketFeaturedRow title={t("market.featuredTitle")}>
+              {featured.map((item) => renderCard(item, true))}
+            </MarketFeaturedRow>
+          )}
+          <div className="market-category-list">
+            {groupedVisible.map(([group, groupItems]) => (
+              <section key={group} className="market-category-section">
+                <h3 className="market-category-title">{group}</h3>
+                <div className="expert-market-grid">
+                  {groupItems.map((item) => renderCard(item))}
+                </div>
+              </section>
+            ))}
+          </div>
+          <MarketLoadMore
+            hasMore={hasMore}
+            loaded={visibleCount}
+            total={total}
+            onLoadMore={loadMore}
+          />
+        </>
+      )}
     </>
   );
 }
