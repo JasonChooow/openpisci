@@ -337,7 +337,12 @@ export default function ModelsSection() {
                           </select>
                         </div>
                         <div className="form-group" style={{ marginBottom: 0 }}>
-                          <label className="label">{t("settings.namedLlmModelLabel")}</label>
+                          <label className="label">
+                            {t("settings.namedLlmModelLabel")}
+                            {llmEditForm.provider === "custom" && (
+                              <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>可选</span>
+                            )}
+                          </label>
                           <input className="input" value={llmEditForm.model} onChange={e => setLlmEditForm(f => ({ ...f, model: e.target.value }))}
                             placeholder={
                               llmEditForm.provider === "anthropic" ? "claude-opus-4-5" :
@@ -347,8 +352,13 @@ export default function ModelsSection() {
                               llmEditForm.provider === "minimax" ? "MiniMax-M2.5" :
                               llmEditForm.provider === "zhipu" ? "glm-5" :
                               llmEditForm.provider === "kimi" ? "kimi-k2.5" :
-                              "model-name"
+                              "可留空，保存后自动读取模型列表"
                             } />
+                          {llmEditForm.provider === "custom" && (
+                            <p className="field-hint" style={{ marginTop: 4 }}>
+                              中转站有多个模型时不用手填，保存后会自动读取并显示在聊天框模型列表里。
+                            </p>
+                          )}
                         </div>
                         <div className="form-group" style={{ marginBottom: 0, gridColumn: "1 / -1" }}>
                           <label className="label">
@@ -390,7 +400,9 @@ export default function ModelsSection() {
                               model: llmEditForm.model.trim(),
                               base_url: llmEditForm.base_url.trim(),
                             };
-                            if (!normalized.id || !normalized.model) return;
+                            if (!normalized.id) return;
+                            if (normalized.provider === "custom" && !normalized.base_url) return;
+                            if (normalized.provider !== "custom" && !normalized.model) return;
                             if (llmEditIdx === -1) {
                               if (llmProviders.some(p => p.id === normalized.id)) return;
                               await saveLlmProviders([...llmProviders, normalized]);

@@ -18,7 +18,7 @@ import { store, RootState, settingsActions, sessionsActions, chatActions, poolAc
 import { settingsApi, sessionsApi, poolApi, windowApi, extrasApi } from "./services/tauri";
 import { orgSpecFromTeamTemplate } from "./utils/teamTemplate";
 import { joinProjectPath } from "./utils/projectPath";
-import { isInternalSession } from "./utils/session";
+import { isInternalSession, isMainChatVisibleSession } from "./utils/session";
 import { applyFontScale, getFontScale } from "./utils/fontScale";
 import i18n, { setLanguage } from "./i18n";
 import Chat from "./components/Chat";
@@ -62,6 +62,7 @@ function AppContent() {
   const { showOnboarding, settings } = useSelector((s: RootState) => s.settings);
   const pendingMainChatNav = useSelector((s: RootState) => s.sessions.pendingMainChatNav);
   const activeSessionId = useSelector((s: RootState) => s.sessions.activeSessionId);
+  const sessions = useSelector((s: RootState) => s.sessions.sessions);
   const [activeTab, setActiveTab] = useState<Tab>("chat");
   const [settingsSubTab, setSettingsSubTab] = useState<SettingsSubTab>("general");
   const [settingsToolsSubTab, setSettingsToolsSubTab] = useState<ToolsSubTab>("builtin");
@@ -316,8 +317,23 @@ function AppContent() {
     setActiveTab("chat");
   };
 
-  const handleGuide = () => {
-    dispatch(sessionsActions.openMainChatView({ filter: "chat", composerDraft: t("guide.prompt") }));
+  const handleGuide = async () => {
+    const prompt = t("guide.prompt");
+    const activeSession = sessions.find((session) => session.id === activeSessionId);
+    if (activeSession && isMainChatVisibleSession(activeSession, "chat")) {
+      dispatch(sessionsActions.openMainChatView({ filter: "chat", composerDraft: prompt }));
+      setActiveTab("chat");
+      return;
+    }
+
+    try {
+      const session = await sessionsApi.create(t("chat.newChat"));
+      dispatch(sessionsActions.addSession(session));
+      dispatch(sessionsActions.openMainChatView({ filter: "chat", sessionId: session.id, composerDraft: prompt }));
+    } catch (e) {
+      console.error("Guide session error:", e);
+      dispatch(sessionsActions.openMainChatView({ filter: "chat", composerDraft: prompt }));
+    }
     setActiveTab("chat");
   };
 

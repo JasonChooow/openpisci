@@ -40,30 +40,6 @@ import {
 } from "../../utils/inputHistory";
 import "./Chat.css";
 
-type BuiltInChatModel = {
-  id: string;
-  provider: string;
-  model: string;
-  label: string;
-  tier: "High" | "Medium";
-};
-
-const BUILT_IN_CHAT_MODELS: BuiltInChatModel[] = [
-  { id: "builtin:openai:gpt-4o", provider: "openai", model: "gpt-4o", label: "GPT-4o", tier: "High" },
-  { id: "builtin:openai:gpt-4o-mini", provider: "openai", model: "gpt-4o-mini", label: "GPT-4o mini", tier: "Medium" },
-  { id: "builtin:anthropic:claude-sonnet-4-5", provider: "anthropic", model: "claude-sonnet-4-5", label: "Claude Sonnet 4.5", tier: "High" },
-  { id: "builtin:anthropic:claude-haiku-4-5", provider: "anthropic", model: "claude-haiku-4-5", label: "Claude Haiku 4.5", tier: "Medium" },
-  { id: "builtin:deepseek:deepseek-v4-pro", provider: "deepseek", model: "deepseek-v4-pro", label: "DeepSeek-V4-Pro", tier: "High" },
-  { id: "builtin:deepseek:deepseek-v4-flash", provider: "deepseek", model: "deepseek-v4-flash", label: "DeepSeek-V4-Flash", tier: "High" },
-  { id: "builtin:zhipu:glm-5.2", provider: "zhipu", model: "glm-5.2", label: "GLM-5.2", tier: "Medium" },
-  { id: "builtin:zhipu:glm-5.1", provider: "zhipu", model: "glm-5.1", label: "GLM-5.1", tier: "Medium" },
-  { id: "builtin:zhipu:glm-5v-turbo", provider: "zhipu", model: "glm-5v-turbo", label: "GLM-5v-Turbo", tier: "Medium" },
-  { id: "builtin:minimax:MiniMax-M3", provider: "minimax", model: "MiniMax-M3", label: "MiniMax-M3", tier: "Medium" },
-  { id: "builtin:kimi:kimi-k2.7-code", provider: "kimi", model: "kimi-k2.7-code", label: "Kimi-K2.7-Code", tier: "Medium" },
-  { id: "builtin:kimi:kimi-k2.6", provider: "kimi", model: "kimi-k2.6", label: "Kimi-K2.6", tier: "Medium" },
-  { id: "builtin:qwen:qwen3-max", provider: "qwen", model: "qwen3-max", label: "Qwen3-Max", tier: "Medium" },
-];
-
 type ChatScene = "office" | "code" | "design";
 const RECENT_KOI_KEY = "piscis-recent-koi-ids";
 const RECENT_SKILL_KEY = "piscis-recent-skill-ids";
@@ -96,30 +72,6 @@ const CHAT_WELCOME_ACTIONS: Record<ChatScene, Array<{ label: string; prompt: str
   ],
 };
 
-function providerHasApiKey(settings: Settings | null | undefined, provider: string): boolean {
-  if (!settings) return false;
-  switch (provider) {
-    case "anthropic":
-      return Boolean(settings.anthropic_api_key?.trim());
-    case "openai":
-      return Boolean(settings.openai_api_key?.trim());
-    case "deepseek":
-      return Boolean(settings.deepseek_api_key?.trim());
-    case "qwen":
-      return Boolean(settings.qwen_api_key?.trim());
-    case "minimax":
-      return Boolean(settings.minimax_api_key?.trim());
-    case "zhipu":
-      return Boolean(settings.zhipu_api_key?.trim());
-    case "kimi":
-      return Boolean(settings.kimi_api_key?.trim());
-    case "custom":
-      return Boolean(settings.openai_api_key?.trim() || settings.custom_base_url?.trim());
-    default:
-      return false;
-  }
-}
-
 function loadRecentKoiIds(): string[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(RECENT_KOI_KEY) || "[]");
@@ -138,8 +90,61 @@ function loadRecentSkillIds(): string[] {
   }
 }
 
-function builtInModelLabel(model: BuiltInChatModel): string {
-  return `${model.label}  ${model.tier}`;
+function providerLogo(provider: string): string {
+  switch (provider.toLowerCase()) {
+    case "openai":
+      return "◎";
+    case "anthropic":
+      return "◇";
+    case "deepseek":
+      return "深";
+    case "qwen":
+      return "通";
+    case "minimax":
+      return "M";
+    case "zhipu":
+      return "智";
+    case "kimi":
+      return "K";
+    case "custom":
+      return "↔";
+    default:
+      return "AI";
+  }
+}
+
+function providerDisplayName(provider: string): string {
+  switch (provider.toLowerCase()) {
+    case "openai":
+      return "OpenAI";
+    case "anthropic":
+      return "Anthropic";
+    case "deepseek":
+      return "DeepSeek";
+    case "qwen":
+      return "Qwen";
+    case "minimax":
+      return "MiniMax";
+    case "zhipu":
+      return "智谱";
+    case "kimi":
+      return "Kimi";
+    case "custom":
+      return "自定义";
+    default:
+      return provider || "AI";
+  }
+}
+
+function splitProviderModelSelection(selection: string): { providerId: string; modelId: string } | null {
+  const separatorIndex = selection.indexOf("::");
+  if (separatorIndex <= 0) return null;
+  const modelId = selection.slice(separatorIndex + 2);
+  if (!modelId) return null;
+  return {
+    providerId: selection.slice(0, separatorIndex),
+    modelId,
+  };
 }
 
 function getGuidanceMessageText(content: string): string | null {
@@ -645,7 +650,10 @@ export default function Chat({
   }, [chatScene]);
   // Per-turn LLM selection. "" => use configured default provider/model.
   const [selectedModelProviderId, setSelectedModelProviderId] = useState<string>(
-    () => localStorage.getItem("piscis-chat-model-provider-id") || "",
+    () => {
+      const saved = localStorage.getItem("piscis-chat-model-provider-id") || "";
+      return saved.startsWith("builtin:") ? "" : saved;
+    },
   );
   const selectedModelProviderIdRef = useRef<string>("");
   useEffect(() => {
@@ -654,9 +662,7 @@ export default function Chat({
   }, [selectedModelProviderId]);
   useEffect(() => {
     if (chatScene === "design") return;
-    const selectedModel = selectedModelProviderId.includes("::")
-      ? selectedModelProviderId.split("::").slice(1).join("::")
-      : "";
+    const selectedModel = splitProviderModelSelection(selectedModelProviderId)?.modelId ?? "";
     if (selectedModel && !modelAllowedInScene(selectedModel, chatScene)) {
       setSelectedModelProviderId("");
     }
@@ -3280,32 +3286,19 @@ export default function Chat({
                       const defaultLabel = settings?.model
                         ? `${t("chat.modelDefault")} · ${settings.model}`
                         : t("chat.modelDefault");
-                      const selectedBuiltIn = BUILT_IN_CHAT_MODELS.find((m) => m.id === selectedModelProviderId);
                       const selectedCustom = providers.find((p) => p.id === selectedModelProviderId);
-                      const selectedExpandedCustom = selectedModelProviderId.includes("::")
+                      const selectedExpandedSelection = splitProviderModelSelection(selectedModelProviderId);
+                      const selectedExpandedCustom = selectedExpandedSelection
                         ? (() => {
-                            const [providerId, modelId] = selectedModelProviderId.split("::");
-                            const provider = providers.find((p) => p.id === providerId);
-                            return provider && modelId ? { provider, modelId } : null;
+                            const provider = providers.find((p) => p.id === selectedExpandedSelection.providerId);
+                            return provider ? { provider, modelId: selectedExpandedSelection.modelId } : null;
                           })()
                         : null;
-                      const current = selectedBuiltIn
-                        ? selectedBuiltIn.label
-                        : selectedCustom
-                          ? (selectedCustom.label || selectedCustom.model || selectedCustom.id)
-                          : selectedExpandedCustom
-                            ? selectedExpandedCustom.modelId
-                            : t("chat.modelDefault");
-                      const builtInItems: ComposerMenuItem[] = BUILT_IN_CHAT_MODELS.map((m) => {
-                        const configured = providerHasApiKey(settings, m.provider);
-                        return {
-                          id: m.id,
-                          label: `${builtInModelLabel(m)}${configured ? "" : "  (未配置)"}`,
-                          icon: m.provider.slice(0, 2).toUpperCase(),
-                          selected: selectedModelProviderId === m.id,
-                          disabled: !configured,
-                        };
-                      });
+                      const current = selectedCustom
+                        ? (selectedCustom.label || selectedCustom.model || selectedCustom.id)
+                        : selectedExpandedCustom
+                          ? selectedExpandedCustom.modelId
+                          : t("chat.modelDefault");
                       const customItems: ComposerMenuItem[] = providers.flatMap((p) => {
                         const fetchedModels = providerModelsById[p.id] ?? [];
                         const models = Array.from(new Set([
@@ -3322,8 +3315,8 @@ export default function Chat({
                         if (sceneModels.length > 1) {
                           rows.push({
                             id: `_provider_header_${p.id}`,
-                            label: p.label || p.id,
-                            disabled: true,
+                            label: p.label || providerDisplayName(p.provider),
+                            section: true,
                           });
                         }
                         if (providerModelLoadErrors[p.id] && models.length <= 1) {
@@ -3339,8 +3332,9 @@ export default function Chat({
                             id,
                             label: sceneModels.length > 1
                               ? modelName
-                              : (p.label ? `${p.label}  ${p.provider}  ${modelName}` : `${p.id}  ${p.provider}  ${modelName}`),
-                            icon: "AI",
+                              : `${p.label || providerDisplayName(p.provider)} · ${modelName}`,
+                            icon: providerLogo(p.provider),
+                            searchText: `${p.label || ""} ${p.id} ${providerDisplayName(p.provider)} ${p.provider} ${modelName}`,
                             selected: selectedModelProviderId === id,
                           };
                         }));
@@ -3355,7 +3349,8 @@ export default function Chat({
                             return {
                               id,
                               label: modelName,
-                              icon: isImageGenerationModel(modelName) ? "IMG" : "VID",
+                              icon: isImageGenerationModel(modelName) ? "图" : "影",
+                              searchText: `${p.label || ""} ${p.id} ${providerDisplayName(p.provider)} ${p.provider} ${modelName}`,
                               selected: selectedModelProviderId === id,
                             };
                           }));
@@ -3364,12 +3359,12 @@ export default function Chat({
                       });
                       const items: ComposerMenuItem[] = [
                         { id: "", label: defaultLabel, icon: "⚙️", selected: !selectedModelProviderId },
-                        { id: "_model_builtin_header", label: "内置模型", disabled: true },
-                        ...builtInItems,
-                        { id: "_model_custom_header", label: "自定义模型", disabled: true },
-                        ...customItems,
+                        { id: "_model_configured_header", label: "已配置模型", section: true },
+                        ...(customItems.length
+                          ? customItems
+                          : [{ id: "_model_empty", label: "还没有添加模型", disabled: true }]),
                         { id: "_model_config_divider", label: "", divider: true },
-                        { id: "_model_configure", label: "+ 配置自定义模型", action: true },
+                        { id: "_model_configure", label: "+ 添加自定义模型", action: true },
                       ];
                       return (
                         <ComposerDropdown

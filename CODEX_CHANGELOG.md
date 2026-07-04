@@ -24,6 +24,27 @@ For each meaningful adjustment, record:
 
 ## Changes So Far
 
+### 2026-07-04. 9X bot model configuration and guide entry polish
+
+- Problem: The first-run guide button did not create a normal chat when no conversation existed, and the model configuration flow still exposed hardcoded model choices plus a required model-name field for custom relay providers.
+- Files changed:
+  - `src/App.tsx`
+  - `src/components/Chat/index.tsx`
+  - `src/components/Onboarding/index.tsx`
+  - `src/components/Settings/sections/ModelsSection.tsx`
+  - `CHANGELOG.md`
+  - `release_notes.md`
+- Summary:
+  - Fixed the no-session "新手指引" path so it creates a chat and fills the preset prompt.
+  - Removed hardcoded built-in model rows from the composer model picker.
+  - Added first-run custom OpenAI-compatible relay configuration.
+  - Made custom relay model names optional and relies on the existing `/models` API to expand available relay models in the chat model picker.
+  - Replaced truncated provider prefixes with clearer provider marks in the chat model list.
+- Verification:
+  - `npm run build:web` passed.
+  - `npm run package:windows` passed and generated `target/release/bundle/nsis/9Xbot-installer-1.0.1.exe`.
+- Upstream suitability: 9X bot product polish; parts may be upstream-worthy as custom provider UX improvements, but visible naming should stay 9X bot-specific on this branch.
+
 ### 2026-07-03. 9X bot v1.0.1 guidance, workspace, search, upload, and installer polish
 
 - Problem: The coworker-facing build needed a simpler active-run guidance flow, less confusing expert/skill search and upload behavior, readable workspace folders, and a reliable installer name/icon for sharing.

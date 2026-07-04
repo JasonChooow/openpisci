@@ -6,7 +6,10 @@
 - **专家/技能搜索优化**: 对话框下方专家和技能搜索改为面向完整已安装清单，市场专家区也补上搜索入口。
 - **上传更简单**: 附件上传统一为“所有文件”，减少普通同事选择文件类型的成本。
 - **本地工作区命名**: 自动工作区改为 `对话名_0703-1428` 这类可读命名，并保留重名保护。
-- **安装包规范**: 版本统一到 `1.0.1`，Windows 安装包标准命名为 `9X-bot-installer-1.0.1.exe`。
+- **安装包规范**: 版本统一到 `1.0.1`，Windows 安装包标准命名为 `9Xbot-installer-1.0.1.exe`。
+- **模型配置更清晰**: 首次配置新增自定义中转站入口；聊天框模型列表不再展示写死的内置模型，只展示用户已配置模型，并自动读取中转站 `/models` 返回的可用模型。
+- **自定义模型可留空**: 自定义中转站的模型名称改为可选，普通用户只填 API Key 和 Base URL 即可，多个模型可在聊天框模型列表中选择。
+- **新手指引修复**: 首次无对话状态点击“新手指引”会自动新建对话并填入预设提示词。
 
 ### Packaging
 
@@ -17,6 +20,7 @@
 
 - `npm run build:web` passed.
 - `cargo check --manifest-path src-tauri\Cargo.toml` passed.
+- Windows installer packaged as `target/release/bundle/nsis/9Xbot-installer-1.0.1.exe`.
 - `npm test` remains blocked by an existing Vitest/Vite startup mismatch before tests execute.
 
 ### Previous releases

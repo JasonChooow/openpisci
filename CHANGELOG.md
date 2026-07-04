@@ -13,7 +13,8 @@ This project follows [Semantic Versioning](https://semver.org/) and
 - **Non-interrupting chat guidance**: while Baozi is running, typing in the composer now stages a lightweight guidance command instead of stopping the active run. Guidance is delivered to the active agent, stored in conversation history, and rendered as a visually distinct message.
 - **Global expert and skill search**: composer expert/skill search now reaches the installed catalog instead of only recent items; market expert discovery also exposes search.
 - **Per-chat workspace naming**: automatic local workspaces now use a readable `conversation-title_MMDD-HHMM` pattern, with collision handling for repeated names.
-- **Standard installer naming**: Windows installer copies are now standardized as `9X-bot-installer-{version}.exe`.
+- **Standard installer naming**: Windows installer copies are now standardized as `9Xbot-installer-{version}.exe`.
+- **Custom model onboarding**: first-run setup now includes a custom OpenAI-compatible relay option with Base URL support.
 
 ### Changed
 
@@ -21,17 +22,21 @@ This project follows [Semantic Versioning](https://semver.org/) and
 - **9X bot packaging version**: aligned package, Tauri, and Rust app versions to `1.0.1`.
 - **Installer icon generation**: the brand icon generation script now refreshes `installer.ico` together with the app icon so the Windows installer uses the correct 9X bot artwork.
 - **Chat readability**: improved message and code-field readability for shared screenshots and colleague testing.
+- **Chat model picker**: removed hardcoded built-in model rows; the picker now shows the default model plus user-configured model providers, expanding relay-returned `/models` results when available.
+- **Custom model setup**: model name is optional for custom relay providers, so users can rely on the relay model list instead of guessing a model id.
 
 ### Fixed
 
 - **Interrupted connector cleanup**: confirmed the connector settings section is present again and not left in a deleted state.
 - **Guidance display hygiene**: search, history, and share output hide internal guidance markers while keeping the guidance content in context.
+- **New user guide entry**: clicking "新手指引" with no active chat now creates a normal chat and fills the starter prompt.
 
 ### Verification
 
 - `npm run build:web` passed.
 - `cargo check --manifest-path src-tauri\Cargo.toml` passed.
 - The local development app loads at `http://localhost:5174/`.
+- Windows installer packaged as `target/release/bundle/nsis/9Xbot-installer-1.0.1.exe`.
 - `npm test` is still blocked before test execution by the existing Vitest/Vite `vite/module-runner` package export mismatch.
 
 ---

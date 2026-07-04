@@ -19,6 +19,7 @@ export default function Onboarding({ onComplete }: Props) {
   const [provider, setProvider] = useState("anthropic");
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState("claude-sonnet-4-5");
+  const [customBaseUrl, setCustomBaseUrl] = useState("");
   const [workspace, setWorkspace] = useState("");
   const [policyMode, setPolicyMode] = useState("balanced");
   const [saving, setSaving] = useState(false);
@@ -42,19 +43,38 @@ export default function Onboarding({ onComplete }: Props) {
   };
 
   const handleSave = async () => {
-    if (!apiKey.trim()) {
+    const trimmedApiKey = apiKey.trim();
+    if (!trimmedApiKey) {
       setError(t("onboarding.apiKeyRequired"));
+      return;
+    }
+    const normalizedCustomBaseUrl = normalizeBaseUrl(customBaseUrl);
+    if (provider === "custom" && !normalizedCustomBaseUrl) {
+      setError("请填写中转站 Base URL");
       return;
     }
     setSaving(true);
     setError("");
     try {
-      const updates: Record<string, unknown> = { provider, model, policy_mode: policyMode };
-      if (provider === "anthropic") updates.anthropic_api_key = apiKey;
-      else if (provider === "openai") updates.openai_api_key = apiKey;
-      else if (provider === "deepseek") updates.deepseek_api_key = apiKey;
-      else if (provider === "qwen") updates.qwen_api_key = apiKey;
-      else updates.openai_api_key = apiKey;
+      const modelName = provider === "custom" ? model.trim() : (model.trim() || getDefaultModel(provider));
+      const updates: Record<string, unknown> = { provider, model: modelName, policy_mode: policyMode };
+      if (provider === "anthropic") updates.anthropic_api_key = trimmedApiKey;
+      else if (provider === "openai") updates.openai_api_key = trimmedApiKey;
+      else if (provider === "deepseek") updates.deepseek_api_key = trimmedApiKey;
+      else if (provider === "qwen") updates.qwen_api_key = trimmedApiKey;
+      else {
+        updates.openai_api_key = trimmedApiKey;
+        updates.custom_base_url = normalizedCustomBaseUrl;
+        updates.llm_providers = [{
+          id: "custom-relay",
+          label: "自定义中转站",
+          provider: "custom",
+          model: modelName,
+          api_key: trimmedApiKey,
+          base_url: normalizedCustomBaseUrl,
+          max_tokens: 0,
+        }];
+      }
       if (workspace.trim()) updates.workspace_root = workspace;
 
       const settings = await settingsApi.save(updates);
@@ -73,6 +93,7 @@ export default function Onboarding({ onComplete }: Props) {
     if (provider === "openai") return t("onboarding.openaiKeyHelp");
     if (provider === "deepseek") return "platform.deepseek.com";
     if (provider === "qwen") return "dashscope.aliyuncs.com";
+    if (provider === "custom") return "填写中转站提供的 API Key，Base URL 通常以 /v1 结尾。";
     return "";
   };
 
@@ -82,6 +103,13 @@ export default function Onboarding({ onComplete }: Props) {
     if (p === "deepseek") return "deepseek-chat";
     if (p === "qwen") return "qwen-max";
     return "";
+  };
+
+  const normalizeBaseUrl = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    return withProtocol.replace(/\/+$/, "");
   };
 
   return (
@@ -152,6 +180,7 @@ export default function Onboarding({ onComplete }: Props) {
                 <option value="openai">OpenAI (GPT)</option>
                 <option value="deepseek">DeepSeek（深度求索）</option>
                 <option value="qwen">通义千问 (Qwen)</option>
+                <option value="custom">自定义配置（中转站）</option>
               </select>
             </div>
 
@@ -168,9 +197,39 @@ export default function Onboarding({ onComplete }: Props) {
               <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>{getKeyHelp()}</p>
             </div>
 
+            {provider === "custom" && (
+              <div className="form-group">
+                <label className="label">Base URL *</label>
+                <input
+                  className="input"
+                  value={customBaseUrl}
+                  onChange={(e) => setCustomBaseUrl(e.target.value)}
+                  placeholder="https://api.example.com/v1"
+                />
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
+                  保存后会自动读取中转站可用模型，并显示在聊天框下方的模型列表里。
+                </p>
+              </div>
+            )}
+
             <div className="form-group">
-              <label className="label">{t("onboarding.model")}</label>
-              <input className="input" value={model} onChange={(e) => setModel(e.target.value)} />
+              <label className="label">
+                {t("onboarding.model")}
+                {provider === "custom" && (
+                  <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>可选</span>
+                )}
+              </label>
+              <input
+                className="input"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder={provider === "custom" ? "可留空，保存后自动读取模型列表" : undefined}
+              />
+              {provider === "custom" && (
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
+                  中转站有多个模型时不用手填，进入聊天后可直接从模型列表选择。
+                </p>
+              )}
             </div>
 
             <div className="form-group">
@@ -199,7 +258,11 @@ export default function Onboarding({ onComplete }: Props) {
 
             <div style={{ display: "flex", gap: 8, justifyContent: "space-between", marginTop: 24 }}>
               <button className="btn btn-secondary" onClick={() => setStep("welcome")}>{t("onboarding.backBtn")}</button>
-              <button className="btn btn-primary" onClick={() => setStep("policy")} disabled={!apiKey.trim()}>
+              <button
+                className="btn btn-primary"
+                onClick={() => setStep("policy")}
+                disabled={!apiKey.trim() || (provider === "custom" && !customBaseUrl.trim())}
+              >
                 {t("onboarding.nextBtn")}
               </button>
             </div>
