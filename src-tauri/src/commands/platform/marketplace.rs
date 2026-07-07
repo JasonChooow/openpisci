@@ -32,6 +32,8 @@ pub struct MarketExpert {
     pub category: Option<String>,
     #[serde(default)]
     pub subcategory: Option<String>,
+    #[serde(default)]
+    pub source_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -365,6 +367,7 @@ pub async fn fetch_marketplace_aggregated(
                     featured: s.featured,
                     category: Some(s.category),
                     subcategory: Some(s.subcategory),
+                    source_path: Some(s.source_path),
                 });
             }
         }
@@ -423,6 +426,7 @@ pub async fn fetch_marketplace_aggregated(
                         featured: s.featured,
                         category: None,
                         subcategory: None,
+                        source_path: None,
                     });
                 }
             }

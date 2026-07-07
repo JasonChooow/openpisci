@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { type CSSProperties, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Download } from "lucide-react";
+import { Check, Download } from "lucide-react";
 import MarketFeaturedRow, { MarketLoadMore } from "../Market/MarketFeaturedRow";
 import { marketSourceLabel } from "../../utils/marketSource";
 import { compareExpertGroupLabels, normalizeExpertGroupLabel } from "../../utils/expertOrdering";
@@ -10,6 +10,33 @@ import {
   useLazyList,
 } from "../../utils/marketLazyList";
 
+const MARKET_CARD_COLORS = [
+  { accent: "#2563eb", tint: "rgba(37, 99, 235, 0.08)" },
+  { accent: "#16a34a", tint: "rgba(22, 163, 74, 0.08)" },
+  { accent: "#db2777", tint: "rgba(219, 39, 119, 0.08)" },
+  { accent: "#d97706", tint: "rgba(217, 119, 6, 0.09)" },
+  { accent: "#0891b2", tint: "rgba(8, 145, 178, 0.08)" },
+  { accent: "#7c3aed", tint: "rgba(124, 58, 237, 0.08)" },
+  { accent: "#dc2626", tint: "rgba(220, 38, 38, 0.07)" },
+  { accent: "#0d9488", tint: "rgba(13, 148, 136, 0.08)" },
+];
+
+function colorIndex(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash % MARKET_CARD_COLORS.length;
+}
+
+function cardStyleFor(item: MarketCatalogItem): CSSProperties {
+  const color = MARKET_CARD_COLORS[colorIndex(`${item.category ?? ""}:${item.subcategory ?? ""}:${item.id}`)];
+  return {
+    "--market-card-accent": color.accent,
+    "--market-card-tint": color.tint,
+  } as CSSProperties;
+}
+
 export interface MarketCatalogItem {
   id: string;
   name: string;
@@ -18,6 +45,7 @@ export interface MarketCatalogItem {
   featured?: boolean;
   category?: string | null;
   subcategory?: string | null;
+  source_path?: string | null;
 }
 
 interface MarketCatalogGridProps<T extends MarketCatalogItem> {
@@ -81,16 +109,23 @@ export default function MarketCatalogGrid<T extends MarketCatalogItem>({
 
   const renderCard = (item: T, compact = false) => {
     const installed = isInstalled?.(item) ?? false;
+    const showSourceBadge = !compact && item.source !== "builtin-qinchuang";
     return (
-      <div key={`${item.source ?? "github"}:${item.id}`} className={compact ? "market-featured-card" : "expert-market-card"}>
+      <div
+        key={`${item.source ?? "github"}:${item.id}`}
+        className={compact ? "market-featured-card" : "expert-market-card"}
+        style={cardStyleFor(item)}
+      >
         {compact ? (
           <h4 style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600 }}>{item.name}</h4>
         ) : (
           <h3>
             {item.name}{" "}
-            <span className={`market-source-badge ${item.source ?? "github"}`}>
-              {marketSourceLabel(item.source)}
-            </span>
+            {showSourceBadge && (
+              <span className={`market-source-badge ${item.source ?? "github"}`}>
+                {marketSourceLabel(item.source)}
+              </span>
+            )}
           </h3>
         )}
         <p style={compact ? { fontSize: 11, margin: "0 0 8px", color: "var(--text-secondary)", lineHeight: 1.35 } : undefined}>
@@ -99,11 +134,11 @@ export default function MarketCatalogGrid<T extends MarketCatalogItem>({
         {!compact && <code className="team-card-id">{item.id}</code>}
         <button
           type="button"
-          className="btn btn-primary"
+          className={`btn market-install-btn${installed ? " market-install-btn--installed" : " btn-primary"}`}
           disabled={installed}
           onClick={() => void onInstall(item)}
         >
-          <Download size={14} />
+          {installed ? <Check size={14} /> : <Download size={14} />}
           {installed && installedLabel ? installedLabel : installLabel}
         </button>
       </div>

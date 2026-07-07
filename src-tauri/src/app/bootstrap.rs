@@ -1132,7 +1132,7 @@ fn run_impl() {
                         .path()
                         .app_data_dir()
                         .unwrap_or_else(|_| std::path::PathBuf::from(".piscis"));
-                    let marker = app_dir.join("qinchuang_experts_initialized_v7");
+                    let marker = app_dir.join("qinchuang_experts_initialized_v8");
                     if marker.exists() {
                         return;
                     }

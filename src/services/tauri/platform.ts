@@ -170,6 +170,7 @@ export interface MarketExpert {
   featured?: boolean;
   category?: string | null;
   subcategory?: string | null;
+  source_path?: string | null;
 }
 
 export interface MarketTeam {

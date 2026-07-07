@@ -24,6 +24,34 @@ For each meaningful adjustment, record:
 
 ## Changes So Far
 
+### 2026-07-07. Forced first-run guide and expert market polish
+
+- Problem: New users still needed a clearer first-use path after configuring an API key, and the expert market needed to separate core preinstalled experts from the larger bundled catalog.
+- Files changed:
+  - `src/App.tsx`
+  - `src/App.css`
+  - `src/components/Chat/index.tsx`
+  - `src/components/ExpertHub/ExpertHub.css`
+  - `src/components/ExpertHub/index.tsx`
+  - `src/components/Market/MarketCatalogGrid.tsx`
+  - `src/services/tauri/platform.ts`
+  - `src/utils/marketSource.ts`
+  - `src-tauri/src/app/bootstrap.rs`
+  - `src-tauri/src/builtin_qinchuang.rs`
+  - `src-tauri/src/commands/platform/marketplace.rs`
+  - `CHANGELOG.md`
+  - `release_notes.md`
+- Summary:
+  - Added a required four-step first-run guide after initial API configuration. It highlights "new task", work type tabs, the market entry, and the guide entry, then records completion so it does not auto-open again.
+  - Important future handoff: when login/registration is added, move this forced guide trigger from "API configuration completed" to "new user registration completed and first main-screen entry", while preserving one-time completion behavior.
+  - Added a local development preview path at `http://localhost:5174/?tour=1` so already-configured development builds can preview the guide without resetting user settings.
+  - Limited default installed qinchuang experts to the main office/marketing set and left the remaining bundled experts in the market for manual adding.
+  - Added market expert install state, colored expert cards, tighter sticky market navigation, and back-to-top behavior for long market lists.
+- Verification:
+  - `npm run build:web` passed.
+  - Local preview at `http://localhost:5174/?tour=1` showed the guide with the first step highlighting `+新建`.
+- Upstream suitability: mostly 9X bot product polish. The forced-guide trigger and market defaults are branch-specific; the one-time onboarding-tour pattern may be useful upstream if generalized.
+
 ### 2026-07-04. 9X bot model configuration and guide entry polish
 
 - Problem: The first-run guide button did not create a normal chat when no conversation existed, and the model configuration flow still exposed hardcoded model choices plus a required model-name field for custom relay providers.

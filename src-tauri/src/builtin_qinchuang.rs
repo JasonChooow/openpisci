@@ -18,6 +18,29 @@ struct BuiltinQinchuangExpert {
 
 const EXPERTS_JSON: &str = include_str!("builtin_qinchuang_experts.json");
 const SOURCE: &str = "builtin-qinchuang";
+const USER_INSTALLED_MARKER: &str = "9xbot-user-added-qinchuang-expert";
+const CURATED_INSTALLED_EXPERT_SLUGS: &[&str] = &[
+    "project-management-meeting-notes-specialist",
+    "project-management-project-shepherd",
+    "project-manager-senior",
+    "product-manager",
+    "product-feedback-synthesizer",
+    "finance-invoice-manager",
+    "finance-financial-analyst",
+    "legal-contract-reviewer",
+    "hr-performance-reviewer",
+    "sales-proposal-strategist",
+    "sales-account-strategist",
+    "design-ui-designer",
+    "design-brand-guardian",
+    "marketing-xiaohongshu-operator",
+    "marketing-douyin-strategist",
+    "marketing-wechat-operator",
+    "marketing-private-domain-operator",
+    "marketing-ecommerce-operator",
+    "marketing-baidu-seo-specialist",
+    "marketing-multi-platform-publisher",
+];
 
 #[derive(Debug, Clone)]
 pub struct BuiltinQinchuangSummary {
@@ -29,22 +52,26 @@ pub struct BuiltinQinchuangSummary {
     pub featured: bool,
     pub category: String,
     pub subcategory: String,
+    pub source_path: String,
 }
 
 pub fn market_summaries() -> Result<Vec<BuiltinQinchuangSummary>, String> {
     let experts = parse_experts()?;
     Ok(experts
         .into_iter()
-        .enumerate()
-        .map(|(idx, expert)| BuiltinQinchuangSummary {
-            id: format!("qinchuang/expert/{}@1.0.0", expert.slug),
-            name: expert.name,
-            description: expert.description,
-            download_url: format!("qinchuang://expert/{}", expert.slug),
-            source: SOURCE.to_string(),
-            featured: idx < 12,
-            category: expert.department,
-            subcategory: expert.subcategory,
+        .map(|expert| {
+            let featured = is_curated_installed_slug(&expert.slug);
+            BuiltinQinchuangSummary {
+                id: format!("qinchuang/expert/{}@1.0.0", expert.slug),
+                name: expert.name,
+                description: expert.description,
+                download_url: format!("qinchuang://expert/{}", expert.slug),
+                source: SOURCE.to_string(),
+                featured,
+                category: expert.department,
+                subcategory: expert.subcategory,
+                source_path: expert.source_path,
+            }
         })
         .collect())
 }
@@ -58,17 +85,21 @@ pub fn install_expert_by_slug(
         .into_iter()
         .find(|expert| expert.slug == slug)
         .ok_or_else(|| format!("unknown qinchuang expert slug: {slug}"))?;
-    upsert_one(db, expert).map(|koi_id| koi_id.unwrap_or_default())
+    upsert_one(db, with_user_installed_marker(expert)).map(|koi_id| koi_id.unwrap_or_default())
 }
 
 pub fn seed_experts(db: &crate::store::Database) -> Result<usize, String> {
     let experts = parse_experts()?;
     let active_sources: HashSet<String> = experts
         .iter()
+        .filter(|expert| is_curated_installed_slug(&expert.slug))
         .map(|expert| expert.source_path.clone())
         .collect();
     let mut created_or_updated = 0usize;
     for expert in experts {
+        if !is_curated_installed_slug(&expert.slug) {
+            continue;
+        }
         if upsert_one(db, expert)?.is_some() {
             created_or_updated += 1;
         }
@@ -209,6 +240,20 @@ fn should_keep_existing_expert(
     }
 
     active_sources.contains(source_path)
+        || koi.system_prompt.contains(USER_INSTALLED_MARKER)
+}
+
+fn is_curated_installed_slug(slug: &str) -> bool {
+    CURATED_INSTALLED_EXPERT_SLUGS.contains(&slug)
+}
+
+fn with_user_installed_marker(mut expert: BuiltinQinchuangExpert) -> BuiltinQinchuangExpert {
+    if !expert.system_prompt.contains(USER_INSTALLED_MARKER) {
+        expert
+            .system_prompt
+            .push_str(&format!("\n\n{}", USER_INSTALLED_MARKER));
+    }
+    expert
 }
 
 fn contains_bad_text(value: &str) -> bool {
@@ -337,6 +382,18 @@ mod tests {
             let base_name = normalize_koi_name(&expert.name);
             let name = unique_seed_name(&base_name, &expert.role, &existing_names, &seeded_names);
             assert!(seeded_names.insert(name));
+        }
+    }
+
+    #[test]
+    fn curated_default_experts_are_bounded_and_present() {
+        let experts: Vec<BuiltinQinchuangExpert> =
+            serde_json::from_str(EXPERTS_JSON).expect("bundled experts JSON should parse");
+        let slugs: HashSet<&str> = experts.iter().map(|expert| expert.slug.as_str()).collect();
+
+        assert!(CURATED_INSTALLED_EXPERT_SLUGS.len() <= 20);
+        for slug in CURATED_INSTALLED_EXPERT_SLUGS {
+            assert!(slugs.contains(slug), "missing curated expert slug: {slug}");
         }
     }
 }

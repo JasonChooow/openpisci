@@ -8,7 +8,7 @@ export function marketSourceLabel(source?: string): string {
     case "skillhub":
       return "SkillHub";
     case "builtin-qinchuang":
-      return "内置";
+      return "本地";
     case "github":
     default:
       return "官方";

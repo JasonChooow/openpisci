@@ -1,10 +1,12 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Store } from "lucide-react";
+import { useDispatch, useSelector } from "react-redux";
+import { ArrowUp, Store } from "lucide-react";
 import KoiManager from "../Pond/KoiManager";
 import { marketplaceApi, type MarketExpert, type MarketTeam } from "../../services/tauri/platform";
-import { extrasApi } from "../../services/tauri";
+import { extrasApi, koiApi } from "../../services/tauri";
 import { getCloudBaseUrl } from "../../config/cloud";
+import { koiActions, type RootState } from "../../store";
 import type { TeamTemplate } from "../../types/pisciAsset";
 import { loadInstalledTeams, saveInstalledTeams, teamFromMarketPackage, normalizeTeamTemplate } from "../../utils/teamStorage";
 import TeamInstalledPanel from "./TeamInstalledPanel";
@@ -12,6 +14,7 @@ import MarketCatalogGrid from "../Market/MarketCatalogGrid";
 import "./ExpertHub.css";
 
 const Skills = lazy(() => import("../Skills"));
+const QINCHUANG_SOURCE_MARKER = "agency-agents-qinchuang / ";
 
 export type MarketLevelTab = "experts" | "teams" | "skills";
 export type MarketScopeTab = "market" | "installed";
@@ -30,6 +33,13 @@ export function getInstalledTeams(): TeamTemplate[] {
   return loadInstalledTeams();
 }
 
+function qinchuangSourcePath(systemPrompt: string): string | null {
+  const start = systemPrompt.lastIndexOf(QINCHUANG_SOURCE_MARKER);
+  if (start < 0) return null;
+  const tail = systemPrompt.slice(start + QINCHUANG_SOURCE_MARKER.length);
+  return tail.split(/\r?\n/u)[0]?.trim() || null;
+}
+
 export default function ExpertHub({
   levelTab: levelTabProp,
   scopeTab: scopeTabProp,
@@ -40,19 +50,29 @@ export default function ExpertHub({
   onSummonExpert,
 }: ExpertHubProps = {}) {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
+  const kois = useSelector((s: RootState) => s.koi.kois);
   const [levelTabInternal, setLevelTabInternal] = useState<MarketLevelTab>("experts");
   const [scopeTabInternal, setScopeTabInternal] = useState<MarketScopeTab>("installed");
   const levelTab = levelTabProp ?? levelTabInternal;
   const scopeTab = scopeTabProp ?? scopeTabInternal;
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [showBackTop, setShowBackTop] = useState(false);
+
+  const scrollHubToTop = useCallback(() => {
+    bodyRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
 
   const setLevelTab = (tab: MarketLevelTab) => {
     if (onLevelTabChange) onLevelTabChange(tab);
     else setLevelTabInternal(tab);
+    bodyRef.current?.scrollTo({ top: 0 });
   };
 
   const setScopeTab = (tab: MarketScopeTab) => {
     if (onScopeTabChange) onScopeTabChange(tab);
     else setScopeTabInternal(tab);
+    bodyRef.current?.scrollTo({ top: 0 });
   };
 
   const [marketExperts, setMarketExperts] = useState<MarketExpert[]>([]);
@@ -61,6 +81,15 @@ export default function ExpertHub({
   const [builtinTeams, setBuiltinTeams] = useState<TeamTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [skillsMounted, setSkillsMounted] = useState(levelTab === "skills");
+
+  const refreshKois = useCallback(async () => {
+    try {
+      const list = await koiApi.list();
+      dispatch(koiActions.setKois(list));
+    } catch (e) {
+      console.error("Refresh expert list error:", e);
+    }
+  }, [dispatch]);
 
   const refreshMarket = useCallback(async () => {
     setLoading(true);
@@ -84,6 +113,10 @@ export default function ExpertHub({
   }, []);
 
   useEffect(() => {
+    void refreshKois();
+  }, [refreshKois]);
+
+  useEffect(() => {
     if (scopeTab === "market" && levelTab !== "skills") void refreshMarket();
   }, [scopeTab, levelTab, refreshMarket]);
 
@@ -92,6 +125,14 @@ export default function ExpertHub({
   }, [levelTab]);
 
   const installedIds = useMemo(() => new Set(installedTeams.map((team) => team.id)), [installedTeams]);
+  const installedQinchuangSources = useMemo(() => {
+    const sources = new Set<string>();
+    for (const koi of kois) {
+      const sourcePath = qinchuangSourcePath(koi.system_prompt);
+      if (sourcePath) sources.add(sourcePath);
+    }
+    return sources;
+  }, [kois]);
 
   const installTeam = async (team: MarketTeam) => {
     try {
@@ -110,6 +151,7 @@ export default function ExpertHub({
   const installExpert = async (expert: MarketExpert) => {
     try {
       await marketplaceApi.installExpert(expert.download_url);
+      await refreshKois();
     } catch (e) {
       console.error("Install expert error:", e);
     }
@@ -123,7 +165,11 @@ export default function ExpertHub({
           {t("expert.title")}
         </h1>
       </div>
-      <div className="expert-hub-body">
+      <div
+        ref={bodyRef}
+        className="expert-hub-body"
+        onScroll={(event) => setShowBackTop(event.currentTarget.scrollTop > 280)}
+      >
         <nav className="market-nav" aria-label={t("expert.title")}>
           <div className="market-nav-row">
             <div className="market-nav-primary" role="tablist">
@@ -172,8 +218,8 @@ export default function ExpertHub({
             loading={loading}
             emptyLabel={t("expert.marketEmpty")}
             installLabel={t("expert.install")}
-            installedLabel="已内置"
-            isInstalled={(expert) => expert.source === "builtin-qinchuang"}
+            installedLabel="已添加"
+            isInstalled={(expert) => !!expert.source_path && installedQinchuangSources.has(expert.source_path)}
             onInstall={(e) => void installExpert(e)}
           />
         )}
@@ -188,6 +234,17 @@ export default function ExpertHub({
             isInstalled={(team) => installedIds.has(team.id)}
             onInstall={(team) => void installTeam(team)}
           />
+        )}
+        {showBackTop && (
+          <button
+            type="button"
+            className="market-back-top"
+            onClick={scrollHubToTop}
+            aria-label="回到顶部"
+            title="回到顶部"
+          >
+            <ArrowUp size={16} />
+          </button>
         )}
       </div>
     </div>

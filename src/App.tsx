@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { Provider, useDispatch, useSelector } from "react-redux";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
@@ -49,12 +49,131 @@ type Tab = "chat" | "assistant" | "school" | "scheduler" | "myfiles" | "inspirat
 type AppTheme = "violet" | "gold" | "minimal";
 const SIDEBAR_COLLAPSED_KEY = "piscis-sidebar-collapsed";
 const SIDEBAR_DATE_FILTER_KEY = "piscis-task-date-filter";
+const GUIDED_TOUR_DONE_KEY = "9xbot-guided-tour-v1-done";
+const GUIDED_TOUR_PENDING_KEY = "9xbot-guided-tour-v1-pending";
 const ICON = 18;
+
+type GuidedTourStep = {
+  target: string;
+  title: string;
+  body: string;
+};
+
+const GUIDED_TOUR_STEPS: GuidedTourStep[] = [
+  {
+    target: "new-task",
+    title: "第一步：新建任务",
+    body: "点这里开一个新任务。写文档、总结会议、整理资料，都从这里开始。",
+  },
+  {
+    target: "chat-scene",
+    title: "第二步：选择工作类型",
+    body: "日常办公、代码开发、设计创意会让包子用不同方式帮你。拿不准时，保持日常办公就行。",
+  },
+  {
+    target: "market",
+    title: "第三步：找专家和技能",
+    body: "市场里有专家、团队和技能。需要营销、PPT、文档处理时，可以先来这里添加。",
+  },
+  {
+    target: "guide",
+    title: "第四步：不会开头就点这里",
+    body: "新手指引会把示例需求放进输入框，你改几个字就能发给包子。",
+  },
+];
+
+function GuidedTour({ onComplete }: { onComplete: () => void }) {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const step = GUIDED_TOUR_STEPS[stepIndex];
+
+  const updateTargetRect = useCallback(() => {
+    const target = document.querySelector<HTMLElement>(`[data-tour-target="${step.target}"]`);
+    setTargetRect(target?.getBoundingClientRect() ?? null);
+  }, [step.target]);
+
+  useEffect(() => {
+    const target = document.querySelector<HTMLElement>(`[data-tour-target="${step.target}"]`);
+    target?.scrollIntoView({ block: "center", inline: "center" });
+
+    const raf = window.requestAnimationFrame(updateTargetRect);
+    const timeout = window.setTimeout(updateTargetRect, 180);
+    window.addEventListener("resize", updateTargetRect);
+    window.addEventListener("scroll", updateTargetRect, true);
+
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(timeout);
+      window.removeEventListener("resize", updateTargetRect);
+      window.removeEventListener("scroll", updateTargetRect, true);
+    };
+  }, [step.target, updateTargetRect]);
+
+  const finishTour = () => {
+    localStorage.setItem(GUIDED_TOUR_DONE_KEY, "1");
+    localStorage.removeItem(GUIDED_TOUR_PENDING_KEY);
+    onComplete();
+  };
+
+  const nextStep = () => {
+    if (stepIndex >= GUIDED_TOUR_STEPS.length - 1) {
+      finishTour();
+      return;
+    }
+    setStepIndex((value) => value + 1);
+  };
+
+  const cardWidth = Math.min(340, window.innerWidth - 32);
+  const cardStyle = targetRect
+    ? {
+        width: cardWidth,
+        left: Math.min(Math.max(targetRect.right + 16, 16), window.innerWidth - cardWidth - 16),
+        top:
+          targetRect.bottom + 178 < window.innerHeight
+            ? Math.max(16, targetRect.bottom + 14)
+            : Math.max(16, targetRect.top - 178),
+      }
+    : {
+        width: cardWidth,
+        left: Math.max(16, (window.innerWidth - cardWidth) / 2),
+        top: Math.max(16, window.innerHeight / 2 - 110),
+      };
+
+  return (
+    <div className="guided-tour" role="dialog" aria-modal="true" aria-labelledby="guided-tour-title">
+      {targetRect && (
+        <div
+          className="guided-tour-spotlight"
+          style={{
+            left: Math.max(8, targetRect.left - 8),
+            top: Math.max(8, targetRect.top - 8),
+            width: targetRect.width + 16,
+            height: targetRect.height + 16,
+          }}
+        />
+      )}
+      <div className="guided-tour-card" style={cardStyle}>
+        <div className="guided-tour-count">
+          {stepIndex + 1} / {GUIDED_TOUR_STEPS.length}
+        </div>
+        <h2 id="guided-tour-title">{step.title}</h2>
+        <p>{step.body}</p>
+        <div className="guided-tour-actions">
+          <button type="button" className="btn btn-primary" onClick={nextStep}>
+            {stepIndex >= GUIDED_TOUR_STEPS.length - 1 ? "开始使用" : "下一步"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Detect if we are running in the overlay window
 const IS_OVERLAY = new URLSearchParams(window.location.search).get("overlay") === "1";
 // Detect if we are running in the standalone "professional features" window
 const IS_PRO_WINDOW = Boolean(new URLSearchParams(window.location.search).get("proview"));
+const IS_LOCAL_DEV_HOST = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+const IS_GUIDED_TOUR_PREVIEW = IS_LOCAL_DEV_HOST && new URLSearchParams(window.location.search).get("tour") === "1";
 
 function AppContent() {
   const dispatch = useDispatch();
@@ -71,6 +190,7 @@ function AppContent() {
   const [activeKoiId, setActiveKoiId] = useState<string | null>(null);
   const [summonKoiRequest, setSummonKoiRequest] = useState<{ koiId: string | null; nonce: number } | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [showGuidedTour, setShowGuidedTour] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
   });
@@ -156,6 +276,17 @@ function AppContent() {
         dispatch(settingsActions.setConfigured(configured));
         if (!configured) {
           dispatch(settingsActions.setShowOnboarding(true));
+        } else if (IS_GUIDED_TOUR_PREVIEW) {
+          setActiveTab("chat");
+          setSidebarCollapsed(false);
+          setShowGuidedTour(true);
+        } else if (
+          localStorage.getItem(GUIDED_TOUR_PENDING_KEY) === "1" &&
+          localStorage.getItem(GUIDED_TOUR_DONE_KEY) !== "1"
+        ) {
+          setActiveTab("chat");
+          setSidebarCollapsed(false);
+          setShowGuidedTour(true);
         }
 
         // Load sessions — skip internal sessions (heartbeat, piscis_inbox, etc.)
@@ -182,6 +313,13 @@ function AppContent() {
     }
     init();
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!initialized || !IS_GUIDED_TOUR_PREVIEW || showOnboarding) return;
+    setActiveTab("chat");
+    setSidebarCollapsed(false);
+    setShowGuidedTour(true);
+  }, [initialized, showOnboarding]);
 
   // im_session_updated: inbound user message arrived and was pre-written to DB.
   // Reload messages immediately so the user sees their own message right away.
@@ -277,7 +415,16 @@ function AppContent() {
     return (
       <>
         <Suspense fallback={<div className="loading-screen"><div className="loading-spinner" /><p>{t("common.loadingApp")}</p></div>}>
-          <Onboarding onComplete={() => dispatch(settingsActions.setShowOnboarding(false))} />
+          <Onboarding
+            onComplete={() => {
+              localStorage.setItem(GUIDED_TOUR_PENDING_KEY, "1");
+              localStorage.removeItem(GUIDED_TOUR_DONE_KEY);
+              dispatch(settingsActions.setShowOnboarding(false));
+              setActiveTab("chat");
+              setSidebarCollapsed(false);
+              setShowGuidedTour(true);
+            }}
+          />
         </Suspense>
         <Toaster />
       </>
@@ -432,6 +579,7 @@ function AppContent() {
             <button
               type="button"
               className="sidebar-new-task-btn"
+              data-tour-target="new-task"
               onClick={handleNewAssistantTask}
             >
               {t("sidebar.newShort")}
@@ -456,6 +604,7 @@ function AppContent() {
           <button
             type="button"
             className={`nav-item ${activeTab === "school" ? "active" : ""}`}
+            data-tour-target="market"
             onClick={() => navigateTab("school")}
             title={t("nav.market")}
           >
@@ -533,7 +682,7 @@ function AppContent() {
             <span className="nav-icon"><Globe size={ICON} strokeWidth={1.5} /></span>
             <span className="nav-label">{t("nav.browser")}</span>
           </button>
-          <button type="button" className="nav-item" onClick={handleGuide} title={t("nav.guide")}>
+          <button type="button" className="nav-item" data-tour-target="guide" onClick={handleGuide} title={t("nav.guide")}>
             <span className="nav-icon"><BookOpen size={ICON} strokeWidth={1.5} /></span>
             <span className="nav-label">{t("nav.guide")}</span>
           </button>
@@ -631,6 +780,7 @@ function AppContent() {
           )}
         </Suspense>
       </main>
+      {showGuidedTour && <GuidedTour onComplete={() => setShowGuidedTour(false)} />}
       <Toaster />
     </div>
   );

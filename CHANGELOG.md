@@ -15,6 +15,9 @@ This project follows [Semantic Versioning](https://semver.org/) and
 - **Per-chat workspace naming**: automatic local workspaces now use a readable `conversation-title_MMDD-HHMM` pattern, with collision handling for repeated names.
 - **Standard installer naming**: Windows installer copies are now standardized as `9Xbot-installer-{version}.exe`.
 - **Custom model onboarding**: first-run setup now includes a custom OpenAI-compatible relay option with Base URL support.
+- **Forced first-run guide**: after the first API configuration completes, 9X bot now opens a required four-step guide that highlights the new task button, work type tabs, market entry, and existing guide entry. The guide records completion and should not auto-open again for that user.
+- **Future login handoff note**: when registration/login is added, move the forced guide trigger from "API configuration completed" to "new user registration completed and first main-screen entry"; keep the same one-time completion behavior.
+- **Expert market install flow**: only the main office/marketing experts stay preinstalled, while the rest remain in the market and can be added into the installed expert list.
 
 ### Changed
 
@@ -24,12 +27,14 @@ This project follows [Semantic Versioning](https://semver.org/) and
 - **Chat readability**: improved message and code-field readability for shared screenshots and colleague testing.
 - **Chat model picker**: removed hardcoded built-in model rows; the picker now shows the default model plus user-configured model providers, expanding relay-returned `/models` results when available.
 - **Custom model setup**: model name is optional for custom relay providers, so users can rely on the relay model list instead of guessing a model id.
+- **Market visual polish**: expert market cards use colored accents, remove the visible "9X精选" tag, and keep sticky market navigation tighter while scrolling.
 
 ### Fixed
 
 - **Interrupted connector cleanup**: confirmed the connector settings section is present again and not left in a deleted state.
 - **Guidance display hygiene**: search, history, and share output hide internal guidance markers while keeping the guidance content in context.
 - **New user guide entry**: clicking "新手指引" with no active chat now creates a normal chat and fills the starter prompt.
+- **Market scrolling**: market category navigation remains locked while scrolling and includes a back-to-top control for long catalog lists.
 
 ### Verification
 

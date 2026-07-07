@@ -51,6 +51,12 @@ const CHAT_SCENES: Array<{ id: ChatScene; label: string; icon: string; title: st
   { id: "design", label: "设计创意", icon: "🎨", title: "图片、视频、海报、PPT、网页设计" },
 ];
 
+const CHAT_SCENE_HEADLINES: Record<ChatScene, string> = {
+  office: "你的办公助手",
+  code: "你的开发搭档",
+  design: "你的设计超能力",
+};
+
 const CHAT_WELCOME_ACTIONS: Record<ChatScene, Array<{ label: string; prompt: string }>> = {
   office: [
     { label: "文档处理", prompt: "帮我处理一个文档" },
@@ -2982,9 +2988,9 @@ export default function Chat({
                     <div className="chat-empty-start">
                       <div className="chat-empty-heading">
                         <span>9X bot</span>
-                        <strong>你的职场超能力</strong>
+                        <strong>{CHAT_SCENE_HEADLINES[chatScene]}</strong>
                       </div>
-                      <div className="chat-empty-scenes" role="tablist" aria-label="Chat scene">
+                      <div className="chat-empty-scenes" data-tour-target="chat-scene" role="tablist" aria-label="Chat scene">
                         {CHAT_SCENES.map((scene) => (
                           <button
                             key={scene.id}
@@ -3062,7 +3068,7 @@ export default function Chat({
             )}
 
               {!isImSession && (activeMessages.length > 0 || running || pendingLiveCards.length > 0) && (
-                <div className="chat-scene-tabs chat-scene-tabs-composer" role="tablist" aria-label="Chat scene">
+                <div className="chat-scene-tabs chat-scene-tabs-composer" data-tour-target="chat-scene" role="tablist" aria-label="Chat scene">
                   {CHAT_SCENES.map((scene) => (
                     <button
                       key={scene.id}
@@ -3552,15 +3558,9 @@ export default function Chat({
             )}
             <div className="chat-welcome-copy">
               <div className="chat-welcome-brand">9X bot</div>
-              <div className="chat-welcome-title">
-                {chatScene === "design"
-                  ? "你的设计超能力"
-                  : chatScene === "code"
-                    ? "你的开发搭档"
-                    : "你的办公助手"}
-              </div>
+              <div className="chat-welcome-title">{CHAT_SCENE_HEADLINES[chatScene]}</div>
             </div>
-            <div className="chat-welcome-scenes" role="tablist" aria-label="Chat scene">
+            <div className="chat-welcome-scenes" data-tour-target="chat-scene" role="tablist" aria-label="Chat scene">
               {CHAT_SCENES.map((scene) => (
                 <button
                   key={scene.id}
