@@ -10,6 +10,8 @@ This project follows [Semantic Versioning](https://semver.org/) and
 
 ### Added
 
+- **Space demo entries**: added sidebar space entries for "菓然有品" and "秦创OPC" so non-technical users can open partner/demo surfaces directly from the main navigation.
+- **Embedded Qinchuang OPC site**: replaced the blocked WeChat article link with an in-app official-site-style page for "秦创OPC", using text and images from the Zhongshanfang park introduction document.
 - **Non-interrupting chat guidance**: while Baozi is running, typing in the composer now stages a lightweight guidance command instead of stopping the active run. Guidance is delivered to the active agent, stored in conversation history, and rendered as a visually distinct message.
 - **Global expert and skill search**: composer expert/skill search now reaches the installed catalog instead of only recent items; market expert discovery also exposes search.
 - **Per-chat workspace naming**: automatic local workspaces now use a readable `conversation-title_MMDD-HHMM` pattern, with collision handling for repeated names.
@@ -21,6 +23,7 @@ This project follows [Semantic Versioning](https://semver.org/) and
 
 ### Changed
 
+- **菓然有品 preview**: the H5 mall demo now opens in a phone-width preview frame while the normal cloud browser keeps the original full-width layout.
 - **Attachment picker**: simplified uploads to a single "all files" option so non-technical users do not need to choose between image, document, and code categories.
 - **9X bot packaging version**: aligned package, Tauri, and Rust app versions to `1.0.1`.
 - **Installer icon generation**: the brand icon generation script now refreshes `installer.ico` together with the app icon so the Windows installer uses the correct 9X bot artwork.
@@ -42,6 +45,7 @@ This project follows [Semantic Versioning](https://semver.org/) and
 - `cargo check --manifest-path src-tauri\Cargo.toml` passed.
 - The local development app loads at `http://localhost:5174/`.
 - Windows installer packaged as `target/release/bundle/nsis/9Xbot-installer-1.0.1.exe`.
+- `npm run package:windows` passed after the embedded Qinchuang OPC site change, keeping version `1.0.1`.
 - `npm test` is still blocked before test execution by the existing Vitest/Vite `vite/module-runner` package export mismatch.
 
 ---

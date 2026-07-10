@@ -13,6 +13,8 @@ import {
   Globe,
   BookOpen,
   ChevronRight,
+  ShoppingBag,
+  Building2,
 } from "lucide-react";
 import { store, RootState, settingsActions, sessionsActions, chatActions, poolActions } from "./store";
 import { settingsApi, sessionsApi, poolApi, windowApi, extrasApi } from "./services/tauri";
@@ -27,6 +29,7 @@ import MyFiles from "./components/MyFiles";
 import Inspiration, { type InspirationAction } from "./components/Inspiration";
 import CloudFiles from "./components/CloudFiles";
 import CloudBrowser from "./components/CloudBrowser";
+import QinchuangOpcPage from "./components/QinchuangOpcPage";
 import TaskList from "./components/Sidebar/TaskList";
 import SidebarHeader from "./components/Sidebar/SidebarHeader";
 import AccountMenu from "./components/Sidebar/AccountMenu";
@@ -46,11 +49,13 @@ const OverlayApp = lazy(() => import("./components/Overlay"));
 const ProWindow = lazy(() => import("./components/ProWindow"));
 
 type Tab = "chat" | "assistant" | "school" | "scheduler" | "myfiles" | "inspiration" | "cloud" | "browser" | "settings";
+type SpaceLink = "browser" | "glamoon" | "qinchuang";
 type AppTheme = "violet" | "gold" | "minimal";
 const SIDEBAR_COLLAPSED_KEY = "piscis-sidebar-collapsed";
 const SIDEBAR_DATE_FILTER_KEY = "piscis-task-date-filter";
 const GUIDED_TOUR_DONE_KEY = "9xbot-guided-tour-v1-done";
 const GUIDED_TOUR_PENDING_KEY = "9xbot-guided-tour-v1-pending";
+const GLAMOON_MALL_URL = "https://glamoon.cn/h5/1.html#/pages/index/index";
 const ICON = 18;
 
 type GuidedTourStep = {
@@ -191,6 +196,8 @@ function AppContent() {
   const [summonKoiRequest, setSummonKoiRequest] = useState<{ koiId: string | null; nonce: number } | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const [showGuidedTour, setShowGuidedTour] = useState(false);
+  const [activeSpaceLink, setActiveSpaceLink] = useState<SpaceLink>("browser");
+  const [browserRequest, setBrowserRequest] = useState<{ url: string | null; key: number }>({ url: null, key: 0 });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
   });
@@ -559,6 +566,12 @@ function AppContent() {
     setActiveTab("chat");
   };
 
+  const openSpaceLink = (link: SpaceLink, url: string | null = null) => {
+    setActiveSpaceLink(link);
+    setBrowserRequest({ url, key: Date.now() });
+    setActiveTab("browser");
+  };
+
   const conversationVisible = activeTab === "chat" || activeTab === "assistant";
   const conversationMounted = mountedTabs.has("chat") || mountedTabs.has("assistant");
 
@@ -675,12 +688,30 @@ function AppContent() {
           <div className="nav-section-label">{t("nav.space")}</div>
           <button
             type="button"
-            className={`nav-item ${activeTab === "browser" ? "active" : ""}`}
-            onClick={() => setActiveTab("browser")}
+            className={`nav-item ${activeTab === "browser" && activeSpaceLink === "browser" ? "active" : ""}`}
+            onClick={() => openSpaceLink("browser")}
             title={t("nav.browser")}
           >
             <span className="nav-icon"><Globe size={ICON} strokeWidth={1.5} /></span>
             <span className="nav-label">{t("nav.browser")}</span>
+          </button>
+          <button
+            type="button"
+            className={`nav-item ${activeTab === "browser" && activeSpaceLink === "glamoon" ? "active" : ""}`}
+            onClick={() => openSpaceLink("glamoon", GLAMOON_MALL_URL)}
+            title={t("nav.glamoonMallSub")}
+          >
+            <span className="nav-icon"><ShoppingBag size={ICON} strokeWidth={1.5} /></span>
+            <span className="nav-label">{t("nav.glamoonMall")}</span>
+          </button>
+          <button
+            type="button"
+            className={`nav-item ${activeTab === "browser" && activeSpaceLink === "qinchuang" ? "active" : ""}`}
+            onClick={() => openSpaceLink("qinchuang")}
+            title={t("nav.qinchuangOpcSub")}
+          >
+            <span className="nav-icon"><Building2 size={ICON} strokeWidth={1.5} /></span>
+            <span className="nav-label">{t("nav.qinchuangOpc")}</span>
           </button>
           <button type="button" className="nav-item" data-tour-target="guide" onClick={handleGuide} title={t("nav.guide")}>
             <span className="nav-icon"><BookOpen size={ICON} strokeWidth={1.5} /></span>
@@ -763,7 +794,16 @@ function AppContent() {
           )}
           {mountedTabs.has("browser") && (
             <div className="tab-panel" hidden={activeTab !== "browser"}>
-              <CloudBrowser visible={activeTab === "browser"} />
+              {activeSpaceLink === "qinchuang" ? (
+                <QinchuangOpcPage />
+              ) : (
+                <CloudBrowser
+                  visible={activeTab === "browser"}
+                  targetUrl={browserRequest.url}
+                  requestKey={browserRequest.key}
+                  mobilePreview={activeSpaceLink === "glamoon"}
+                />
+              )}
             </div>
           )}
           {mountedTabs.has("settings") && (

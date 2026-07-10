@@ -24,6 +24,30 @@ For each meaningful adjustment, record:
 
 ## Changes So Far
 
+### 2026-07-10. Space demo links and Qinchuang OPC embedded site
+
+- Problem: The sidebar needed simple demo entries for partner surfaces, the Glamoon H5 mall was designed for phone viewing, and the Qinchuang OPC WeChat article could not be embedded reliably inside the app.
+- Files changed:
+  - `src/App.tsx`
+  - `src/components/CloudBrowser/index.tsx`
+  - `src/components/CloudBrowser/CloudBrowser.css`
+  - `src/components/QinchuangOpcPage/index.tsx`
+  - `src/components/QinchuangOpcPage/QinchuangOpcPage.css`
+  - `src/i18n/zh.ts`
+  - `src/i18n/en.ts`
+  - `public/qinchuang-opc/*`
+  - `CHANGELOG.md`
+- Summary:
+  - Added "菓然有品" and "秦创OPC" entries under the sidebar Space section.
+  - Kept "菓然有品" as an external H5 mall URL but rendered it in a phone-width preview frame so the mobile-oriented page does not stretch across the desktop layout.
+  - Replaced the blocked Qinchuang OPC WeChat article with an embedded official-site-style page that uses text and images from `E:\9xbot\秦创opc\中山坊园区介绍.docx`.
+  - Kept the normal "云端浏览" surface full width.
+- Verification:
+  - `npm run build:web` passed.
+  - In-app browser checks at `http://localhost:5174/` confirmed the Glamoon phone preview and the embedded Qinchuang OPC page image loading.
+  - `npm run package:windows` passed and generated `target/release/bundle/nsis/9Xbot-installer-1.0.1.exe` without changing the version number.
+- Upstream suitability: branch-specific demo/product work. The mobile-preview option on `CloudBrowser` could be generalized if upstream later needs per-link viewport presets.
+
 ### 2026-07-07. Forced first-run guide and expert market polish
 
 - Problem: New users still needed a clearer first-use path after configuring an API key, and the expert market needed to separate core preinstalled experts from the larger bundled catalog.
