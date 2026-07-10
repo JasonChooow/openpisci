@@ -10,10 +10,15 @@ import {
   MailCheck,
   MessageSquareText,
   MonitorDown,
-  X,
   Sparkles,
   Workflow,
 } from 'lucide-react';
+
+const modelHubBaseUrl =
+  import.meta.env.VITE_MODEL_HUB_URL || 'http://127.0.0.1:3000';
+const normalizedModelHubUrl = modelHubBaseUrl.replace(/\/$/, '');
+const modelHubUrl = `${normalizedModelHubUrl}/pricing`;
+const modelHubLoginUrl = `${normalizedModelHubUrl}/sign-in`;
 
 const scenes = [
   {
@@ -223,38 +228,7 @@ function DownloadSection() {
   );
 }
 
-function LoginDialog({ open, onClose }) {
-  if (!open) return null;
-
-  return (
-    <div className="login-backdrop" role="presentation" onClick={onClose}>
-      <section className="login-dialog" role="dialog" aria-modal="true" aria-labelledby="login-title" onClick={(event) => event.stopPropagation()}>
-        <button className="login-close" type="button" onClick={onClose} aria-label="关闭登录窗口">
-          <X size={18} />
-        </button>
-        <img src="/assets/baozi-logo.png" alt="" />
-        <h2 id="login-title">登录包子账号</h2>
-        <p>同步你的技能、模型配置和桌面端下载记录。</p>
-        <label>
-          手机号 / 邮箱
-          <input type="text" placeholder="请输入账号" />
-        </label>
-        <label>
-          验证码
-          <div className="code-row">
-            <input type="text" placeholder="6 位验证码" />
-            <button type="button">获取</button>
-          </div>
-        </label>
-        <button className="login-submit" type="button">登录</button>
-      </section>
-    </div>
-  );
-}
-
 export default function App() {
-  const [loginOpen, setLoginOpen] = useState(false);
-
   return (
     <main>
       <header className="site-header">
@@ -268,10 +242,11 @@ export default function App() {
         <nav aria-label="主导航">
           <a href="#home">9X bot</a>
           <a href="#market">市场</a>
+          <a href={modelHubUrl}>模型</a>
           <a href="#docs">文档</a>
         </nav>
         <div className="header-actions">
-          <button className="login-action" type="button" onClick={() => setLoginOpen(true)}>登录</button>
+          <a className="login-action" href={modelHubLoginUrl}>登录</a>
           <a className="header-action" href="#download">下载</a>
         </div>
       </header>
@@ -283,7 +258,6 @@ export default function App() {
       <span className="anchor-target" id="docs" aria-hidden="true" />
       <WorkflowSection />
       <DownloadSection />
-      <LoginDialog open={loginOpen} onClose={() => setLoginOpen(false)} />
     </main>
   );
 }
