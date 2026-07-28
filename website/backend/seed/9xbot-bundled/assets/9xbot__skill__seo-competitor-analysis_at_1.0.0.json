@@ -1,0 +1,29 @@
+{
+  "id": "9xbot/skill/seo-competitor-analysis@1.0.0",
+  "kind": "skill",
+  "name": "SEO Competitor Analysis Skill",
+  "description": "This skill automates the process of identifying and analyzing SEO competitors to inform content and ranking strategies.",
+  "version": "1.0.0",
+  "publisher": "9xbot",
+  "paid": false,
+  "price": 0,
+  "cloud_only": false,
+  "downloads": 0,
+  "created_at": 1783663913,
+  "updated_at": 1783663913,
+  "uploaded_by": "9xbot",
+  "payload": {
+    "spec_version": 1,
+    "id": "9xbot/skill/seo-competitor-analysis@1.0.0",
+    "kind": "skill",
+    "name": "SEO Competitor Analysis Skill",
+    "description": "This skill automates the process of identifying and analyzing SEO competitors to inform content and ranking strategies.",
+    "path": "skills/seo-competitor-analysis",
+    "content": "---\nname: seo-competitor-analysis\ndescription: Perform deep SEO competitor analysis, including keyword research, backlink checking, and content strategy mapping. Use when the user wants to analyze a website's competitors or improve their own SEO ranking by studying the competition.\n---\n\n# SEO Competitor Analysis Skill\n\nThis skill automates the process of identifying and analyzing SEO competitors to inform content and ranking strategies.\n\n## Workflow\n\n1. **Identify Competitors**: If not provided, search for the target domain and identify top-ranking sites for similar keywords.\n2. **Analyze Keywords**: Use `web_search` to find ranking keywords and search volume (if available via snippets).\n3. **Content Gap Analysis**: Compare the user's content with competitors to identify missing topics.\n4. **Report Generation**: Summarize findings into a structured report.\n\n## Tools to Use\n\n- `web_search`: To find competitors and their ranking content.\n- `web_fetch`: To extract content from competitor pages for deep analysis.\n- `browser`: For complex pages that require JavaScript or manual navigation patterns.\n\n## Scripts\n\n- `scripts/competitor_finder.py`: (Optional) Logic to automate the discovery of competitors using search APIs.\n\n## References\n\n- `references/seo_metrics_guide.md`: Definition of SEO terms and how to interpret them.\n- `references/report_template.md`: A standard structure for the final SEO analysis report.\n",
+    "tags": [
+      "skillhub",
+      "builtin"
+    ],
+    "source": "builtin-skillhub"
+  }
+}

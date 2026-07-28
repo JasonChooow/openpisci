@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { open as openExternal } from "@tauri-apps/plugin-shell";
 import { extrasApi, cloudAccountApi, type AccountInfo } from "../../services/tauri";
-import { getCloudBaseUrl, setCloudBaseUrl, normalizeUrl } from "../../config/cloud";
 import {
   Settings as SettingsIcon,
   Sun,
@@ -20,6 +19,7 @@ export type AccountMenuProps = {
   colorMode: "light" | "dark";
   onToggleColorMode: () => void;
   onOpenSettings: () => void;
+  onOpenUsage?: () => void;
   onHelp: () => void;
   onMinimalMode: () => void;
   unreadCount?: number;
@@ -30,6 +30,7 @@ export default function AccountMenu({
   colorMode,
   onToggleColorMode,
   onOpenSettings,
+  onOpenUsage,
   onHelp,
   onMinimalMode,
   unreadCount = 0,
@@ -43,7 +44,6 @@ export default function AccountMenu({
   const [checking, setChecking] = useState(false);
   const [account, setAccount] = useState<AccountInfo | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
-  const [loginUrl, setLoginUrl] = useState(getCloudBaseUrl());
   const [loginUser, setLoginUser] = useState("");
   const [loginPass, setLoginPass] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
@@ -60,13 +60,11 @@ export default function AccountMenu({
 
   const submitLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const base = normalizeUrl(loginUrl);
-    if (!base || !loginUser || !loginPass) return;
+    if (!loginUser || !loginPass) return;
     setLoggingIn(true);
     setLoginError("");
     try {
-      const info = await cloudAccountApi.signIn(base, loginUser, loginPass);
-      setCloudBaseUrl(base);
+      const info = await cloudAccountApi.signIn(loginUser, loginPass);
       setAccount(info);
       setLoginOpen(false);
       setLoginPass("");
@@ -172,7 +170,14 @@ export default function AccountMenu({
               <span className="account-name">{displayName}</span>
               <span className="account-status">{displayStatus}</span>
               {signedIn && typeof account?.balance === "number" && (
-                <span className="account-status">{t("account.balance")}: {account.balance}</span>
+                <button
+                  type="button"
+                  className="account-status account-balance-link"
+                  onClick={() => { close(); onOpenUsage?.(); }}
+                  style={{ cursor: onOpenUsage ? "pointer" : "default", background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", textAlign: "left" }}
+                >
+                  {t("account.balance")}: {account.balance}
+                </button>
               )}
             </div>
           </div>
@@ -218,7 +223,7 @@ export default function AccountMenu({
               <span>{t("account.logout")}</span>
             </button>
           ) : (
-            <button className="account-menu-item" role="menuitem" onClick={() => { close(); setLoginError(""); setLoginUrl(getCloudBaseUrl()); setLoginOpen(true); }}>
+            <button className="account-menu-item" role="menuitem" onClick={() => { close(); setLoginError(""); setLoginOpen(true); }}>
               <LogIn size={16} strokeWidth={1.5} />
               <span>{t("account.login")}</span>
             </button>
@@ -231,10 +236,6 @@ export default function AccountMenu({
           <form className="account-login-dialog" onMouseDown={(e) => e.stopPropagation()} onSubmit={submitLogin}>
             <div className="account-login-title">{t("account.loginTitle")}</div>
             <p className="account-login-desc">{t("account.loginDesc")}</p>
-            <label className="account-login-field">
-              <span>{t("account.cloudUrl")}</span>
-              <input value={loginUrl} onChange={(e) => setLoginUrl(e.target.value)} spellCheck={false} placeholder="https://…" />
-            </label>
             <label className="account-login-field">
               <span>{t("account.username")}</span>
               <input value={loginUser} onChange={(e) => setLoginUser(e.target.value)} autoComplete="username" />

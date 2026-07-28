@@ -1,0 +1,29 @@
+{
+  "id": "9xbot/skill/testcase-generator-skill@1.0.0",
+  "kind": "skill",
+  "name": "测试用例生成器",
+  "description": "## 快速开始",
+  "version": "1.0.0",
+  "publisher": "9xbot",
+  "paid": false,
+  "price": 0,
+  "cloud_only": false,
+  "downloads": 0,
+  "created_at": 1783663913,
+  "updated_at": 1783663913,
+  "uploaded_by": "9xbot",
+  "payload": {
+    "spec_version": 1,
+    "id": "9xbot/skill/testcase-generator-skill@1.0.0",
+    "kind": "skill",
+    "name": "测试用例生成器",
+    "description": "## 快速开始",
+    "path": "skills/testcase-generator-skill",
+    "content": "﻿---\nname: testcase-generator\ndescription: |\n  功能测试用例智能生成工具。用于根据需求文档、接口定义、数据库表结构、现有用例参考等输入，\n  自动生成标准格式的测试用例文档（Excel格式）。适用于：(1) 解读需求文档生成测试点 (2)\n  基于接口定义生成API测试用例 (3) 根据数据库表设计验证数据测试 (4) 参考现有用例生成\n  相似模块用例 (5) 批量生成测试用例并导出Excel\n---\n\n# 测试用例生成器\n\n## 快速开始\n\n### 1. 准备输入材料\n\n将以下材料放置到工作目录：\n- **需求文档**：PRD文档、需求说明、设计文档（支持.md/.docx/.txt格式）\n- **接口定义**：Swagger/OpenAPI JSON、接口文档（支持.yaml/.json格式）\n- **数据库表结构**：DDL脚本、表结构说明（支持.sql格式）\n- **现有用例**：参考用例文件（支持.xlsx/.md格式）\n\n### 2. 执行生成\n\n告诉AI助手：\n```\n根据[需求文档/接口定义/数据库表]生成测试用例\n```\n\n或指定具体模块：\n```\n为\"用户登录\"模块生成功能测试用例\n```\n\n### 3. 获取输出\n\n生成的测试用例为Excel格式(.xlsx)，包含：\n- 用例编号\n- 用例标题\n- 前置条件\n- 测试步骤\n- 预期结果\n- 优先级\n- 用例类型\n\n---\n\n## 输入材料处理\n\n### 需求文档处理\n\n1. **提取功能点**：解析需求文档中的功能描述\n2. **识别业务流程**：梳理功能之间的关联和流程\n3. **提取测试要素**：输入、输出、边界条件\n\n### 接口定义处理\n\n解析Swagger/OpenAPI文档提取：\n- 接口路径和方法\n- 请求参数和响应结构\n- 必填字段和校验规则\n- 错误码定义\n\n### 数据库表处理\n\n解析DDL脚本提取：\n- 表名和注释\n- 字段名、类型和约束\n- 主键和外键关系\n- 索引和默认值\n\n---\n\n## 输出格式\n\n### Excel测试用例模板\n\n| 字段 | 说明 | 示例 |\n|------|------|------|\n| 用例编号 | 唯一标识 | TC_USER_LOGIN_001 |\n| 用例标题 | 用例名称 | 用户名正确密码正确登录成功 |\n| 用例类型 | 功能/接口/数据/UI | 功能测试 |\n| 优先级 | P0/P1/P2/P3 | P0 |\n| 前置条件 | 执行前提 | 用户已注册 |\n| 测试步骤 | 操作步骤 | 1.输入用户名 2.输入密码 3.点击登录 |\n| 预期结果 | 期望输出 | 登录成功跳转首页 |\n| 测试数据 | 输入数据 | 用户名:test001 密码:Test@123 |\n\n---\n\n## 生成策略\n\n### 等价类划分\n\n将输入数据划分为有效等价类和无效等价类：\n- 有效：符合业务规则的数据\n- 边界：边界值数据\n- 无效：不符合规则的数据\n\n### 边界值分析\n\n针对数值、长度、次数等边界：\n- 最小值、最大值\n- 边界-1、边界+1\n- 空值、NULL\n\n### 场景法\n\n覆盖主要场景：\n- 正常场景\n- 异常场景\n- 备用场景\n- 补偿场景\n\n### 状态迁移\n\n对于有状态的对象：\n- 状态转换图\n- 触发条件\n- 预期状态\n\n---\n\n## 脚本工具\n\n### 生成Excel用例\n\n```bash\npython scripts/generate_testcase.py --input requirements.md --output testcases.xlsx\n```\n\n参数：\n- `--input`: 输入材料路径\n- `--output`: 输出Excel路径\n- `--template`: 指定模板(可选)\n- `--format`: 输出格式xlsx/csv\n\n### 查看详细帮助\n\n```bash\npython scripts/generate_testcase.py --help\n```\n\n---\n\n## 注意事项\n\n1. **材料完整性**：材料越完整，生成用例越准确\n2. **边界条件**：重点关注边界值和异常情况\n3. **业务规则**：确保覆盖业务规则验证\n4. **用例评审**：生成后需人工评审确认\n5. **版本管理**：建议使用版本控制管理用例\n\n---\n\n## 相关文件\n\n- `references/testcase_template.xlsx` - 测试用例模板\n- `references/testcase_examples.md` - 用例示例\n- `references/priority_guide.md` - 优先级定义指南\n",
+    "tags": [
+      "skillhub",
+      "builtin"
+    ],
+    "source": "builtin-skillhub"
+  }
+}

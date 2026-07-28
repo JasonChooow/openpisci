@@ -1,0 +1,29 @@
+{
+  "id": "9xbot/skill/data-analysis-skill@1.0.0",
+  "kind": "skill",
+  "name": "数据分析技能包 DataMaster Pro",
+  "description": "## 一句话介绍",
+  "version": "1.0.0",
+  "publisher": "9xbot",
+  "paid": false,
+  "price": 0,
+  "cloud_only": false,
+  "downloads": 0,
+  "created_at": 1783663913,
+  "updated_at": 1783663913,
+  "uploaded_by": "9xbot",
+  "payload": {
+    "spec_version": 1,
+    "id": "9xbot/skill/data-analysis-skill@1.0.0",
+    "kind": "skill",
+    "name": "数据分析技能包 DataMaster Pro",
+    "description": "## 一句话介绍",
+    "path": "skills/data-analysis-skill",
+    "content": "---\nname: data-analysis-skill\ndescription: 数据分析技能包 - 自动抓取、清洗、可视化、生成报告。适合数据分析师、运营人员，告别 Excel 手工操作。\nversion: 1.0.0\nauthor: AI-Company\ntags: [data, analysis, visualization, report, automation, 数据分析, 可视化]\nlicense: MIT\n---\n\n# 数据分析技能包 DataMaster Pro\n\n## 一句话介绍\n自动抓取数据、智能清洗、一键可视化、生成专业报告。\n\n## 解决什么问题？\n- 数据分散：多个来源手动复制粘贴 → 一键抓取聚合\n- 清洗耗时：Excel 公式搞半天 → 自动识别并清洗\n- 图表难看：不会做可视化 → 一键生成专业图表\n- 报告难写：不会写分析 → AI 自动生成洞察\n\n## 功能清单\n- 🌐 数据抓取：网页爬取、API 对接、数据库连接\n- 🧹 数据清洗：去重、补缺、格式化、异常检测\n- 📊 可视化：折线图、柱状图、饼图、热力图、散点图\n- 📝 报告生成：自动生成数据分析报告（Markdown/HTML/PDF）\n- 🔄 定时任务：支持定时抓取和分析\n\n## 快速开始\n\n### 安装\n```bash\n# 进入技能包目录\ncd data-analysis-skill\nnpm install\n```\n\n### 使用命令\n\n```bash\n# 网页数据抓取\n/data-fetch <URL> --selector \"table.data\"\n\n# API 数据获取\n/data-api <API_URL> --method GET --output data.json\n\n# 数据清洗\n/data-clean data.json --rules clean-rules.json\n\n# 生成可视化图表\n/data-viz data.csv --type bar --title \"销售趋势\"\n\n# 完整分析报告\n/data-report data.csv --template business --output report.md\n```\n\n### 配置示例\n```json\n{\n  \"sources\": [\n    {\n      \"type\": \"web\",\n      \"url\": \"https://example.com/data\",\n      \"selector\": \"table tbody tr\",\n      \"schedule\": \"0 9 * * *\"\n    },\n    {\n      \"type\": \"api\",\n      \"url\": \"https://api.example.com/v1/data\",\n      \"headers\": {\n        \"Authorization\": \"Bearer TOKEN\"\n      }\n    }\n  ],\n  \"cleaning\": {\n    \"removeDuplicates\": true,\n    \"fillMissing\": \"mean\",\n    \"normalizeColumns\": [\"price\", \"quantity\"]\n  },\n  \"visualization\": {\n    \"defaultChartType\": \"bar\",\n    \"colors\": [\"#4CAF50\", \"#2196F3\", \"#FF9800\"],\n    \"width\": 800,\n    \"height\": 400\n  }\n}\n```\n\n## 文件结构\n```\ndata-analysis-skill/\n├── SKILL.md           # 技能定义（本文件）\n├── README.md          # 产品说明\n├── TUTORIAL.md        # 傻瓜式教程\n├── install.bat        # 一键安装\n├── run.bat            # 一键运行\n├── config.json        # 配置示例\n├── package.json       # 依赖管理\n├── scripts/           # 核心代码\n│   ├── data-fetch.js  # 数据抓取\n│   ├── data-clean.js  # 数据清洗\n│   ├── data-viz.js    # 可视化生成\n│   └── data-report.js # 报告生成\n├── templates/         # 报告模板\n│   ├── business.md    # 商业报告模板\n│   ├── technical.md   # 技术报告模板\n│   └── weekly.md      # 周报模板\n└── examples/          # 示例文件\n    ├── sample-data.csv\n    └── sample-report.md\n```\n\n## 核心脚本说明\n\n### data-fetch.js - 数据抓取\n支持三种数据源：\n- **网页抓取**：CSS 选择器提取表格/列表数据\n- **API 请求**：GET/POST 请求，支持认证\n- **数据库**：MySQL/PostgreSQL/MongoDB 连接\n\n### data-clean.js - 数据清洗\n- 去重、去空值\n- 格式标准化（日期、数字、文本）\n- 异常值检测与处理\n- 数据类型转换\n\n### data-viz.js - 可视化\n- 自动推荐最佳图表类型\n- 支持自定义样式\n- 输出 SVG/PNG/HTML\n\n### data-report.js - 报告生成\n- AI 驱动的数据洞察\n- 多种模板可选\n- 支持导出 Markdown/HTML/PDF\n\n## 适用人群\n- 数据分析师\n- 运营人员\n- 市场研究员\n- 产品经理\n- 财务人员\n\n## 价格\n- 基础版：¥99（网页抓取+基础清洗+5种图表）\n- 进阶版：¥199（API对接+高级清洗+10种图表+报告模板）\n- 专业版：¥299（数据库连接+AI洞察+定制模板+1对1指导）\n\n---\n\n*开发者：AI-Company*\n*联系：通过ClawHub*",
+    "tags": [
+      "skillhub",
+      "builtin"
+    ],
+    "source": "builtin-skillhub"
+  }
+}

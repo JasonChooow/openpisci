@@ -21,7 +21,11 @@
     "tauri": "tauri",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "cloud:mock": "node cloud-mock/server.mjs",
+    "cloud:mock:install": "cd cloud-mock && npm install",
+    "cloud:dev": "bash scripts/start-cloud-dev.sh",
+    "cloud:dev:mock": "bash cloud-mock/start-dev.sh"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",

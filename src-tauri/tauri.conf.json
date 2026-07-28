@@ -81,7 +81,6 @@
       "nsis": {
         "installMode": "currentUser",
         "installerIcon": "icons/installer.ico",
-        "uninstallerIcon": "icons/installer.ico",
         "languages": [
           "SimpChinese",
           "English"

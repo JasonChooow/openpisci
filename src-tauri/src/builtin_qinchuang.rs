@@ -20,26 +20,9 @@ const EXPERTS_JSON: &str = include_str!("builtin_qinchuang_experts.json");
 const SOURCE: &str = "builtin-qinchuang";
 const USER_INSTALLED_MARKER: &str = "9xbot-user-added-qinchuang-expert";
 const CURATED_INSTALLED_EXPERT_SLUGS: &[&str] = &[
-    "project-management-meeting-notes-specialist",
-    "project-management-project-shepherd",
-    "project-manager-senior",
-    "product-manager",
-    "product-feedback-synthesizer",
-    "finance-invoice-manager",
-    "finance-financial-analyst",
-    "legal-contract-reviewer",
-    "hr-performance-reviewer",
-    "sales-proposal-strategist",
-    "sales-account-strategist",
-    "design-ui-designer",
-    "design-brand-guardian",
-    "marketing-xiaohongshu-operator",
-    "marketing-douyin-strategist",
-    "marketing-wechat-operator",
-    "marketing-private-domain-operator",
-    "marketing-ecommerce-operator",
-    "marketing-baidu-seo-specialist",
-    "marketing-multi-platform-publisher",
+    "engineering-frontend-developer",
+    "engineering-backend-architect",
+    "engineering-minimal-change-engineer",
 ];
 
 #[derive(Debug, Clone)]

@@ -1,0 +1,29 @@
+{
+  "id": "9xbot/skill/taro-miniprogram-dev@1.0.0",
+  "kind": "skill",
+  "name": "Taro 小程序开发技能",
+  "description": "基于 Taro 3 + React + TypeScript 的微信小程序开发框架。",
+  "version": "1.0.0",
+  "publisher": "9xbot",
+  "paid": false,
+  "price": 0,
+  "cloud_only": false,
+  "downloads": 0,
+  "created_at": 1783663913,
+  "updated_at": 1783663913,
+  "uploaded_by": "9xbot",
+  "payload": {
+    "spec_version": 1,
+    "id": "9xbot/skill/taro-miniprogram-dev@1.0.0",
+    "kind": "skill",
+    "name": "Taro 小程序开发技能",
+    "description": "基于 Taro 3 + React + TypeScript 的微信小程序开发框架。",
+    "path": "skills/taro-miniprogram-dev",
+    "content": "---\nname: taro-miniprogram-dev\ndescription: Taro + React + TypeScript 微信小程序开发框架技能。适用于：(1) 从零初始化 Taro 项目并编译为微信小程序；(2) 创建页面、组件、样式；(3) 搭建 services 请求层（接入真实后端或 Mock 数据）；(4) 配置 TabBar、页面路由、设计系统。触发关键词：小程序开发、Taro开发、微信小程序、mini program、Taro框架、项目初始化。\n---\n\n# Taro 小程序开发技能\n\n基于 Taro 3 + React + TypeScript 的微信小程序开发框架。\n\n## 项目初始化\n\n```bash\n# 创建项目目录\nmkdir my-project && cd my-project\n\n# 初始化 Taro 项目\nnpx @tarojs/cli init . --framework react --typescript\n\n# 安装依赖\nnpm install\n\n# 开发模式\nNODE_OPTIONS=--openssl-legacy-provider npm run dev:weapp\n\n# 生产构建\nNODE_OPTIONS=--openssl-legacy-provider npm run build:weapp\n```\n\n> ⚠️ Node.js ≥ 18 时，webpack 需要 `--openssl-legacy-provider`。\n\n## 目录结构\n\n```\nsrc/\n├── app.config.js       # 全局配置（页面注册、TabBar、窗口样式）\n├── app.tsx             # 应用入口\n├── styles/\n│   └── global.scss     # 全局样式 + 设计系统变量\n├── pages/              # 页面\n│   └── {module}/\n│       └── {page}/index.tsx + index.scss\n├── services/           # 接口层（接入时创建）\n│   ├── api/           # API 接口定义（按模块拆分）\n│   ├── utils/\n│   │   └── request.ts # 请求封装\n│   └── mock.ts        # Mock 数据\n└── assets/            # 静态资源\n```\n\n## 页面开发\n\n详见 [references/pages.md](references/pages.md)\n\n```typescript\n// pages/demo/index.tsx\nimport { Component } from 'react'\nimport { View, Text } from '@tarojs/components'\nimport './index.scss'\n\nexport default class DemoPage extends Component {\n  state = { data: null as any, loading: false }\n\n  componentDidMount() {\n    // TODO: 加载数据\n  }\n\n  render() {\n    const { data } = this.state\n    return (\n      <View className=\"page\">\n        <Text>页面内容</Text>\n      </View>\n    )\n  }\n}\n```\n\n## 接口层接入\n\n详见 [references/api-design.md](references/api-design.md)\n\n```typescript\n// services/utils/request.ts\nconst IS_MOCK = true           // 切换 Mock/真实接口\nconst BASE_URL = 'https://api.example.com'\n```\n\n```typescript\n// services/api/index.ts\nimport { get, post } from '../utils/request'\n\nexport function getUserInfo() {\n  return get<UserInfo>('/api/auth/user-info')\n}\n\nexport function login(params: LoginParams) {\n  return post<LoginResult>('/api/auth/login', params)\n}\n```\n\n## 设计系统\n\n详见 [references/design-system.md](references/design-system.md)\n\n全局样式变量：`$bg`, `$pink`, `$pink-deep`, `$ink`, `$muted`, `$line`\n\n组件类名：`.card`, `.btn-primary`, `.btn-ghost`, `.pill`, `.bottom-nav`\n\n## 编译说明\n\n微信开发者工具导入 `dist/` 目录，AppID 先用测试号 `touristappid`，开发阶段开启\"不校验合法域名\"。\n\n## 常用命令\n\n| 命令 | 说明 |\n|------|------|\n| `npm run dev:weapp` | 微信小程序开发模式 |\n| `npm run build:weapp` | 微信小程序生产构建 |\n| `npm run dev:h5` | H5 开发模式 |\n",
+    "tags": [
+      "skillhub",
+      "builtin"
+    ],
+    "source": "builtin-skillhub"
+  }
+}

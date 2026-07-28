@@ -13,6 +13,7 @@
 
 pub mod cloud;
 pub mod cloud_account;
+pub mod cloud_url;
 pub mod extras;
 pub mod interactive;
 pub mod marketplace;

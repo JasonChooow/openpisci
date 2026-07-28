@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { open as openExternal } from "@tauri-apps/plugin-shell";
 import { ArrowLeft, ArrowRight, RotateCw, Home, ExternalLink } from "lucide-react";
-import { getCloudBaseUrl, setCloudBaseUrl, normalizeUrl } from "../../config/cloud";
+import { getCloudBaseUrl, normalizeUrl } from "../../config/cloud";
 import "./CloudBrowser.css";
 
 type CloudBrowserProps = {
@@ -14,19 +14,15 @@ type CloudBrowserProps = {
 
 export default function CloudBrowser({ visible = true, targetUrl = null, requestKey = 0, mobilePreview = false }: CloudBrowserProps) {
   const { t } = useTranslation();
-  const defaultHomeUrl = getCloudBaseUrl();
-  const startUrl = normalizeUrl(targetUrl || defaultHomeUrl) || defaultHomeUrl;
-
-  // History stack for in-app back/forward (iframe cross-origin history is not accessible).
-  const [history, setHistory] = useState<string[]>([startUrl]);
+  const [history, setHistory] = useState<string[]>([]);
   const [cursor, setCursor] = useState(0);
-  const [address, setAddress] = useState(startUrl);
+  const [address, setAddress] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const loadedRef = useRef(false);
   const blockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [maybeBlocked, setMaybeBlocked] = useState(false);
 
-  const current = history[cursor] ?? startUrl;
+  const current = history[cursor] ?? "";
 
   const resetToUrl = useCallback((rawUrl: string) => {
     const url = normalizeUrl(rawUrl);
@@ -37,16 +33,21 @@ export default function CloudBrowser({ visible = true, targetUrl = null, request
     setReloadKey((key) => key + 1);
   }, []);
 
+  const resolveHomeUrl = useCallback(async () => {
+    if (targetUrl) return normalizeUrl(targetUrl);
+    return getCloudBaseUrl();
+  }, [targetUrl]);
+
   const navigate = useCallback(
     (rawUrl: string) => {
       const url = normalizeUrl(rawUrl);
       if (!url) return;
-      setHistory((prev) => {
-        const next = prev.slice(0, cursor + 1);
+      setHistory((previous) => {
+        const next = previous.slice(0, cursor + 1);
         next.push(url);
         return next;
       });
-      setCursor((c) => c + 1);
+      setCursor((value) => value + 1);
       setAddress(url);
     },
     [cursor],
@@ -54,43 +55,44 @@ export default function CloudBrowser({ visible = true, targetUrl = null, request
 
   const goBack = () => {
     if (cursor > 0) {
-      const c = cursor - 1;
-      setCursor(c);
-      setAddress(history[c]);
+      const nextCursor = cursor - 1;
+      setCursor(nextCursor);
+      setAddress(history[nextCursor]);
     }
   };
 
   const goForward = () => {
     if (cursor < history.length - 1) {
-      const c = cursor + 1;
-      setCursor(c);
-      setAddress(history[c]);
+      const nextCursor = cursor + 1;
+      setCursor(nextCursor);
+      setAddress(history[nextCursor]);
     }
   };
 
   const goHome = () => {
-    resetToUrl(targetUrl || getCloudBaseUrl());
+    void resolveHomeUrl().then(resetToUrl);
   };
 
-  const reload = () => setReloadKey((k) => k + 1);
+  const reload = () => setReloadKey((key) => key + 1);
 
-  const submitAddress = (e: React.FormEvent) => {
-    e.preventDefault();
-    const url = normalizeUrl(address);
-    if (!url) return;
-    // Persist as the new default cloud base when it looks like a homepage edit.
-    if (!targetUrl && cursor === 0) setCloudBaseUrl(url);
-    navigate(url);
+  const submitAddress = (event: React.FormEvent) => {
+    event.preventDefault();
+    navigate(address);
   };
 
   useEffect(() => {
     if (!visible) return;
-    resetToUrl(targetUrl || getCloudBaseUrl());
-  }, [requestKey, targetUrl, visible, resetToUrl]);
+    let cancelled = false;
+    void resolveHomeUrl().then((url) => {
+      if (!cancelled) resetToUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [requestKey, visible, resolveHomeUrl, resetToUrl]);
 
-  // Detect likely X-Frame-Options / CSP blocking: if the iframe never fires
-  // onLoad within a few seconds, surface the "open externally" fallback.
   useEffect(() => {
+    if (!current) return;
     loadedRef.current = false;
     setMaybeBlocked(false);
     if (blockedTimer.current) clearTimeout(blockedTimer.current);
@@ -123,30 +125,32 @@ export default function CloudBrowser({ visible = true, targetUrl = null, request
           <input
             className="cloud-browser-address"
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            onChange={(event) => setAddress(event.target.value)}
             spellCheck={false}
             placeholder={t("browser.addressPlaceholder")}
           />
         </form>
-        <button type="button" className="cloud-browser-btn" onClick={() => openExternal(current).catch(() => {})} title={t("browser.openExternal")}>
+        <button type="button" className="cloud-browser-btn" onClick={() => current && openExternal(current).catch(() => {})} disabled={!current} title={t("browser.openExternal")}>
           <ExternalLink size={15} strokeWidth={1.5} />
         </button>
       </div>
       <div className="cloud-browser-stage">
         <div className="cloud-browser-viewport">
-          <iframe
-            key={`${current}::${reloadKey}`}
-            className="cloud-browser-frame"
-            src={current}
-            title={t("nav.browser")}
-            onLoad={() => {
-              loadedRef.current = true;
-              setMaybeBlocked(false);
-            }}
-            referrerPolicy="no-referrer-when-downgrade"
-            allow="clipboard-read; clipboard-write; fullscreen"
-          />
-          {maybeBlocked && (
+          {current && (
+            <iframe
+              key={`${current}::${reloadKey}`}
+              className="cloud-browser-frame"
+              src={current}
+              title={t("nav.browser")}
+              onLoad={() => {
+                loadedRef.current = true;
+                setMaybeBlocked(false);
+              }}
+              referrerPolicy="no-referrer-when-downgrade"
+              allow="clipboard-read; clipboard-write; fullscreen"
+            />
+          )}
+          {maybeBlocked && current && (
             <div className="cloud-browser-blocked">
               <p>{t("browser.blockedHint")}</p>
               <button type="button" className="btn btn-primary" onClick={() => openExternal(current).catch(() => {})}>

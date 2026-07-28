@@ -32,7 +32,8 @@ export default function OpenpisciMarketPanel({
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const index = await marketplaceApi.fetchAggregated(getCloudBaseUrl());
+      const cloudBaseUrl = await getCloudBaseUrl();
+      const index = await marketplaceApi.fetchAggregated(cloudBaseUrl);
       setSkills(index.skills ?? []);
     } catch (e) {
       onError(t("skills.openpisciLoadFailed", { error: String(e) }));

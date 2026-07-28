@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "catalog_id": "9xbot-bundled",
+  "publisher": "9xbot",
+  "source": "9xBot builtin_qinchuang + builtin_skillhub",
+  "generated_at": "2026-07-10T06:11:53.453355+00:00",
+  "counts": {
+    "experts": 180,
+    "skills": 24
+  },
+  "total": 204
+}

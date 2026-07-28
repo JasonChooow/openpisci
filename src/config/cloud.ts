@@ -1,36 +1,18 @@
+import { invoke } from "@tauri-apps/api/core";
+
 /**
- * Shared cloud platform configuration (desktop side).
+ * Return the official Cloud endpoint decrypted by the Rust desktop layer.
  *
- * The cloud base URL is used by the in-app browser page, cloud-account login,
- * the cloud LLM gateway, and the official marketplace source. It is persisted
- * in localStorage so the frontend can read it synchronously; the Rust side
- * keeps its own encrypted copy once the user signs in.
+ * The frontend intentionally has no persisted or user-editable fallback: both
+ * development overrides and the production endpoint are controlled by the
+ * `get_cloud_base_url` Tauri command.
  */
-
-const CLOUD_BASE_URL_KEY = "pisci-cloud-base-url";
-
-/** Default cloud homepage; user-editable in the browser page / settings. */
-export const DEFAULT_CLOUD_BASE_URL = "https://www.dimnuo.com";
-
-export function getCloudBaseUrl(): string {
-  try {
-    const v = localStorage.getItem(CLOUD_BASE_URL_KEY);
-    if (v && v.trim()) return v.trim();
-  } catch {
-    /* ignore */
-  }
-  return DEFAULT_CLOUD_BASE_URL;
+export async function getCloudBaseUrl(): Promise<string> {
+  const baseUrl = await invoke<string>("get_cloud_base_url");
+  return baseUrl.trim().replace(/\/+$/, "");
 }
 
-export function setCloudBaseUrl(url: string): void {
-  try {
-    localStorage.setItem(CLOUD_BASE_URL_KEY, url.trim());
-  } catch {
-    /* ignore */
-  }
-}
-
-/** Normalize a user-entered URL: add https:// when scheme is missing. */
+/** Normalize a navigation URL: add https:// when scheme is missing. */
 export function normalizeUrl(input: string): string {
   const trimmed = input.trim();
   if (!trimmed) return "";

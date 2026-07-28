@@ -5,7 +5,7 @@
  *
  *   - `memory`   — long-term memory list (populates the Memory tab)
  *   - `skills`   — installed skill list (populates the Skills tab)
- *   - `settings` — global Settings payload + onboarding flags
+ *   - `settings` — global Settings payload + cloud configuration status
  *
  * These slices mirror `commands/config/*` on the Rust side.
  */
@@ -70,21 +70,17 @@ export const skillsSlice = createSlice({
 interface SettingsState {
   settings: Settings | null;
   isConfigured: boolean;
-  showOnboarding: boolean;
 }
 
 export const settingsSlice = createSlice({
   name: "settings",
-  initialState: { settings: null, isConfigured: false, showOnboarding: false } as SettingsState,
+  initialState: { settings: null, isConfigured: false } as SettingsState,
   reducers: {
     setSettings: (state, action: PayloadAction<Settings>) => {
       state.settings = action.payload;
     },
     setConfigured: (state, action: PayloadAction<boolean>) => {
       state.isConfigured = action.payload;
-    },
-    setShowOnboarding: (state, action: PayloadAction<boolean>) => {
-      state.showOnboarding = action.payload;
     },
   },
 });

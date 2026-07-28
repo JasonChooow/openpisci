@@ -1,0 +1,637 @@
+{
+  "pbtResults": {
+    "1.5 属性测试: 路由引擎策略一致性": {
+      "status": "passed",
+      "lastRunTimestamp": 1784521731820
+    },
+    "1.6 属性测试: 路由引擎故障回退": {
+      "status": "passed",
+      "lastRunTimestamp": 1784521732109
+    },
+    "3.2 属性测试: Cloud URL 加密解密往返": {
+      "status": "blocked_env",
+      "lastRunTimestamp": 1784510334287,
+      "note": "cargo test failed: libspa-sys bindgen missing stdbool.h (host toolchain)"
+    },
+    "5.4 属性测试: 计费扣除准确性": {
+      "status": "passed",
+      "lastRunTimestamp": 1784521732502
+    },
+    "5.5 属性测试: 余额不足拒绝": {
+      "status": "passed",
+      "lastRunTimestamp": 1784521732648
+    },
+    "5.6 属性测试: 每日领取幂等性": {
+      "status": "passed",
+      "lastRunTimestamp": 1784521733401
+    },
+    "5.7 属性测试: 用量记录完整性": {
+      "status": "passed",
+      "lastRunTimestamp": 1784521734013
+    }
+  },
+  "executionHistory": {
+    "1.1 创建云端网关项目结构与数据库模型": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454266025
+      },
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454289558
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480783214
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480803089
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784481319792
+      }
+    ],
+    "1.2 扩展用户认证系统": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454266559
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480783663
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784481362743
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784482131452
+      }
+    ],
+    "1.3 实现 LLM 网关代理": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454267013
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480784104
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784482140320
+      }
+    ],
+    "1.4 实现路由引擎": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454267389
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480784492
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526312688
+      }
+    ],
+    "1.5 属性测试: 路由引擎策略一致性": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454267811
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480784886
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526333725
+      }
+    ],
+    "1.6 属性测试: 路由引擎故障回退": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454268195
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480785227
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526340123
+      }
+    ],
+    "2. Phase 1 Checkpoint": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454268539
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480785665
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526357900
+      }
+    ],
+    "3.1 实现编译时 Cloud URL 加密": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454268910
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480786048
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526369864
+      }
+    ],
+    "3.2 属性测试: Cloud URL 加密解密往返": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454269244
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480786475
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526402995
+      }
+    ],
+    "3.3 实现强制登录门控": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454269630
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480786856
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526428106
+      }
+    ],
+    "3.4 移除本地 LLM 配置": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454269979
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480787385
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526444744
+      }
+    ],
+    "4. Phase 2 Checkpoint": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454270425
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480787832
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526468260
+      }
+    ],
+    "5.1 实现 Token 计费核心": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454270858
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480788634
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526491089
+      }
+    ],
+    "5.2 实现每日免费额度": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454271231
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480789199
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526503988
+      }
+    ],
+    "5.3 实现用量查询 API": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454271610
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480789638
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526513793
+      }
+    ],
+    "5.4 属性测试: 计费扣除准确性": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454271980
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480790100
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526527512
+      }
+    ],
+    "5.5 属性测试: 余额不足拒绝": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454272366
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480790561
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526535149
+      }
+    ],
+    "5.6 属性测试: 每日领取幂等性": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454272788
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480790922
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526575383
+      }
+    ],
+    "5.7 属性测试: 用量记录完整性": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454273127
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480791325
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526590303
+      }
+    ],
+    "6. Phase 3 Checkpoint": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454273544
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480791816
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526599017
+      }
+    ],
+    "7.1 创建用量看板组件": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454273876
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480792175
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526607245
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784527104080
+      }
+    ],
+    "7.2 创建用量相关 hooks 和 API service": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454274258
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480792546
+      },
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784527113626
+      }
+    ],
+    "7.3 集成用量看板到主界面": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454274632
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480792917
+      },
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785175865534
+      },
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785176666368
+      }
+    ],
+    "8. Phase 4 Checkpoint": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454275014
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480793421
+      },
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785176675956
+      },
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785177032672
+      }
+    ],
+    "9.1 创建管理后台项目与认证": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454275396
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480793812
+      },
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785177041551
+      },
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785192614137
+      }
+    ],
+    "9.2 实现云端管理 API": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454275775
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480794146
+      },
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785192623283
+      },
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785193914306
+      }
+    ],
+    "9.3 实现管理后台前端页面": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454276243
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480794514
+      },
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785193923802
+      },
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785194322867
+      }
+    ],
+    "10. Phase 5 Checkpoint": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454276649
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480794876
+      },
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785194331879
+      },
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785194882625
+      }
+    ],
+    "11.1 扩展 cloud-mock 服务器": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454277038
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480795265
+      },
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785194892824
+      }
+    ],
+    "11.2 编写集成测试": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454277481
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480795699
+      }
+    ],
+    "12. Final Checkpoint": [
+      {
+        "executionId": "af5f5fc7-8545-4623-9a9a-0324169eaf86",
+        "chatSessionId": "sess_714acbd1-e559-4a30-8274-4c1638380014",
+        "timestamp": 1784454277882
+      },
+      {
+        "executionId": "8b3beab4-2490-4c27-b5d1-3310c9a63ed6",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784480796138
+      }
+    ],
+    "1. Phase 1: 云端后端基础": [
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526340768
+      }
+    ],
+    "3. Phase 2: 桌面端锁定": [
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526445383
+      }
+    ],
+    "5. Phase 3: 计费系统与用量 API": [
+      {
+        "executionId": "9125d135-0b8b-4fdf-ac5a-5209161ff89e",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1784526590843
+      }
+    ],
+    "7. Phase 4: 桌面端用量看板 UI": [
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785176666795
+      }
+    ],
+    "9. Phase 5: 管理后台": [
+      {
+        "executionId": "534fba06-af9b-4104-a6da-38061f8879f3",
+        "chatSessionId": "sess_3dc0d7c0-13bf-45b0-bcb1-fc487b7df89f",
+        "timestamp": 1785194323345
+      }
+    ]
+  }
+}

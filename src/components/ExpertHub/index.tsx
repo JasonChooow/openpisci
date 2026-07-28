@@ -95,7 +95,8 @@ export default function ExpertHub({
     setLoading(true);
     try {
       // Aggregate official GitHub registry + the cloud marketplace.
-      const index = await marketplaceApi.fetchAggregated(getCloudBaseUrl());
+      const cloudBaseUrl = await getCloudBaseUrl();
+      const index = await marketplaceApi.fetchAggregated(cloudBaseUrl);
       setMarketExperts(index.experts);
       setMarketTeams(index.teams);
     } catch {

@@ -1,0 +1,48 @@
+services:
+  marketplace-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: dimnuo/marketplace-api:0.1.0
+    container_name: marketplace-api
+    ports:
+      - "8137:8137"
+    environment:
+      MARKET_STORAGE_ROOT: /data/marketplace
+      MARKET_JWT_SECRET: ${MARKET_JWT_SECRET:-dev-marketplace-secret-change-me}
+      MARKET_SIGNING_SECRET: ${MARKET_SIGNING_SECRET:-}
+      MARKET_CORS_ORIGINS: ${MARKET_CORS_ORIGINS:-*}
+      MARKET_DEV_ENDPOINTS: ${MARKET_DEV_ENDPOINTS:-1}
+    volumes:
+      - market_data:/data
+    restart: unless-stopped
+
+  # Optional PostgreSQL — reserved for the DB-backed backend (Phase 2).
+  # postgres:
+  #   image: postgres:16
+  #   environment:
+  #     POSTGRES_USER: market
+  #     POSTGRES_PASSWORD: market
+  #     POSTGRES_DB: market
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+  # Optional MinIO — asset payload/CDN (Phase 2).
+  # minio:
+  #   image: minio/minio:latest
+  #   command: server /data --console-address ":9001"
+  #   environment:
+  #     MINIO_ROOT_USER: market
+  #     MINIO_ROOT_PASSWORD: marketmarket
+  #   volumes:
+  #     - minio_data:/data
+  #   ports:
+  #     - "9000:9000"
+  #     - "9001:9001"
+
+volumes:
+  market_data:
+  # postgres_data:
+  # minio_data:

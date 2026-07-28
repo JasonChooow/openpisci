@@ -1,0 +1,17 @@
+{
+  "name": "9xbot-cloud-mock",
+  "version": "1.0.0",
+  "description": "Local mock server for 9xBot cloud platform (auth, marketplace, LLM gateway)",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "test": "node integration.test.mjs",
+    "test:all": "bash test-all.sh"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5"
+  }
+}

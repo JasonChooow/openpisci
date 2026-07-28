@@ -119,10 +119,93 @@ export interface AccountInfo {
   balance?: number | null;
 }
 
+export const CLOUD_AUTH_CHANGED_EVENT = "cloud-auth-changed";
+
+function notifyCloudAuthChanged(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(CLOUD_AUTH_CHANGED_EVENT));
+  }
+}
+
+export type WechatLoginResult = {
+  status: "pending" | "needs_profile" | "authorized" | string;
+  signed_in: boolean;
+  needs_profile: boolean;
+  pending_token?: string | null;
+  account?: AccountInfo | null;
+  message?: string | null;
+};
+
 export const cloudAccountApi = {
-  signIn: (baseUrl: string, username: string, password: string) =>
-    invoke<AccountInfo>("cloud_sign_in", { baseUrl, username, password }),
-  signOut: () => invoke<AccountInfo>("cloud_sign_out"),
+  signIn: async (username: string, password: string) => {
+    const account = await invoke<AccountInfo>("cloud_sign_in", { username, password });
+    notifyCloudAuthChanged();
+    return account;
+  },
+  signInSms: async (phone: string, code: string) => {
+    const account = await invoke<AccountInfo>("cloud_sign_in_sms", { phone, code });
+    notifyCloudAuthChanged();
+    return account;
+  },
+  createCaptcha: () =>
+    invoke<{ captcha_id: string; image_svg: string; expires_in: string }>("cloud_create_captcha"),
+  sendSmsCode: (
+    phone: string,
+    purpose: "login" | "reset" | "bind" | "register",
+    captchaId: string,
+    captchaCode: string,
+  ) =>
+    invoke<{
+      success: boolean;
+      expires_in: number;
+      resend_after?: number;
+      dev_code?: string | null;
+    }>("cloud_send_sms_code", { phone, purpose, captchaId, captchaCode }),
+  resetPassword: (phone: string, code: string, newPassword: string) =>
+    invoke<{ success: boolean; message?: string }>("cloud_reset_password", {
+      phone,
+      code,
+      newPassword,
+    }),
+  wechatLogin: async (code: string) => {
+    const result = await invoke<WechatLoginResult>("cloud_wechat_login", { code });
+    if (result.signed_in) notifyCloudAuthChanged();
+    return result;
+  },
+  wechatStartSession: () =>
+    invoke<{
+      session_id: string;
+      authorize_url: string;
+      expires_in: number;
+      poll_interval_ms: number;
+    }>("cloud_wechat_start_session"),
+  wechatPollSession: async (sessionId: string) => {
+    const result = await invoke<WechatLoginResult>("cloud_wechat_poll_session", { sessionId });
+    if (result.signed_in) notifyCloudAuthChanged();
+    return result;
+  },
+  wechatCompleteProfile: async (params: {
+    pendingToken: string;
+    username: string;
+    phone: string;
+    smsCode: string;
+    password?: string;
+  }) => {
+    const account = await invoke<AccountInfo>("cloud_wechat_complete_profile", {
+      pendingToken: params.pendingToken,
+      username: params.username,
+      phone: params.phone,
+      smsCode: params.smsCode,
+      password: params.password ?? null,
+    });
+    notifyCloudAuthChanged();
+    return account;
+  },
+  signOut: async () => {
+    const account = await invoke<AccountInfo>("cloud_sign_out");
+    notifyCloudAuthChanged();
+    return account;
+  },
   status: () => invoke<AccountInfo>("cloud_account_status"),
   /** Sync (or remove) the cloud LLM provider in Settings; returns model ids. */
   syncLlm: () => invoke<string[]>("sync_cloud_llm_config"),

@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Bot,
   CheckCircle2,
@@ -10,8 +11,13 @@ import {
   MailCheck,
   MessageSquareText,
   MonitorDown,
+  Plug,
+  Puzzle,
+  ShoppingBag,
+  Users,
   Sparkles,
   Workflow,
+  ArrowRight,
 } from 'lucide-react';
 
 const modelHubBaseUrl =
@@ -211,6 +217,123 @@ function WorkflowSection() {
   );
 }
 
+const MARKETPLACE_TABS = [
+  { key: 'experts', label: '专家', icon: Bot, kind: 'expert' },
+  { key: 'skills', label: '技能', icon: Puzzle, kind: 'skill' },
+  { key: 'teams', label: '团队', icon: Users, kind: 'team' },
+  { key: 'connectors', label: '连接器', icon: Plug, kind: 'connector' },
+];
+
+function MarketplaceSection() {
+  const [index, setIndex] = useState(null);
+  const [activeTab, setActiveTab] = useState('experts');
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch('/api/marketplace/index?client_app=web&surface=web')
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setIndex(data || {});
+          setError(null);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message || String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const items = index && Array.isArray(index[activeTab]) ? index[activeTab] : [];
+  const counts = useMemo(() => {
+    if (!index) return {};
+    return MARKETPLACE_TABS.reduce((acc, tab) => {
+      acc[tab.key] = Array.isArray(index[tab.key]) ? index[tab.key].length : 0;
+      return acc;
+    }, {});
+  }, [index]);
+
+  return (
+    <section className="section marketplace-section" id="market">
+      <div className="section-heading">
+        <ShoppingBag size={24} />
+        <h2>公共市场</h2>
+        <p>专家 / 技能 / 团队 / 连接器——与桌面端、AgentZ、theAgentOS 共用同一后端。</p>
+      </div>
+
+      <div className="scene-tabs" role="tablist" aria-label="市场分类">
+        {MARKETPLACE_TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              className={activeTab === tab.key ? 'active' : ''}
+              onClick={() => setActiveTab(tab.key)}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.key}
+            >
+              <Icon size={18} />
+              <span>
+                {tab.label}
+                {counts[tab.key] != null ? ` (${counts[tab.key]})` : ''}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {loading && <p className="marketplace-status">加载中…</p>}
+      {error && (
+        <p className="marketplace-status marketplace-status--error">
+          无法连接市场后端 ({error})——请确认 <code>python -m app.main</code> 正在 :8137 运行。
+        </p>
+      )}
+      {!loading && !error && items.length === 0 && (
+        <p className="marketplace-status">当前分类暂无内容。</p>
+      )}
+
+      <div className="ability-grid marketplace-grid">
+        {items.slice(0, 12).map((item) => (
+          <article key={item.id} className="ability-card marketplace-card">
+            <h3>
+              {item.icon ? <span aria-hidden>{item.icon}</span> : null}
+              {item.name}
+            </h3>
+            <p>{item.description || '暂无描述'}</p>
+            <div className="chip-row">
+              <span>v{item.version}</span>
+              <span>{item.publisher}</span>
+              {item.paid ? <span>付费</span> : null}
+              {item.cloud_only ? <span>云端</span> : null}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {!loading && !error && items.length > 0 && (
+        <div className="marketplace-more">
+          <Link to="/marketplace" className="primary-action">
+            浏览全部市场
+            <ArrowRight size={18} />
+          </Link>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function DownloadSection() {
   return (
     <section className="download-section" id="download">
@@ -243,6 +366,7 @@ export default function App() {
           <a href="#home">9X bot</a>
           <a href="#market">市场</a>
           <a href={modelHubUrl}>模型</a>
+          <Link to="/marketplace">全部物品</Link>
           <a href="#docs">文档</a>
         </nav>
         <div className="header-actions">
@@ -253,7 +377,7 @@ export default function App() {
 
       <Hero />
       <AbilityGrid />
-      <span className="anchor-target" id="market" aria-hidden="true" />
+      <MarketplaceSection />
       <CharacterSection />
       <span className="anchor-target" id="docs" aria-hidden="true" />
       <WorkflowSection />

@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ShoppingBag,
   Building2,
+  Wallet,
 } from "lucide-react";
 import { store, RootState, settingsActions, sessionsActions, chatActions, poolActions } from "./store";
 import { settingsApi, sessionsApi, poolApi, windowApi, extrasApi } from "./services/tauri";
@@ -23,6 +24,7 @@ import { joinProjectPath } from "./utils/projectPath";
 import { isInternalSession, isMainChatVisibleSession } from "./utils/session";
 import { applyFontScale, getFontScale } from "./utils/fontScale";
 import i18n, { setLanguage } from "./i18n";
+import AuthGate from "./components/AuthGate/AuthGate";
 import Chat from "./components/Chat";
 import Toaster from "./components/Toaster";
 import MyFiles from "./components/MyFiles";
@@ -44,11 +46,11 @@ import "./components/AssistantPage/AssistantPage.css";
 const ExpertHub = lazy(() => import("./components/ExpertHub"));
 const Scheduler = lazy(() => import("./components/Scheduler"));
 const SettingsHub = lazy(() => import("./components/SettingsHub"));
-const Onboarding = lazy(() => import("./components/Onboarding"));
 const OverlayApp = lazy(() => import("./components/Overlay"));
 const ProWindow = lazy(() => import("./components/ProWindow"));
+const UsageDashboardPage = lazy(() => import("./components/UsageDashboard/UsageDashboardPage"));
 
-type Tab = "chat" | "assistant" | "school" | "scheduler" | "myfiles" | "inspiration" | "cloud" | "browser" | "settings";
+type Tab = "chat" | "assistant" | "school" | "scheduler" | "myfiles" | "inspiration" | "cloud" | "browser" | "settings" | "usage";
 type SpaceLink = "browser" | "glamoon" | "qinchuang";
 type AppTheme = "violet" | "gold" | "minimal";
 const SIDEBAR_COLLAPSED_KEY = "piscis-sidebar-collapsed";
@@ -183,7 +185,7 @@ const IS_GUIDED_TOUR_PREVIEW = IS_LOCAL_DEV_HOST && new URLSearchParams(window.l
 function AppContent() {
   const dispatch = useDispatch();
   const { t } = useTranslation();
-  const { showOnboarding, settings } = useSelector((s: RootState) => s.settings);
+  const { settings } = useSelector((s: RootState) => s.settings);
   const pendingMainChatNav = useSelector((s: RootState) => s.sessions.pendingMainChatNav);
   const activeSessionId = useSelector((s: RootState) => s.sessions.activeSessionId);
   const sessions = useSelector((s: RootState) => s.sessions.sessions);
@@ -281,9 +283,7 @@ function AppContent() {
         ]);
         dispatch(settingsActions.setSettings(settings));
         dispatch(settingsActions.setConfigured(configured));
-        if (!configured) {
-          dispatch(settingsActions.setShowOnboarding(true));
-        } else if (IS_GUIDED_TOUR_PREVIEW) {
+        if (IS_GUIDED_TOUR_PREVIEW) {
           setActiveTab("chat");
           setSidebarCollapsed(false);
           setShowGuidedTour(true);
@@ -322,11 +322,11 @@ function AppContent() {
   }, [dispatch]);
 
   useEffect(() => {
-    if (!initialized || !IS_GUIDED_TOUR_PREVIEW || showOnboarding) return;
+    if (!initialized || !IS_GUIDED_TOUR_PREVIEW) return;
     setActiveTab("chat");
     setSidebarCollapsed(false);
     setShowGuidedTour(true);
-  }, [initialized, showOnboarding]);
+  }, [initialized]);
 
   // im_session_updated: inbound user message arrived and was pre-written to DB.
   // Reload messages immediately so the user sees their own message right away.
@@ -413,26 +413,6 @@ function AppContent() {
           <div className="loading-spinner" />
           <p>{t("common.loadingApp")}</p>
         </div>
-        <Toaster />
-      </>
-    );
-  }
-
-  if (showOnboarding) {
-    return (
-      <>
-        <Suspense fallback={<div className="loading-screen"><div className="loading-spinner" /><p>{t("common.loadingApp")}</p></div>}>
-          <Onboarding
-            onComplete={() => {
-              localStorage.setItem(GUIDED_TOUR_PENDING_KEY, "1");
-              localStorage.removeItem(GUIDED_TOUR_DONE_KEY);
-              dispatch(settingsActions.setShowOnboarding(false));
-              setActiveTab("chat");
-              setSidebarCollapsed(false);
-              setShowGuidedTour(true);
-            }}
-          />
-        </Suspense>
         <Toaster />
       </>
     );
@@ -640,6 +620,19 @@ function AppContent() {
 
           <button
             type="button"
+            className={`nav-item ${activeTab === "usage" ? "active" : ""}`}
+            onClick={() => setActiveTab("usage")}
+            title={t("nav.usage")}
+          >
+            <span className="nav-icon"><Wallet size={ICON} strokeWidth={1.5} /></span>
+            <span className="nav-label-wrap">
+              <span className="nav-label">{t("nav.usage")}</span>
+              <span className="nav-sub">{t("nav.usageSub")}</span>
+            </span>
+          </button>
+
+          <button
+            type="button"
             className="nav-item"
             onClick={() => setMoreOpen((v) => !v)}
             title={t("nav.more")}
@@ -724,6 +717,7 @@ function AppContent() {
             colorMode={colorMode}
             onToggleColorMode={() => setColorMode((m) => (m === "dark" ? "light" : "dark"))}
             onOpenSettings={() => openSettings("general")}
+            onOpenUsage={() => setActiveTab("usage")}
             onHelp={handleGuide}
             onMinimalMode={() => windowApi.enterMinimalMode()}
           />
@@ -818,6 +812,11 @@ function AppContent() {
               />
             </div>
           )}
+          {mountedTabs.has("usage") && (
+            <div className="tab-panel" hidden={activeTab !== "usage"}>
+              <UsageDashboardPage />
+            </div>
+          )}
         </Suspense>
       </main>
       {showGuidedTour && <GuidedTour onComplete={() => setShowGuidedTour(false)} />}
@@ -827,23 +826,27 @@ function AppContent() {
 }
 
 export default function App() {
+  let content;
+
   if (IS_OVERLAY) {
-    return (
+    content = (
       <Suspense fallback={<div className="loading-screen"><div className="loading-spinner" /><p>{i18n.t("common.loadingApp")}</p></div>}>
         <OverlayApp />
       </Suspense>
     );
-  }
-  if (IS_PRO_WINDOW) {
-    return (
+  } else if (IS_PRO_WINDOW) {
+    content = (
       <Suspense fallback={<div className="loading-screen"><div className="loading-spinner" /><p>{i18n.t("common.loadingApp")}</p></div>}>
         <ProWindow />
       </Suspense>
     );
+  } else {
+    content = (
+      <Provider store={store}>
+        <AppContent />
+      </Provider>
+    );
   }
-  return (
-    <Provider store={store}>
-      <AppContent />
-    </Provider>
-  );
+
+  return <AuthGate>{content}</AuthGate>;
 }
