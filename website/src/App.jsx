@@ -13,7 +13,6 @@ import {
   MonitorDown,
   Plug,
   Puzzle,
-  ShoppingBag,
   Users,
   Sparkles,
   Workflow,
@@ -63,11 +62,11 @@ const abilities = [
 ];
 
 const buildItems = [
-  '已完成包子品牌切换与桌面端运行',
-  '已接入办公、开发、设计三类主要工作场景',
-  '已修正图片模型误走聊天接口的问题',
-  '已支持中转站模型列表读取与模型选择',
-  '已清空历史对话，截图使用干净运行状态',
+  '围绕你的本地工作空间理解任务、文件和上下文',
+  '支持办公、开发、设计等常见工作场景持续推进',
+  '按任务需要调用合适模型、技能和工具完成处理',
+  '把复杂需求拆成清晰步骤，过程和结果都可追踪',
+  '交付文档、代码、素材、摘要等可继续打磨的成果',
 ];
 
 function SceneTabs({ activeScene, setActiveScene }) {
@@ -142,7 +141,7 @@ function AbilityGrid() {
   return (
     <section className="section abilities" id="abilities">
       <div className="section-heading">
-        <h2>包子现在能做什么</h2>
+        <h2>包子能做什么</h2>
       </div>
       <div className="ability-grid">
         {abilities.map(([title, desc, Icon]) => (
@@ -182,6 +181,27 @@ function CharacterSection() {
 }
 
 function WorkflowSection() {
+  const workflowItems = [
+    {
+      number: '01',
+      title: '理解上下文',
+      text: '读取当前会话、项目文件、已安装技能和你的配置。',
+      href: '/docs#context-workspace',
+    },
+    {
+      number: '02',
+      title: '拆解任务',
+      text: '把需求拆成办公、开发、设计或自动化步骤。',
+      href: '/docs#task-planning',
+    },
+    {
+      number: '03',
+      title: '执行并验证',
+      text: '调用本地工具、生成产物、跑检查，再把结果交给你调整。',
+      href: '/docs#execution-results',
+    },
+  ];
+
   return (
     <section className="section workflow-section" id="workflow">
       <div className="workflow-visual">
@@ -190,27 +210,15 @@ function WorkflowSection() {
       <div className="workflow-copy">
         <h2>从一句话到可检查的结果</h2>
         <div className="workflow-list">
-          <article>
-            <strong>01</strong>
-            <div>
-              <h3>理解上下文</h3>
-              <p>读取当前会话、项目文件、已安装技能和你的配置。</p>
-            </div>
-          </article>
-          <article>
-            <strong>02</strong>
-            <div>
-              <h3>拆解任务</h3>
-              <p>把需求拆成办公、开发、设计或自动化步骤。</p>
-            </div>
-          </article>
-          <article>
-            <strong>03</strong>
-            <div>
-              <h3>执行并验证</h3>
-              <p>调用本地工具、生成产物、跑检查，再把结果交给你调整。</p>
-            </div>
-          </article>
+          {workflowItems.map((item) => (
+            <Link key={item.number} to={item.href} className="workflow-item-link">
+              <strong>{item.number}</strong>
+              <div>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
     </section>
@@ -267,12 +275,11 @@ function MarketplaceSection() {
   return (
     <section className="section marketplace-section" id="market">
       <div className="section-heading">
-        <ShoppingBag size={24} />
-        <h2>公共市场</h2>
+        <h2>市场</h2>
         <p>专家 / 技能 / 团队 / 连接器——与桌面端、AgentZ、theAgentOS 共用同一后端。</p>
       </div>
 
-      <div className="scene-tabs" role="tablist" aria-label="市场分类">
+      <div className="scene-tabs marketplace-tabs" role="tablist" aria-label="市场分类">
         {MARKETPLACE_TABS.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -363,11 +370,10 @@ export default function App() {
           </span>
         </a>
         <nav aria-label="主导航">
-          <a href="#home">9X bot</a>
-          <a href="#market">市场</a>
+          <Link to="/">9X bot</Link>
+          <Link to="/marketplace">市场</Link>
           <a href={modelHubUrl}>模型</a>
-          <Link to="/marketplace">全部物品</Link>
-          <a href="#docs">文档</a>
+          <Link to="/docs">文档</Link>
         </nav>
         <div className="header-actions">
           <a className="login-action" href={modelHubLoginUrl}>登录</a>
@@ -379,7 +385,6 @@ export default function App() {
       <AbilityGrid />
       <MarketplaceSection />
       <CharacterSection />
-      <span className="anchor-target" id="docs" aria-hidden="true" />
       <WorkflowSection />
       <DownloadSection />
     </main>
