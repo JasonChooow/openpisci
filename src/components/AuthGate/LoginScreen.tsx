@@ -415,7 +415,7 @@ export function LoginScreen({
                 }}
               >
                 <Smartphone size={17} aria-hidden="true" />
-                {submitting && mode === "wechat" ? "等待微信授权…" : "微信登录"}
+                {submitting ? "等待微信授权…" : "微信登录"}
               </button>
             </div>
 

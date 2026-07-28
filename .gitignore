@@ -8,6 +8,7 @@ src-tauri/piscis-core/Cargo.lock
 node_modules/
 dist/
 .vite/
+.npm-cache/
 
 # Tauri build outputs
 src-tauri/target/
