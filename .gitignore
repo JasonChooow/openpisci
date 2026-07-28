@@ -9,6 +9,7 @@ node_modules/
 dist/
 .vite/
 .npm-cache/
+.env.local
 
 # Tauri build outputs
 src-tauri/target/
@@ -77,6 +78,8 @@ docs/tribon/
 
 # Local reference repos / docs
 references/
+!src-tauri/builtin_skillhub/ppt-master/references/
+!src-tauri/builtin_skillhub/ppt-master/references/**
 
 # Active brand marker (scripts/apply-brand.mjs)
 .brand-active

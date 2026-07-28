@@ -15,6 +15,7 @@ use crate::store::{
     db::ChatMessage, db::Session, db::SessionArtifact, db::SessionContextState, db::TaskSpine,
     db::TaskState, AppState,
 };
+use chrono::{DateTime, Local, Utc};
 use piscis_core::project_state::build_coordination_event_digest;
 use piscis_kernel::agent::messages::AgentEvent;
 use piscis_kernel::agent::plan::{summarize_todos, PlanTodoItem};
@@ -24,12 +25,17 @@ use piscis_kernel::llm::{
 };
 use piscis_kernel::policy::PolicyGate;
 use piscis_kernel::project_context::render_project_instruction_context;
-use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 use tauri::{AppHandle, Emitter, Manager, State};
+
+const MIN_LLM_READ_TIMEOUT_SECS: u32 = 300;
+
+fn effective_llm_read_timeout_secs(value: u32) -> u32 {
+    value.max(MIN_LLM_READ_TIMEOUT_SECS)
+}
 
 /// Attachment sent from the frontend with a chat message.
 /// Either `path` (local file path) or `data` (base64-encoded bytes) must be provided.
@@ -94,8 +100,8 @@ fn sanitize_session_workspace_name(title: Option<&str>) -> String {
     let mut last_separator = false;
 
     for ch in raw.chars() {
-        let is_invalid = matches!(ch, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*')
-            || ch.is_control();
+        let is_invalid =
+            matches!(ch, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*') || ch.is_control();
         let mapped = if is_invalid || ch.is_whitespace() {
             '-'
         } else {
@@ -166,8 +172,7 @@ fn build_unique_auto_session_workspace_root_allowing(
     allowed_existing: Option<&str>,
 ) -> Option<String> {
     let base = build_auto_session_workspace_root(default_workspace_root, title, created_at)?;
-    if allowed_existing
-        .is_some_and(|current| paths_match_for_pool_binding(&base, current))
+    if allowed_existing.is_some_and(|current| paths_match_for_pool_binding(&base, current))
         || !Path::new(&base).exists()
     {
         return Some(base);
@@ -175,8 +180,7 @@ fn build_unique_auto_session_workspace_root_allowing(
 
     for idx in 2..1000 {
         let candidate = format!("{base}-{idx}");
-        if allowed_existing
-            .is_some_and(|current| paths_match_for_pool_binding(&candidate, current))
+        if allowed_existing.is_some_and(|current| paths_match_for_pool_binding(&candidate, current))
             || !Path::new(&candidate).exists()
         {
             return Some(candidate);
@@ -192,7 +196,8 @@ fn is_auto_session_workspace_path(
     title: Option<&str>,
     created_at: DateTime<Utc>,
 ) -> bool {
-    let Some(expected) = build_auto_session_workspace_root(default_workspace_root, title, created_at)
+    let Some(expected) =
+        build_auto_session_workspace_root(default_workspace_root, title, created_at)
     else {
         return false;
     };
@@ -307,21 +312,31 @@ fn auto_match_preinstalled_skill_ids(content: &str) -> Option<SkillSelection> {
         });
     }
 
-    if presentation && (is_creation_request(&text) || text_has_any(&text, &["页", "pages", "deck"])) {
+    if presentation && (is_creation_request(&text) || text_has_any(&text, &["页", "pages", "deck"]))
+    {
         return Some(SkillSelection {
-            skill_ids: vec!["ppt-generator".to_string()],
+            skill_ids: vec!["ppt-master".to_string()],
             reason: SkillSelectionReason::AutoPptGeneration,
         });
     }
 
     let general_matches: &[(&[&str], &str)] = &[
-        (&["会议纪要", "会议记录", "录音转纪要", "meeting notes"], "meeting-notes-assistant"),
+        (
+            &["会议纪要", "会议记录", "录音转纪要", "meeting notes"],
+            "meeting-notes-assistant",
+        ),
         (&["word", "docx", "文档", "合同", "报告"], "word___docx"),
-        (&["excel", "xlsx", "数据分析", "数据可视化", "图表"], "data-analysis-skill"),
+        (
+            &["excel", "xlsx", "数据分析", "数据可视化", "图表"],
+            "data-analysis-skill",
+        ),
         (&["pdf", "ocr"], "pdf-convert-compdf"),
         (&["发票", "报销", "行程单"], "invoice-organizer"),
         (&["文件分类", "整理文件", "文件整理"], "file-classifier"),
-        (&["小红书", "xhs"], "善春ai_小红书爆款文案生成器___scai_xhs_viral_copywriter"),
+        (
+            &["小红书", "xhs"],
+            "善春ai_小红书爆款文案生成器___scai_xhs_viral_copywriter",
+        ),
         (&["公众号"], "公众号写手"),
         (&["短视频脚本", "口播脚本", "视频脚本"], "video-script-gen"),
         (&["热点", "爆款", "选题"], "viral-content-miner"),
@@ -329,7 +344,10 @@ fn auto_match_preinstalled_skill_ids(content: &str) -> Option<SkillSelection> {
         (&["prd", "产品需求文档"], "prd-generator"),
         (&["测试用例", "test case"], "testcase-generator"),
         (&["小程序", "taro", "mini program"], "taro-miniprogram-dev"),
-        (&["前端", "后端", "全栈", "写代码", "开发项目"], "fullstack-companion"),
+        (
+            &["前端", "后端", "全栈", "写代码", "开发项目"],
+            "fullstack-companion",
+        ),
     ];
 
     for (needles, skill_id) in general_matches {
@@ -477,7 +495,7 @@ async fn inject_explicit_skills_prefix(
             "User-selected skill routing: the user selected these skills for this turn. Their full instructions are already embedded below."
         }
         SkillSelectionReason::AutoPptGeneration => {
-            "Auto-selected skill routing: this request clearly asks for PPT/presentation generation, so `ppt-generator` is mandatory. Its full instructions are already embedded below. Do not call `file_read` to read SKILL.md. If the user attached a .docx, .doc, .pdf, .txt, .md, .xlsx, .csv, .pptx, or image file, classify each attachment as source content, data source, template/reference style, or visual material; extract useful content first, build a complete slides JSON from the source, then call the generator with `--slides-json`. Do not use topic-only generation when source attachments exist. For style, first infer from conversation memory, the user's stated preferences, current wording, and attachment industry. If style is still unclear, ask one concise preference question with no more than three options; if the user says to decide or to generate directly, choose the best fitting designed theme without asking. Do not expose debugging/tool chatter to the user, including file-read attempts, workspace access issues, truncated output, Add-Type, COM, or Visible warnings. Do not create a plain black deck, plain white deck, default-theme deck, or text-only slides. Before final delivery, verify that no body slide is empty, no placeholder text remains, compare columns are not duplicated, and the final PPT includes deliberate visual hierarchy, colors, layouts, and styled slides."
+            "Auto-selected skill routing: this request clearly asks for PPT/presentation generation, so `ppt-master` is mandatory. Follow the embedded SKILL.md and its local workflow files in order. If the user attached a .docx, .doc, .pdf, .txt, .md, .xlsx, .csv, .pptx, or image file, classify each attachment as source content, data source, template/reference style, or visual material and extract useful content first. Do not use topic-only generation when source attachments exist. For style, first infer from conversation memory, the user's stated preferences, current wording, and attachment industry. If style is still unclear, ask one concise preference question with no more than three options; if the user says to decide or to generate directly, choose the best fitting designed theme without asking. Do not ask ordinary users to install Python, Node, package managers, or command-line dependencies. Do not expose debugging/tool chatter to the user, including file-read attempts, workspace access issues, truncated output, Add-Type, COM, or Visible warnings. Do not create a plain black deck, plain white deck, default-theme deck, or text-only slides. Before final delivery, verify that no body slide is empty, no placeholder text remains, compare columns are not duplicated, and the final PPT includes deliberate visual hierarchy, colors, layouts, and styled slides."
         }
         SkillSelectionReason::AutoPptVideo => {
             "Auto-selected skill routing: this request asks to turn presentation slides into video, so `ppt-to-video` is mandatory. Its full instructions are already embedded below."
@@ -1243,10 +1261,7 @@ pub(crate) async fn resolve_session_workspace_root(
     default_workspace_root: String,
 ) -> Result<String, String> {
     let db = state.db.lock().await;
-    let Some(session) = db
-        .get_session(session_id)
-        .map_err(|e| e.to_string())?
-    else {
+    let Some(session) = db.get_session(session_id).map_err(|e| e.to_string())? else {
         return Ok(default_workspace_root);
     };
 
@@ -1363,7 +1378,8 @@ pub async fn rename_session(
     db.rename_session(&session_id, &title)
         .map_err(|e| e.to_string())?;
 
-    if let Some(session) = existing.filter(|session| is_auto_workspace_session_source(&session.source))
+    if let Some(session) =
+        existing.filter(|session| is_auto_workspace_session_source(&session.source))
     {
         let current_workspace = session
             .workspace_root
@@ -1392,8 +1408,7 @@ pub async fn rename_session(
                     let next_path = Path::new(&next_workspace);
                     if current_path.exists() && !next_path.exists() {
                         if std::fs::rename(current_path, next_path).is_err() {
-                            std::fs::create_dir_all(&next_workspace)
-                                .map_err(|e| e.to_string())?;
+                            std::fs::create_dir_all(&next_workspace).map_err(|e| e.to_string())?;
                         }
                     } else {
                         std::fs::create_dir_all(&next_workspace).map_err(|e| e.to_string())?;
@@ -1591,7 +1606,10 @@ pub async fn list_llm_provider_models(
         .await
         .map_err(|e| format!("Failed to parse model list: {}", e))?;
     if !status.is_success() {
-        return Err(format!("Model list request failed with {}: {}", status, value));
+        return Err(format!(
+            "Model list request failed with {}: {}",
+            status, value
+        ));
     }
 
     let mut models: Vec<String> = value
@@ -1716,7 +1734,7 @@ pub async fn chat_send(
             settings.vision_model.clone(),
             settings.vision_api_key.clone(),
             settings.vision_base_url.clone(),
-            settings.llm_read_timeout_secs,
+            effective_llm_read_timeout_secs(settings.llm_read_timeout_secs),
             settings.auto_compact_input_tokens_threshold,
             settings.project_instruction_budget_chars,
             settings.enable_project_instructions,
@@ -1825,29 +1843,29 @@ pub async fn chat_send(
                 .map(|(pid, model_id)| (pid, Some(model_id)))
                 .unwrap_or((provider_id, None));
             if let Some(p) = settings.find_llm_provider(lookup_provider_id) {
-            tracing::info!(
-                "chat_send: applying per-turn LLM provider override: {} ({}/{})",
-                lookup_provider_id,
-                p.provider,
-                selected_model.unwrap_or(&p.model)
-            );
-            provider = p.provider.clone();
-            model = selected_model.unwrap_or(&p.model).to_string();
-            api_key = p.effective_api_key().to_string();
-            base_url = p.base_url.clone();
-            if p.max_tokens > 0 {
-                max_tokens = p.max_tokens;
+                tracing::info!(
+                    "chat_send: applying per-turn LLM provider override: {} ({}/{})",
+                    lookup_provider_id,
+                    p.provider,
+                    selected_model.unwrap_or(&p.model)
+                );
+                provider = p.provider.clone();
+                model = selected_model.unwrap_or(&p.model).to_string();
+                api_key = p.effective_api_key().to_string();
+                base_url = p.base_url.clone();
+                if p.max_tokens > 0 {
+                    max_tokens = p.max_tokens;
+                }
+            } else {
+                tracing::warn!(
+                    "chat_send: requested LLM provider override not found: {}",
+                    lookup_provider_id
+                );
+                return Err(format!(
+                    "LLM provider '{}' not found. Please check Settings > Models.",
+                    lookup_provider_id
+                ));
             }
-        } else {
-            tracing::warn!(
-                "chat_send: requested LLM provider override not found: {}",
-                lookup_provider_id
-            );
-            return Err(format!(
-                "LLM provider '{}' not found. Please check Settings > Models.",
-                lookup_provider_id
-            ));
-        }
         }
     }
 
@@ -2006,10 +2024,7 @@ pub async fn chat_send(
         let base_url_clone = base_url.clone();
         tokio::spawn(async move {
             let event_name = format!("agent_event_{}", session_id_clone);
-            let _ = app_clone.emit(
-                &event_name,
-                AgentEvent::TextSegmentStart { iteration: 1 },
-            );
+            let _ = app_clone.emit(&event_name, AgentEvent::TextSegmentStart { iteration: 1 });
             match generate_image_for_chat(
                 &app_clone,
                 db_arc.clone(),
@@ -2233,7 +2248,11 @@ pub async fn chat_send(
     )
     .with_streaming(enable_streaming)
     .with_hooks(hooks)
-    .into_agent_loop(client, Some(guide_rx), Some(state.confirmation_responses.clone()));
+    .into_agent_loop(
+        client,
+        Some(guide_rx),
+        Some(state.confirmation_responses.clone()),
+    );
 
     let ctx = ToolContext {
         session_id: session_id.clone(),
@@ -2485,7 +2504,10 @@ async fn generate_image_for_chat(
         .await
         .map_err(|e| format!("Failed to parse image generation response: {}", e))?;
     if !status.is_success() {
-        return Err(format!("Image generation failed with {}: {}", status, value));
+        return Err(format!(
+            "Image generation failed with {}: {}",
+            status, value
+        ));
     }
 
     let first = value
@@ -2518,10 +2540,7 @@ async fn generate_image_for_chat(
     std::fs::write(&image_path, bytes).map_err(|e| e.to_string())?;
 
     let image_uri = path_to_file_uri(&image_path);
-    let assistant_content = format!(
-        "已用 `{}` 生成图片：\n\n![生成图片]({})",
-        model, image_uri
-    );
+    let assistant_content = format!("已用 `{}` 生成图片：\n\n![生成图片]({})", model, image_uri);
 
     {
         let db = db_arc.lock().await;
@@ -2550,7 +2569,10 @@ async fn generate_image_for_chat(
     if let Ok(db) = db_arc.try_lock() {
         if let Ok(artifacts) = db.list_session_artifacts(session_id, 1) {
             if let Some(artifact) = artifacts.first() {
-                let _ = app.emit(&format!("session_artifacts_updated_{}", session_id), artifact);
+                let _ = app.emit(
+                    &format!("session_artifacts_updated_{}", session_id),
+                    artifact,
+                );
             }
         }
     }
@@ -2985,7 +3007,7 @@ pub async fn run_agent_headless(
             settings.vision_model.clone(),
             settings.vision_api_key.clone(),
             settings.vision_base_url.clone(),
-            settings.llm_read_timeout_secs,
+            effective_llm_read_timeout_secs(settings.llm_read_timeout_secs),
             settings.auto_compact_input_tokens_threshold,
             settings.project_instruction_budget_chars,
             settings.enable_project_instructions,
@@ -5826,11 +5848,12 @@ pub async fn get_context_preview(
 #[cfg(test)]
 mod tests {
     use super::{
-        build_context_messages, build_main_chat_system_prompt, collapse_superseded_tool_failures,
-        build_auto_session_workspace_root, derive_headless_session_source,
+        build_auto_session_workspace_root, build_context_messages, build_main_chat_system_prompt,
+        collapse_superseded_tool_failures, derive_headless_session_source,
         extract_tool_minimals_from_history, minimal_tool_result_blocks,
-        paths_match_for_pool_binding, resolve_headless_memory_owner_id, resolve_headless_scene_kind,
-        resolve_pool_session_for_workspace, sanitize_session_workspace_name, HeadlessRunOptions,
+        paths_match_for_pool_binding, resolve_headless_memory_owner_id,
+        resolve_headless_scene_kind, resolve_pool_session_for_workspace,
+        sanitize_session_workspace_name, HeadlessRunOptions,
         SESSION_SOURCE_PISCIS_HEARTBEAT_GLOBAL, SESSION_SOURCE_PISCIS_POOL,
     };
     use crate::commands::config::scene::SceneKind;

@@ -57,6 +57,27 @@ const CHAT_SCENE_HEADLINES: Record<ChatScene, string> = {
   design: "你的设计超能力",
 };
 
+function formatChatError(error: unknown): string {
+  const raw = String(error ?? "").trim();
+  const lower = raw.toLowerCase();
+  const isTimeout =
+    lower.includes("timed out") ||
+    lower.includes("timeout") ||
+    lower.includes("operation timed out");
+  const isModelRequest =
+    lower.includes("chat/completions") ||
+    lower.includes("openai-compatible") ||
+    lower.includes("aiyuanbaohub") ||
+    lower.includes("llm");
+
+  if (isTimeout && isModelRequest) {
+    return "这次模型请求等待超时了，常见原因是中转站响应慢、模型排队或任务内容较长。包子已停止等待，你可以稍后重试，或换一个响应更快的模型继续。";
+  }
+
+  if (raw) return raw;
+  return "请求失败，请稍后重试。";
+}
+
 const CHAT_WELCOME_ACTIONS: Record<ChatScene, Array<{ label: string; prompt: string }>> = {
   office: [
     { label: "文档处理", prompt: "帮我处理一个文档" },
@@ -1564,7 +1585,7 @@ export default function Chat({
           flushBufferedDelta(boundSessionId);
           dispatch(chatActions.setRunning({ sessionId: boundSessionId, running: false }));
           dispatch(chatActions.clearStreaming(boundSessionId));
-          setSendError((event as { type: "error"; message: string }).message ?? "Unknown error");
+          setSendError(formatChatError((event as { type: "error"; message: string }).message));
           break;
       }
     }).then((unlisten) => {
@@ -2298,7 +2319,7 @@ export default function Chat({
       console.error('[Chat] send error:', e);
       dispatch(chatActions.setRunning({ sessionId: displaySessionId, running: false }));
       dispatch(chatActions.clearStreaming(displaySessionId));
-      setSendError(`${e}`);
+      setSendError(formatChatError(e));
     }
   }, [displaySessionId, messagesBySession, dispatch, t]);
 
@@ -2373,7 +2394,7 @@ export default function Chat({
       setTimeout(() => setInfoNotice(null), 3000);
       requestAnimationFrame(() => textareaRef.current?.focus());
     } catch (e) {
-      setSendError(`${e}`);
+      setSendError(formatChatError(e));
     } finally {
       setGuidanceSending(false);
     }

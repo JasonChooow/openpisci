@@ -83,7 +83,7 @@ export const DEFAULT_SETTINGS: SettingsData = {
   project_instruction_budget_chars: 8000,
   enable_project_instructions: true,
   piscis_personal_prompt: "",
-  llm_read_timeout_secs: 120,
+  llm_read_timeout_secs: 300,
   koi_timeout_secs: 600,
   heartbeat_enabled: true,
   heartbeat_interval_mins: 30,

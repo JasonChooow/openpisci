@@ -38,6 +38,8 @@ function authState(overrides: Partial<CloudAuth> = {}): CloudAuth {
 }
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
+  vi.stubEnv("VITE_9XBOT_DEV_BYPASS_AUTH", "");
   mocks.auth = authState();
 });
 
@@ -65,6 +67,18 @@ describe("AuthGate", () => {
     render(<AuthGate><div>受保护功能</div></AuthGate>);
 
     expect(screen.getByText("受保护功能")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "登录云端账户" })).not.toBeInTheDocument();
+  });
+
+  it("allows a developer-only auth bypass when explicitly enabled", () => {
+    vi.stubEnv("VITE_9XBOT_DEV_BYPASS_AUTH", "1");
+    render(
+      <AuthGate>
+        <div data-testid="protected-feature">feature</div>
+      </AuthGate>,
+    );
+
+    expect(screen.getByTestId("protected-feature")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "登录云端账户" })).not.toBeInTheDocument();
   });
 

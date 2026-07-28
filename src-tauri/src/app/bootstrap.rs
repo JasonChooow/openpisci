@@ -1165,14 +1165,23 @@ fn run_impl() {
                         .path()
                         .app_data_dir()
                         .unwrap_or_else(|_| std::path::PathBuf::from(".piscis"));
-                    let marker = app_dir.join("skillhub_preinstalled_skills_v4");
+                    let marker = app_dir.join("skillhub_preinstalled_skills_v6");
                     if marker.exists() {
                         return;
                     }
+                    let resource_skillhub_dir = app_handle_clone
+                        .path()
+                        .resource_dir()
+                        .ok()
+                        .map(|dir| dir.join("builtin_skillhub"));
 
                     let seeded = {
                         let db = db_arc.lock().await;
-                        crate::builtin_skillhub::seed_preinstalled_skills(&db, &app_dir)
+                        crate::builtin_skillhub::seed_preinstalled_skills(
+                            &db,
+                            &app_dir,
+                            resource_skillhub_dir.as_deref(),
+                        )
                     };
 
                     match seeded {

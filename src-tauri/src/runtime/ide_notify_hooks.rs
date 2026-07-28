@@ -12,6 +12,7 @@ use piscis_kernel::agent::file_journal::FileJournal;
 use piscis_kernel::agent::hooks::{AgentHooks, ContextHookEvent, HookDecision, ToolHookEvent};
 use piscis_kernel::agent::tool::ToolResult;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Emitter, Manager};
@@ -26,11 +27,28 @@ static SESSION_COMPACTION_COUNTS: Lazy<Mutex<HashMap<String, u32>>> =
 pub struct JournalWithIdeNotify {
     journal: Arc<FileJournal>,
     app: AppHandle,
+    artifact_session_id: Option<String>,
 }
 
 impl JournalWithIdeNotify {
     pub fn new(journal: Arc<FileJournal>, app: AppHandle) -> Self {
-        Self { journal, app }
+        Self {
+            journal,
+            app,
+            artifact_session_id: None,
+        }
+    }
+
+    pub fn new_with_artifact_session(
+        journal: Arc<FileJournal>,
+        app: AppHandle,
+        artifact_session_id: String,
+    ) -> Self {
+        Self {
+            journal,
+            app,
+            artifact_session_id: Some(artifact_session_id),
+        }
     }
 
     fn rel_path(workspace_root: &std::path::Path, raw: &str) -> Option<String> {
@@ -45,6 +63,42 @@ impl JournalWithIdeNotify {
             return None;
         }
         Some(rel)
+    }
+
+    fn artifact_path(workspace_root: &Path, raw: &str) -> Option<PathBuf> {
+        let raw = raw.trim();
+        if raw.is_empty() {
+            return None;
+        }
+        let path = PathBuf::from(raw);
+        let path = if path.is_absolute() {
+            path
+        } else {
+            workspace_root.join(path)
+        };
+        let metadata = std::fs::metadata(&path).ok()?;
+        if !metadata.is_file() {
+            return None;
+        }
+        Some(std::fs::canonicalize(&path).unwrap_or(path))
+    }
+
+    fn artifact_type(path: &Path) -> &'static str {
+        match path
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| ext.to_ascii_lowercase())
+            .as_deref()
+        {
+            Some("png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" | "bmp" | "ico" | "avif") => {
+                "image"
+            }
+            Some("md" | "markdown" | "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "pdf") => {
+                "document"
+            }
+            Some("html" | "htm") => "file",
+            _ => "file",
+        }
     }
 
     fn emit_file_changed(&self, ev: &ToolHookEvent<'_>, kind: &str) {
@@ -64,6 +118,74 @@ impl JournalWithIdeNotify {
                 "path": path,
                 "kind": kind,
             }),
+        );
+    }
+
+    async fn register_file_artifact(&self, ev: &ToolHookEvent<'_>) {
+        let Some(path) = ev
+            .input
+            .get("path")
+            .and_then(|v| v.as_str())
+            .and_then(|raw| Self::artifact_path(ev.workspace_root, raw))
+        else {
+            return;
+        };
+
+        let Some(state) = self.app.try_state::<crate::store::AppState>() else {
+            return;
+        };
+
+        let uri = path.to_string_lossy().to_string();
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("生成文件")
+            .to_string();
+        let artifact_type = Self::artifact_type(&path);
+        let metadata_json = serde_json::json!({
+            "auto_registered": true,
+            "workspace_root": ev.workspace_root.to_string_lossy(),
+            "path": uri,
+        })
+        .to_string();
+
+        let session_id = self.artifact_session_id.as_deref().unwrap_or(ev.session_id);
+
+        let artifact = {
+            let db = state.db.lock().await;
+            if let Ok(existing) = db.list_session_artifacts(session_id, 500) {
+                if existing.iter().any(|artifact| {
+                    artifact
+                        .uri
+                        .as_deref()
+                        .map(|value| value.eq_ignore_ascii_case(&uri))
+                        .unwrap_or(false)
+                }) {
+                    return;
+                }
+            }
+
+            match db.add_session_artifact(
+                session_id,
+                &name,
+                artifact_type,
+                Some(&uri),
+                "本回合生成或修改的文件",
+                Some(ev.tool_name),
+                Some(ev.tool_use_id),
+                Some(&metadata_json),
+            ) {
+                Ok(artifact) => artifact,
+                Err(err) => {
+                    tracing::debug!("auto artifact registration skipped for {}: {}", uri, err);
+                    return;
+                }
+            }
+        };
+
+        let _ = self.app.emit(
+            &format!("session_artifacts_updated_{}", session_id),
+            &artifact,
         );
     }
 }
@@ -93,6 +215,7 @@ impl AgentHooks for JournalWithIdeNotify {
             return;
         }
         self.emit_file_changed(ev, "modified");
+        self.register_file_artifact(ev).await;
     }
 
     async fn on_context_event(&self, ev: &ContextHookEvent<'_>) {
