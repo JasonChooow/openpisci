@@ -66,8 +66,8 @@ interface Props {
 }
 
 const PANCAKE_DASHBOARD_URL = 'https://pancake.waffo.ai/merchant/dashboard'
-const DEFAULT_NEW_STORE_NAME = 'baozi-model-service'
-const DEFAULT_NEW_PRODUCT_NAME = 'baozi-wallet-topup'
+const DEFAULT_NEW_STORE_NAME = '9xbot-model-service'
+const DEFAULT_NEW_PRODUCT_NAME = '9xbot-wallet-topup'
 const DEFAULT_NEW_PAIR_NAME = `${DEFAULT_NEW_STORE_NAME} + ${DEFAULT_NEW_PRODUCT_NAME}`
 
 export function WaffoPancakeSettingsSection({

@@ -21,7 +21,7 @@ For commercial licensing, please contact support@quantumnous.com
  */
 
 // System Configuration Defaults
-export const DEFAULT_SYSTEM_NAME = '包子'
+export const DEFAULT_SYSTEM_NAME = '9X bot'
 export const DEFAULT_LOGO = '/baozi-logo.png'
 
 // LocalStorage Keys

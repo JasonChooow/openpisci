@@ -37,7 +37,7 @@ export function SignUp() {
             {t('Create an account')}
           </h2>
           <p className='text-muted-foreground text-sm'>
-            {t('Use Baozi in 9X bot or connect from your own applications.')}
+            {t('Use 9X bot models directly or connect from your own applications.')}
           </p>
           <p className='text-muted-foreground text-left text-sm sm:text-base'>
             {t('Already have an account?')}{' '}

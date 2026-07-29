@@ -151,7 +151,7 @@ export function ModelCarousel(props: ModelCarouselProps) {
         <div className='border-border/70 bg-background mx-auto mb-7 flex w-fit max-w-full items-center gap-3 border px-3 py-2 shadow-sm sm:gap-4 sm:px-4'>
           <img
             src='/baozi-logo.png'
-            alt='包子'
+            alt='9X bot'
             className='size-8 shrink-0 rounded-md object-contain sm:size-9'
           />
           <span
@@ -186,7 +186,7 @@ export function ModelCarousel(props: ModelCarouselProps) {
           )}
         </p>
         <p className='text-muted-foreground/80 mt-2 text-xs sm:text-sm'>
-          包子 × 中国移动战略合作，共同推进企业级 AI 算力服务与模型应用落地
+          9X bot 携手中国移动，共同推进企业级 AI 算力服务与模型应用落地
         </p>
         <div className='border-border mt-5 inline-flex max-w-full items-center gap-2 border-y px-1 py-2 text-center text-sm leading-5 font-bold sm:text-base'>
           <Sparkles className='size-4 shrink-0 text-[#ff4f78]' />

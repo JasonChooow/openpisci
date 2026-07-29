@@ -12,13 +12,13 @@ export default function Footer() {
               <strong>包子 · 9X bot</strong>
             </div>
             <p className="footer-desc">
-              Agent 时代的个人 OPC 工作室。专家、技能、模型路由与桌面客户端，一个账户全部打通。
+              Agent 时代的个人 OPC 工作室。专家、技能、模型服务与桌面客户端，一个账户全部打通。
             </p>
           </div>
           <div className="footer-col">
             <h4>产品</h4>
-            <Link to="/marketplace">公共市场</Link>
-            <Link to="/models">模型路由</Link>
+            <Link to="/marketplace">市场</Link>
+            <Link to="/model">模型服务</Link>
             <a href="/#download">下载桌面端</a>
           </div>
           <div className="footer-col">
@@ -38,7 +38,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="footer-bottom">
-          <span>© {new Date().getFullYear()} 9X bot · 包子桌面智能助手</span>
+          <span>© {new Date().getFullYear()} 9X bot · 包子 AI 办公助手</span>
           <span className="num">Built for agents</span>
         </div>
       </div>

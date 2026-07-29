@@ -77,7 +77,7 @@ function Hero({ totalCount }) {
             个人 <span className="hero-keyword">OPC 工作室</span>
           </h1>
           <p className="hero-sub">
-            包子把专家、技能与模型路由装进你的桌面。像 Hugging Face 之于模型，
+            包子把专家、技能与模型服务装进你的桌面。像 Hugging Face 之于模型，
             这里是 Agent 能力的中转站与社区。
           </p>
           <div className="hero-search">
@@ -142,9 +142,9 @@ function TrendingSection({ assets, loading }) {
 const BENTO = [
   {
     icon: Route,
-    title: '云端模型路由',
+    title: '云端模型服务',
     desc: '一个账户接入多家模型，网关按成本与可用性自动选路，用量与余额实时可见。',
-    link: '/models',
+    link: '/model',
     linkText: '查看可用模型',
   },
   {
@@ -177,20 +177,20 @@ function BentoSection() {
         <Reveal className="section-head">
           <p className="section-eyebrow">Platform</p>
           <h2>一个账户，打通 Agent 全链路</h2>
-          <p>市场、模型路由、桌面客户端 —— 同一套后端，同一份数据。</p>
+          <p>市场、模型服务、桌面客户端 —— 同一套后端，同一份数据。</p>
         </Reveal>
         <div className="bento">
           <Reveal className="bento-feature" delay={0}>
             <SpotlightCard className="bento-card bento-feature">
               <div className="bento-feature-copy">
                 <span className="bento-icon"><MonitorDown size={18} /></span>
-                <h3>包子桌面客户端</h3>
+                <h3>9X bot 桌面端</h3>
                 <p>
                   所有市场内容与模型能力都落在本地桌面端执行：读项目、改文件、生成产物，
                   结果留在你的工作空间里。
                 </p>
               </div>
-              <img src="/assets/baozi-app-screenshot.png?v=user-provided" alt="包子桌面端运行界面" loading="lazy" />
+              <img src="/assets/baozi-app-screenshot.png?v=user-provided" alt="9X bot 桌面端运行界面" loading="lazy" />
             </SpotlightCard>
           </Reveal>
           {BENTO.map((item, i) => {
@@ -298,7 +298,7 @@ function DownloadSection() {
         <Reveal>
           <div className="download-cta">
             <div>
-              <h2>下载包子桌面端</h2>
+              <h2>下载 9X bot 桌面端</h2>
               <p>
                 安装后登录云端账户，市场里的专家、技能与模型即刻可用。
                 模型、技能和项目文件都由你自己掌控。

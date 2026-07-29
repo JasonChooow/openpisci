@@ -1,20 +1,12 @@
 import React from 'react';
-import { motion } from 'motion/react';
 import { Download } from 'lucide-react';
 import SpotlightCard from './SpotlightCard';
 
 const KIND_LABEL = { expert: '专家', skill: '技能', team: '团队', connector: '连接器' };
 
-const MotionSpotlight = motion.create(SpotlightCard);
-
 export default function AssetCard({ item, onOpen }) {
   return (
-    <MotionSpotlight
-      layout
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.98 }}
-      transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+    <SpotlightCard
       className="mp-card"
       onClick={() => onOpen(item)}
       role="button"
@@ -46,6 +38,6 @@ export default function AssetCard({ item, onOpen }) {
           </span>
         )}
       </div>
-    </MotionSpotlight>
+    </SpotlightCard>
   );
 }
