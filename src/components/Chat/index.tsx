@@ -967,6 +967,8 @@ export default function Chat({
   }, [dispatch]);
 
   const rawMessages = displaySessionId ? messagesBySession[displaySessionId] ?? [] : [];
+  const messagesBySessionRef = useRef(messagesBySession);
+  messagesBySessionRef.current = messagesBySession;
   const chatInputHistoryScope = displaySessionId ? `chat:${displaySessionId}` : null;
 
   useEffect(() => {
@@ -1281,6 +1283,21 @@ export default function Chat({
     };
   }, [displaySessionId]);
 
+  const finishHistoryLoadAfterPaint = useCallback(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = messagesAreaRef.current;
+        const prevScrollHeight = scrollRestoreRef.current;
+        scrollRestoreRef.current = null;
+        if (el && prevScrollHeight != null) {
+          el.scrollTop = Math.max(0, el.scrollHeight - prevScrollHeight);
+        }
+        loadingMoreRef.current = false;
+        setLoadingMoreHistory(false);
+      });
+    });
+  }, []);
+
   // Load CHAT_LAZY_STEP older messages (incremental prepend), triggered by scrolling to top
   const loadMoreHistory = useCallback(() => {
     if (!displaySessionId || loadingMoreRef.current) return;
@@ -1298,33 +1315,30 @@ export default function Chat({
         // Advance the DB offset past every row we just consumed (including any that
         // happen to already be displayed), so the next page continues strictly older.
         loadedDbCountRef.current = offset + older.length;
-        const existingIds = new Set((messagesBySession[displaySessionId] ?? []).map((m) => m.id));
+        const existingIds = new Set((messagesBySessionRef.current[displaySessionId] ?? []).map((m) => m.id));
         const newOnes = older.filter((m) => !existingIds.has(m.id));
         setHasMoreHistory(older.length === CHAT_LAZY_STEP);
         if (newOnes.length > 0) {
           dispatch(chatActions.prependChatMessages({ sessionId: displaySessionId, messages: older }));
           setCapacity((c) => c + newOnes.length);
-          // Scroll position is restored by the layout effect once the prepend paints.
+          // The layout effect restores scroll in the normal case; this fallback also
+          // releases loading if a concurrent reload/trim keeps rawMessages.length unchanged.
+          finishHistoryLoadAfterPaint();
         } else {
           // This page was entirely already-displayed rows. The store length is
           // unchanged, so the scroll-restore layout effect won't fire — release
           // the guards here so the next scroll-up can fetch the next older page.
-          scrollRestoreRef.current = null;
-          loadingMoreRef.current = false;
-          setLoadingMoreHistory(false);
+          finishHistoryLoadAfterPaint();
         }
       } else {
         setHasMoreHistory(false);
-        scrollRestoreRef.current = null;
-        loadingMoreRef.current = false;
-        setLoadingMoreHistory(false);
+        finishHistoryLoadAfterPaint();
       }
     }).catch(() => {
-      scrollRestoreRef.current = null;
-      loadingMoreRef.current = false;
-      setLoadingMoreHistory(false);
+      setSendError("历史消息加载失败，请稍后再试。");
+      finishHistoryLoadAfterPaint();
     });
-  }, [displaySessionId, messagesBySession, dispatch]);
+  }, [displaySessionId, dispatch, finishHistoryLoadAfterPaint]);
 
   // Restore scroll after prepend is committed to the DOM (avoids locking scrollTop at 0)
   useLayoutEffect(() => {
