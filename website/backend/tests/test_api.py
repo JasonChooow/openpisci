@@ -29,6 +29,91 @@ def test_healthz(client: TestClient):
     assert resp.json()["status"] == "ok"
 
 
+# ── Public model catalog (/api/marketplace/models) ─────────────────────────
+
+
+@pytest.fixture()
+def models_client(isolated_backend, tmp_path, monkeypatch):
+    """TestClient with a dedicated tmp sqlite DB seeded with providers/models."""
+    import sqlite3
+
+    import app.config as config
+    import app.db as db
+
+    db_path = tmp_path / "models-test.sqlite3"
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{db_path}")
+    config._settings = None  # type: ignore[attr-defined]
+    db.reset_db_cache()
+
+    from app.main import create_app
+
+    with TestClient(create_app()) as c:
+        # Lifespan created the tables; seed rows through the raw file.
+        conn = sqlite3.connect(db_path)
+        conn.execute(
+            "INSERT INTO llm_providers (name, base_url, api_key_encrypted, is_active, health_status, avg_latency_ms)"
+            " VALUES ('openai-main', 'https://api.openai.com/v1', 'secret', 1, 'healthy', 120)"
+        )
+        conn.execute(
+            "INSERT INTO llm_providers (name, base_url, api_key_encrypted, is_active, health_status, avg_latency_ms)"
+            " VALUES ('disabled-p', 'https://x', 'secret', 0, 'unknown', 0)"
+        )
+        conn.execute(
+            "INSERT INTO models (name, display_name, description, category, is_active)"
+            " VALUES ('gpt-4o', 'GPT-4o', 'Flagship omni model', 'chat', 1)"
+        )
+        conn.execute(
+            "INSERT INTO models (name, display_name, description, category, is_active)"
+            " VALUES ('hidden-model', 'Hidden', 'should not appear', 'chat', 0)"
+        )
+        conn.execute(
+            "INSERT INTO models (name, display_name, description, category, is_active)"
+            " VALUES ('text-embedding-3', 'Embedding 3', 'Vectors', 'embedding', 1)"
+        )
+        conn.execute(
+            "INSERT INTO provider_models (provider_id, model_id, cost_input_per_1k, cost_output_per_1k, priority, is_active)"
+            " VALUES (1, 1, 0.03, 0.06, 0, 1)"
+        )
+        conn.execute(
+            "INSERT INTO provider_models (provider_id, model_id, cost_input_per_1k, cost_output_per_1k, priority, is_active)"
+            " VALUES (1, 3, 0.001, 0.001, 0, 1)"
+        )
+        # Model mapped to a disabled provider must not leak.
+        conn.execute(
+            "INSERT INTO provider_models (provider_id, model_id, cost_input_per_1k, cost_output_per_1k, priority, is_active)"
+            " VALUES (2, 2, 0.01, 0.01, 0, 1)"
+        )
+        conn.commit()
+        conn.close()
+        yield c
+
+
+def test_public_models_no_auth(models_client: TestClient):
+    resp = models_client.get("/api/marketplace/models")
+    assert resp.status_code == 200
+    models = {m["id"]: m for m in resp.json()["models"]}
+    assert "gpt-4o" in models
+    assert "text-embedding-3" in models
+    # inactive model and model only on disabled provider are hidden
+    assert "hidden-model" not in models
+
+
+def test_public_models_sanitized(models_client: TestClient):
+    body = models_client.get("/api/marketplace/models").json()
+    allowed = {"id", "display_name", "description", "category", "providers", "pricing"}
+    for m in body["models"]:
+        assert set(m.keys()) == allowed
+        assert "base_url" not in str(m).lower()
+        assert "api_key" not in str(m).lower()
+        assert "secret" not in str(m).lower()
+
+
+def test_public_models_category_filter(models_client: TestClient):
+    body = models_client.get("/api/marketplace/models?category=embedding").json()
+    assert [m["id"] for m in body["models"]] == ["text-embedding-3"]
+    assert body["models"][0]["pricing"]["currency"] == "CNY"
+
+
 def test_index_public(client: TestClient):
     resp = client.get("/api/marketplace/index")
     assert resp.status_code == 200

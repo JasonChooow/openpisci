@@ -263,7 +263,7 @@ export function LoginScreen({
       <section className="auth-card" aria-labelledby="auth-title">
         <header className="auth-brand">
           <span className="auth-brand-icon" aria-hidden="true">
-            <img src={brand.logoPath} alt="" width={25} height={25} />
+            <img src={brand.heroPath} alt="" width={44} height={44} />
           </span>
           <div>
             <strong>{brandName}</strong>

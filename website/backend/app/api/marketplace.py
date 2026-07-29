@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from ..auth.deps import require_username
 from ..auth.jwt import issue_token
@@ -40,6 +41,9 @@ from ..core.repository import (
     parse_asset_id,
 )
 from ..core.signature import verify_payload as verify_signature
+from ..db import get_session
+from ..models.model import Model, ProviderModel
+from ..models.provider import LlmProvider
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +103,68 @@ def _filter_products_by_app(
 
 
 # ── Public catalog ──────────────────────────────────────────────────────────
+
+@router.get("/models")
+async def list_public_models(
+    session=Depends(get_session),
+    category: Optional[str] = Query(default=None),
+):
+    """Public, read-only model catalog for the marketing site.
+
+    Returns sanitized fields only — no provider base_url / api_key / internal
+    routing config. Anonymous visitors must be able to browse which models the
+    gateway offers before signing up.
+    """
+    stmt = (
+        select(
+            Model.name,
+            Model.display_name,
+            Model.description,
+            Model.category,
+            LlmProvider.name,
+            ProviderModel.cost_input_per_1k,
+            ProviderModel.cost_output_per_1k,
+        )
+        .join(ProviderModel, ProviderModel.model_id == Model.id)
+        .join(LlmProvider, LlmProvider.id == ProviderModel.provider_id)
+        .where(
+            Model.is_active.is_(True),
+            ProviderModel.is_active.is_(True),
+            LlmProvider.is_active.is_(True),
+        )
+        .order_by(Model.category, Model.name)
+    )
+    rows = (await session.execute(stmt)).all()
+
+    grouped: Dict[str, Dict[str, Any]] = {}
+    for name, display, desc, cat, provider_name, cin, cout in rows:
+        if category and cat != category:
+            continue
+        entry = grouped.setdefault(
+            name,
+            {
+                "id": name,
+                "display_name": display,
+                "description": desc,
+                "category": cat,
+                "providers": [],
+                "pricing": {
+                    "input_per_1k": cin,
+                    "output_per_1k": cout,
+                    "currency": "CNY",
+                },
+            },
+        )
+        if provider_name not in entry["providers"]:
+            entry["providers"].append(provider_name)
+        # Keep the cheapest pricing across providers.
+        if cin < entry["pricing"]["input_per_1k"]:
+            entry["pricing"]["input_per_1k"] = cin
+        if cout < entry["pricing"]["output_per_1k"]:
+            entry["pricing"]["output_per_1k"] = cout
+
+    return {"models": list(grouped.values())}
+
 
 @router.get("/index")
 async def get_index(

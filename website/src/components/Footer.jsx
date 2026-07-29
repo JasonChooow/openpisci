@@ -1,0 +1,47 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+
+export default function Footer() {
+  return (
+    <footer className="footer">
+      <div className="wrap">
+        <div className="footer-grid">
+          <div>
+            <div className="footer-brand">
+              <img src="/assets/baozi-logo.png" alt="" />
+              <strong>包子 · 9X bot</strong>
+            </div>
+            <p className="footer-desc">
+              Agent 时代的个人 OPC 工作室。专家、技能、模型路由与桌面客户端，一个账户全部打通。
+            </p>
+          </div>
+          <div className="footer-col">
+            <h4>产品</h4>
+            <Link to="/marketplace">公共市场</Link>
+            <Link to="/models">模型路由</Link>
+            <a href="/#download">下载桌面端</a>
+          </div>
+          <div className="footer-col">
+            <h4>生态</h4>
+            <a href="https://github.com/JasonChooow/openpisci" target="_blank" rel="noreferrer">
+              GitHub
+            </a>
+            <a href="https://www.dimnuo.com" target="_blank" rel="noreferrer">
+              官网
+            </a>
+          </div>
+          <div className="footer-col">
+            <h4>账户</h4>
+            <a href="/api/auth/register" target="_blank" rel="noreferrer">
+              注册账户
+            </a>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          <span>© {new Date().getFullYear()} 9X bot · 包子桌面智能助手</span>
+          <span className="num">Built for agents</span>
+        </div>
+      </div>
+    </footer>
+  );
+}

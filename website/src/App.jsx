@@ -1,387 +1,353 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  ArrowRight,
   Bot,
-  CheckCircle2,
-  Code2,
-  Download,
-  FileText,
-  Images,
-  Layers3,
-  MailCheck,
-  MessageSquareText,
   MonitorDown,
   Plug,
   Puzzle,
-  ShoppingBag,
+  Route,
   Users,
-  Sparkles,
-  Workflow,
-  ArrowRight,
 } from 'lucide-react';
+import Nav from './components/Nav';
+import Footer from './components/Footer';
+import Reveal from './components/Reveal';
+import SpotlightCard from './components/SpotlightCard';
+import CountUp from './components/CountUp';
+import SearchBox from './components/SearchBox';
+import TrendingList from './components/TrendingList';
 
-const modelHubBaseUrl =
-  import.meta.env.VITE_MODEL_HUB_URL || 'http://127.0.0.1:3000';
-const normalizedModelHubUrl = modelHubBaseUrl.replace(/\/$/, '');
-const modelHubUrl = `${normalizedModelHubUrl}/pricing`;
-const modelHubLoginUrl = `${normalizedModelHubUrl}/sign-in`;
+/* ---------------- data ---------------- */
 
-const scenes = [
-  {
-    id: 'office',
-    label: '日常办公',
-    icon: FileText,
-    title: '把反复出现的文档、会议、表格和周报交给包子',
-    text: '包子已经接入本地桌面端，可调用技能处理 Word、PPT、PDF、表格、会议纪要、邮件摘要和文件整理，让办公任务从对话直接进入执行。',
-    chips: ['周报生成', '会议纪要', 'PPT 初稿', 'PDF 处理'],
-  },
-  {
-    id: 'code',
-    label: '代码开发',
-    icon: Code2,
-    title: '能读项目、改文件、跑检查，也能解释为什么这么改',
-    text: '包子以项目上下文为中心工作，支持代码审查、报错定位、脚本生成、构建检查和多步修复，适合把本地开发任务拆给它持续推进。',
-    chips: ['代码审查', '修复报错', '生成脚本', '项目检查'],
-  },
-  {
-    id: 'design',
-    label: '设计创意',
-    icon: Images,
-    title: '从一句话到素材、文案、提示词和设计方向',
-    text: '设计场景已经区分普通对话模型与图片生成模型，包子可以把海报、角色、分镜、商品图和提示词流程拆开执行。',
-    chips: ['海报方向', '提示词', '分镜图', '图片模型'],
-  },
-];
-
-const abilities = [
-  ['文件与文档', '读取、整理、改写、生成可交付文件', FileText],
-  ['多模型调度', '自动识别聊天、图片、视觉等不同能力', Layers3],
-  ['技能调用', '把重复工作封装成可复用技能流程', Workflow],
-  ['团队协同', '可把复杂任务拆成专家分工推进', Bot],
-  ['消息入口', '预留 IM 渠道接入，支持外部消息触发', MessageSquareText],
-  ['结果沉淀', '保留任务状态、产物和后续可追踪记录', MailCheck],
-];
-
-const buildItems = [
-  '已完成包子品牌切换与桌面端运行',
-  '已接入办公、开发、设计三类主要工作场景',
-  '已修正图片模型误走聊天接口的问题',
-  '已支持中转站模型列表读取与模型选择',
-  '已清空历史对话，截图使用干净运行状态',
-];
-
-function SceneTabs({ activeScene, setActiveScene }) {
-  return (
-    <div className="scene-tabs" role="tablist" aria-label="包子工作场景">
-      {scenes.map((scene) => {
-        const Icon = scene.icon;
-        return (
-          <button
-            key={scene.id}
-            className={activeScene === scene.id ? 'active' : ''}
-            onClick={() => setActiveScene(scene.id)}
-            type="button"
-            role="tab"
-            aria-selected={activeScene === scene.id}
-          >
-            <Icon size={18} />
-            <span>{scene.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function ProductShot() {
-  return (
-    <div className="product-shot" aria-label="包子桌面端运行截图">
-      <img src="/assets/baozi-app-screenshot.png?v=user-provided" alt="包子桌面智能体完整运行界面" />
-    </div>
-  );
-}
-
-function Hero() {
-  const [activeScene, setActiveScene] = useState('office');
-  const scene = useMemo(() => scenes.find((item) => item.id === activeScene), [activeScene]);
-  const Icon = scene.icon;
-
-  return (
-    <section className="hero" id="home">
-      <div className="hero-copy">
-        <h1>包子</h1>
-        <p className="hero-name">9X bot AI 办公助手</p>
-        <div className="hero-actions">
-          <a className="primary-action" href="#download">
-            <Download size={18} />
-            下载桌面端
-          </a>
-        </div>
-        <SceneTabs activeScene={activeScene} setActiveScene={setActiveScene} />
-        <div className="scene-copy">
-          <Icon size={24} />
-          <div>
-            <h2>{scene.title}</h2>
-            <p>{scene.text}</p>
-            <div className="chip-row">
-              {scene.chips.map((chip) => (
-                <span key={chip}>{chip}</span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="hero-media" id="live-shot">
-        <ProductShot />
-      </div>
-    </section>
-  );
-}
-
-function AbilityGrid() {
-  return (
-    <section className="section abilities" id="abilities">
-      <div className="section-heading">
-        <h2>包子现在能做什么</h2>
-      </div>
-      <div className="ability-grid">
-        {abilities.map(([title, desc, Icon]) => (
-          <article key={title} className="ability-card">
-            <Icon size={24} />
-            <h3>{title}</h3>
-            <p>{desc}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function CharacterSection() {
-  return (
-    <section className="character-section" id="character">
-      <div className="character-copy">
-        <h2>智能、贴心、可靠的办公搭档</h2>
-        <p>
-          包子的 IP 已经从“章鱼一样多线程工作”的设定落到桌面端体验里：它负责理解任务、选择工具、持续推进，并把结果留在你的工作空间里。
-        </p>
-        <ul>
-          {buildItems.map((item) => (
-            <li key={item}>
-              <CheckCircle2 size={18} />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className="character-image">
-        <img src="/assets/baozi-character-live.jpg" alt="包子 AI 办公助手形象图" />
-      </div>
-    </section>
-  );
-}
-
-function WorkflowSection() {
-  return (
-    <section className="section workflow-section" id="workflow">
-      <div className="workflow-visual">
-        <img src="/assets/baozi-illustrations.png" alt="包子协助团队处理办公任务的插画" />
-      </div>
-      <div className="workflow-copy">
-        <h2>从一句话到可检查的结果</h2>
-        <div className="workflow-list">
-          <article>
-            <strong>01</strong>
-            <div>
-              <h3>理解上下文</h3>
-              <p>读取当前会话、项目文件、已安装技能和你的配置。</p>
-            </div>
-          </article>
-          <article>
-            <strong>02</strong>
-            <div>
-              <h3>拆解任务</h3>
-              <p>把需求拆成办公、开发、设计或自动化步骤。</p>
-            </div>
-          </article>
-          <article>
-            <strong>03</strong>
-            <div>
-              <h3>执行并验证</h3>
-              <p>调用本地工具、生成产物、跑检查，再把结果交给你调整。</p>
-            </div>
-          </article>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-const MARKETPLACE_TABS = [
-  { key: 'experts', label: '专家', icon: Bot, kind: 'expert' },
-  { key: 'skills', label: '技能', icon: Puzzle, kind: 'skill' },
-  { key: 'teams', label: '团队', icon: Users, kind: 'team' },
-  { key: 'connectors', label: '连接器', icon: Plug, kind: 'connector' },
-];
-
-function MarketplaceSection() {
-  const [index, setIndex] = useState(null);
-  const [activeTab, setActiveTab] = useState('experts');
+function useAssets() {
+  const [assets, setAssets] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    fetch('/api/marketplace/index?client_app=web&surface=web')
+    fetch('/api/marketplace/assets?client_app=web&surface=web')
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
       })
       .then((data) => {
-        if (!cancelled) {
-          setIndex(data || {});
-          setError(null);
-        }
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : Array.isArray(data?.assets) ? data.assets : [];
+        setAssets(list);
+        setError(null);
       })
-      .catch((e) => {
-        if (!cancelled) setError(e.message || String(e));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      .catch((e) => !cancelled && setError(e.message || String(e)))
+      .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const items = index && Array.isArray(index[activeTab]) ? index[activeTab] : [];
-  const counts = useMemo(() => {
-    if (!index) return {};
-    return MARKETPLACE_TABS.reduce((acc, tab) => {
-      acc[tab.key] = Array.isArray(index[tab.key]) ? index[tab.key].length : 0;
-      return acc;
-    }, {});
-  }, [index]);
+  return { assets, loading, error };
+}
+
+function usePublicModels() {
+  const [models, setModels] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/marketplace/models')
+      .then((r) => (r.ok ? r.json() : { models: [] }))
+      .then((data) => {
+        if (!cancelled) setModels(Array.isArray(data?.models) ? data.models : []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return models;
+}
+
+/* ---------------- sections ---------------- */
+
+function Hero({ totalCount }) {
+  return (
+    <section className="hero">
+      <div className="wrap hero-grid">
+        <Reveal>
+          <h1>
+            Agent 时代的
+            <br />
+            个人 <span className="hero-keyword">OPC 工作室</span>
+          </h1>
+          <p className="hero-sub">
+            包子把专家、技能与模型路由装进你的桌面。像 Hugging Face 之于模型，
+            这里是 Agent 能力的中转站与社区。
+          </p>
+          <div className="hero-search">
+            <SearchBox size="lg" placeholder="搜索专家、技能、团队…" />
+          </div>
+          <Link to="/marketplace" className="hero-browse">
+            浏览 {totalCount > 0 ? `${totalCount}+` : ''} 个专家与技能
+            <ArrowRight size={15} />
+          </Link>
+        </Reveal>
+        <Reveal className="hero-media" delay={150}>
+          <div className="hero-orbit" aria-hidden />
+          <img className="hero-mascot" src="/assets/baozi-logo.png" alt="包子 — 白色带耳机的 Agent 形象" />
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+function TrendingSection({ assets, loading }) {
+  const top = useMemo(() => {
+    const byDownloads = (kind) =>
+      assets
+        .filter((a) => a.kind === kind)
+        .sort((a, b) => (Number(b.downloads) || 0) - (Number(a.downloads) || 0))
+        .slice(0, 5);
+    return {
+      expert: byDownloads('expert'),
+      skill: byDownloads('skill'),
+      team: byDownloads('team'),
+    };
+  }, [assets]);
 
   return (
-    <section className="section marketplace-section" id="market">
-      <div className="section-heading">
-        <ShoppingBag size={24} />
-        <h2>公共市场</h2>
-        <p>专家 / 技能 / 团队 / 连接器——与桌面端、AgentZ、theAgentOS 共用同一后端。</p>
+    <section className="section" style={{ paddingTop: 24 }} id="trending">
+      <div className="wrap">
+        <Reveal className="section-head">
+          <p className="section-eyebrow">Trending</p>
+          <h2>社区正在用什么</h2>
+          <p>按安装量实时排序的市场榜单，与桌面端共用同一后端。</p>
+        </Reveal>
+        {loading ? (
+          <p className="status-line">加载榜单中…</p>
+        ) : (
+          <div className="trending-grid">
+            <Reveal delay={0}>
+              <TrendingList title="热门专家" icon={Bot} items={top.expert} moreLink="/marketplace?kind=expert" />
+            </Reveal>
+            <Reveal delay={100}>
+              <TrendingList title="热门技能" icon={Puzzle} items={top.skill} moreLink="/marketplace?kind=skill" />
+            </Reveal>
+            <Reveal delay={200}>
+              <TrendingList title="热门团队" icon={Users} items={top.team} moreLink="/marketplace?kind=team" />
+            </Reveal>
+          </div>
+        )}
       </div>
+    </section>
+  );
+}
 
-      <div className="scene-tabs" role="tablist" aria-label="市场分类">
-        {MARKETPLACE_TABS.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.key}
-              className={activeTab === tab.key ? 'active' : ''}
-              onClick={() => setActiveTab(tab.key)}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.key}
-            >
-              <Icon size={18} />
-              <span>
-                {tab.label}
-                {counts[tab.key] != null ? ` (${counts[tab.key]})` : ''}
-              </span>
-            </button>
-          );
-        })}
+const BENTO = [
+  {
+    icon: Route,
+    title: '云端模型路由',
+    desc: '一个账户接入多家模型，网关按成本与可用性自动选路，用量与余额实时可见。',
+    link: '/models',
+    linkText: '查看可用模型',
+  },
+  {
+    icon: Puzzle,
+    title: '可复用技能',
+    desc: '把周报、PPT、发票整理这类重复工作封装成技能，一次安装，到处调用。',
+    link: '/marketplace?kind=skill',
+    linkText: '浏览技能',
+  },
+  {
+    icon: Users,
+    title: '专家团队',
+    desc: '复杂任务拆给一组专家角色协同推进，像搭团队一样搭 Agent。',
+    link: '/marketplace?kind=team',
+    linkText: '看看团队',
+  },
+  {
+    icon: Plug,
+    title: '连接器',
+    desc: '把 IM、文档与外部系统接进工作台，让 Agent 触达真实业务。',
+    link: '/marketplace?kind=connector',
+    linkText: '接入系统',
+  },
+];
+
+function BentoSection() {
+  return (
+    <section className="section" id="platform">
+      <div className="wrap">
+        <Reveal className="section-head">
+          <p className="section-eyebrow">Platform</p>
+          <h2>一个账户，打通 Agent 全链路</h2>
+          <p>市场、模型路由、桌面客户端 —— 同一套后端，同一份数据。</p>
+        </Reveal>
+        <div className="bento">
+          <Reveal className="bento-feature" delay={0}>
+            <SpotlightCard className="bento-card bento-feature">
+              <div className="bento-feature-copy">
+                <span className="bento-icon"><MonitorDown size={18} /></span>
+                <h3>包子桌面客户端</h3>
+                <p>
+                  所有市场内容与模型能力都落在本地桌面端执行：读项目、改文件、生成产物，
+                  结果留在你的工作空间里。
+                </p>
+              </div>
+              <img src="/assets/baozi-app-screenshot.png?v=user-provided" alt="包子桌面端运行界面" loading="lazy" />
+            </SpotlightCard>
+          </Reveal>
+          {BENTO.map((item, i) => {
+            const Icon = item.icon;
+            return (
+              <Reveal key={item.title} delay={(i + 1) * 80}>
+                <SpotlightCard className="bento-card">
+                  <span className="bento-icon">
+                    <Icon size={18} />
+                  </span>
+                  <h3>{item.title}</h3>
+                  <p>{item.desc}</p>
+                  <Link to={item.link} className="bento-link">
+                    {item.linkText}
+                    <ArrowRight size={14} />
+                  </Link>
+                </SpotlightCard>
+              </Reveal>
+            );
+          })}
+        </div>
       </div>
+    </section>
+  );
+}
 
-      {loading && <p className="marketplace-status">加载中…</p>}
-      {error && (
-        <p className="marketplace-status marketplace-status--error">
-          无法连接市场后端 ({error})——请确认 <code>python -m app.main</code> 正在 :8137 运行。
-        </p>
-      )}
-      {!loading && !error && items.length === 0 && (
-        <p className="marketplace-status">当前分类暂无内容。</p>
-      )}
+const CATEGORY_LABEL = { chat: '对话', embedding: '向量', image: '图像', audio: '语音' };
 
-      <div className="ability-grid marketplace-grid">
-        {items.slice(0, 12).map((item) => (
-          <article key={item.id} className="ability-card marketplace-card">
-            <h3>
-              {item.icon ? <span aria-hidden>{item.icon}</span> : null}
-              {item.name}
-            </h3>
-            <p>{item.description || '暂无描述'}</p>
-            <div className="chip-row">
-              <span>v{item.version}</span>
-              <span>{item.publisher}</span>
-              {item.paid ? <span>付费</span> : null}
-              {item.cloud_only ? <span>云端</span> : null}
+function ModelsPreview({ models }) {
+  if (models.length === 0) return null;
+  return (
+    <section className="section" id="models" style={{ paddingTop: 0 }}>
+      <div className="wrap">
+        <Reveal className="section-head" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', maxWidth: 'none' }}>
+          <div>
+            <p className="section-eyebrow">Models</p>
+            <h2>上架模型</h2>
+            <p>网关统一路由的模型目录，桌面端登录即可使用。</p>
+          </div>
+          <Link to="/models" className="bento-link" style={{ whiteSpace: 'nowrap' }}>
+            查看全部模型
+            <ArrowRight size={14} />
+          </Link>
+        </Reveal>
+        <div className="models-grid">
+          {models.slice(0, 4).map((m, i) => (
+            <Reveal key={m.id} delay={i * 80}>
+              <SpotlightCard className="model-card">
+                <div className="model-card-top">
+                  <span className="model-name">{m.display_name}</span>
+                  <span className="chip chip-accent">{CATEGORY_LABEL[m.category] || m.category}</span>
+                </div>
+                <span className="model-id">{m.id}</span>
+                <p className="model-desc">{m.description || '暂无介绍'}</p>
+                <div className="model-meta">
+                  {(m.providers || []).slice(0, 2).map((p) => (
+                    <span key={p} className="chip">{p}</span>
+                  ))}
+                </div>
+              </SpotlightCard>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StatsBand({ assets, models }) {
+  const counts = useMemo(() => {
+    const c = { total: assets.length, expert: 0, skill: 0, team: 0 };
+    for (const a of assets) {
+      if (c[a.kind] !== undefined) c[a.kind] += 1;
+    }
+    return c;
+  }, [assets]);
+
+  const stats = [
+    { value: counts.total, label: '市场资产' },
+    { value: counts.expert, label: '专家' },
+    { value: counts.skill, label: '技能' },
+    { value: models.length, label: '上架模型' },
+  ];
+
+  return (
+    <div className="stats-band">
+      <div className="wrap stats-grid">
+        {stats.map((s) => (
+          <div className="stat" key={s.label}>
+            <div className="stat-value">
+              <CountUp value={s.value} suffix="+" />
             </div>
-          </article>
+            <div className="stat-label">{s.label}</div>
+          </div>
         ))}
       </div>
-
-      {!loading && !error && items.length > 0 && (
-        <div className="marketplace-more">
-          <Link to="/marketplace" className="primary-action">
-            浏览全部市场
-            <ArrowRight size={18} />
-          </Link>
-        </div>
-      )}
-    </section>
+    </div>
   );
 }
 
 function DownloadSection() {
   return (
-    <section className="download-section" id="download">
-      <div className="download-copy">
-        <h2>下载包子桌面端</h2>
-        <p>安装后即可在本地使用包子处理办公、代码、设计和自动化任务。模型、技能和项目文件都由你自己掌控。</p>
-      </div>
-      <div className="download-actions">
-        <a className="primary-action light" href="https://github.com/JasonChooow/openpisci" target="_blank" rel="noreferrer">
-          <MonitorDown size={18} />
-          Windows 下载
-        </a>
+    <section className="section" id="download">
+      <div className="wrap">
+        <Reveal>
+          <div className="download-cta">
+            <div>
+              <h2>下载包子桌面端</h2>
+              <p>
+                安装后登录云端账户，市场里的专家、技能与模型即刻可用。
+                模型、技能和项目文件都由你自己掌控。
+              </p>
+            </div>
+            <div className="download-cta-actions">
+              <a
+                className="btn btn-primary btn-lg"
+                href="https://github.com/JasonChooow/openpisci"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <MonitorDown size={17} />
+                Windows 下载
+              </a>
+              <span className="download-note">macOS / Linux 版本即将推出</span>
+            </div>
+          </div>
+        </Reveal>
       </div>
     </section>
   );
 }
 
-export default function App() {
-  return (
-    <main>
-      <header className="site-header">
-        <a className="brand" href="#home" aria-label="包子首页">
-          <img src="/assets/baozi-logo.png" alt="" />
-          <span>
-            <strong>包子</strong>
-            <small>9X bot AI 办公助手</small>
-          </span>
-        </a>
-        <nav aria-label="主导航">
-          <a href="#home">9X bot</a>
-          <a href="#market">市场</a>
-          <a href={modelHubUrl}>模型</a>
-          <Link to="/marketplace">全部物品</Link>
-          <a href="#docs">文档</a>
-        </nav>
-        <div className="header-actions">
-          <a className="login-action" href={modelHubLoginUrl}>登录</a>
-          <a className="header-action" href="#download">下载</a>
-        </div>
-      </header>
+/* ---------------- page ---------------- */
 
-      <Hero />
-      <AbilityGrid />
-      <MarketplaceSection />
-      <CharacterSection />
-      <span className="anchor-target" id="docs" aria-hidden="true" />
-      <WorkflowSection />
-      <DownloadSection />
-    </main>
+export default function App() {
+  const { assets, loading, error } = useAssets();
+  const models = usePublicModels();
+
+  return (
+    <>
+      <Nav />
+      <main>
+        <Hero totalCount={assets.length} />
+        <TrendingSection assets={assets} loading={loading} />
+        {error && (
+          <div className="wrap">
+            <p className="status-line status-line--error">
+              无法连接市场后端（{error}）——请确认后端正在 :8137 运行。
+            </p>
+          </div>
+        )}
+        <BentoSection />
+        <ModelsPreview models={models} />
+        <StatsBand assets={assets} models={models} />
+        <DownloadSection />
+      </main>
+      <Footer />
+    </>
   );
 }

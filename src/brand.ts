@@ -16,7 +16,10 @@ export type BrandConfig = {
   bundleIdentifier: string;
 };
 
-export const brand = brandJson as BrandConfig;
+export const brand = {
+  ...brandJson,
+  heroPath: "/app-icon.png",
+} as BrandConfig & { heroPath: string };
 
 export function getBrandDisplayName(lang: string): string {
   return lang.startsWith("en") ? brand.displayNameEn : brand.displayNameZh;
