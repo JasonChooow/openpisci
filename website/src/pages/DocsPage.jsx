@@ -450,7 +450,6 @@ export default function DocsPage() {
       <main className="docs-page">
         <section className="docs-hero">
           <div className="docs-hero-copy">
-            <span className="docs-kicker">9X bot 使用手册</span>
             <h1>9X bot 产品使用手册</h1>
             <p>
               面向第一次使用 9X bot 的普通用户，也面向准备把桌面端、市场和模型服务接进团队流程的运营与管理员。
