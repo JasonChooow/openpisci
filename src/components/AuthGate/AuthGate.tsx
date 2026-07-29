@@ -7,8 +7,20 @@ export type AuthGateProps = {
   children: ReactNode;
 };
 
+function isDevAuthBypassEnabled(): boolean {
+  return import.meta.env.DEV && import.meta.env.VITE_9XBOT_DEV_BYPASS_AUTH === "1";
+}
+
 /** Blocks mounting every application feature until Rust validates a cloud session. */
 export function AuthGate({ children }: AuthGateProps) {
+  if (isDevAuthBypassEnabled()) {
+    return <>{children}</>;
+  }
+
+  return <CloudAuthGate>{children}</CloudAuthGate>;
+}
+
+function CloudAuthGate({ children }: AuthGateProps) {
   const auth = useCloudAuth();
 
   if (auth.isLoading) {

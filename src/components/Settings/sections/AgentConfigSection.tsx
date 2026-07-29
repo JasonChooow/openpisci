@@ -139,10 +139,10 @@ export default function AgentConfigSection() {
                     <input
                       className="input"
                       type="number"
-                      min={30}
-                      max={600}
-                      value={form.llm_read_timeout_secs ?? 120}
-                      onChange={(e) => update("llm_read_timeout_secs", Math.min(600, Math.max(30, Number(e.target.value))))}
+                      min={300}
+                      max={1200}
+                      value={form.llm_read_timeout_secs ?? 300}
+                      onChange={(e) => update("llm_read_timeout_secs", Math.min(1200, Math.max(300, Number(e.target.value))))}
                     />
                     <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>{t("settings.llmReadTimeoutDesc")}</p>
                   </div>

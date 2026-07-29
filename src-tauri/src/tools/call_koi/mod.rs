@@ -538,6 +538,27 @@ impl CallKoiTool {
             let s = state.settings.lock().await;
             piscis_kernel::agent::harness::config::CompactionSettings::from_settings(&s)
         };
+        let koi_session_id = format!(
+            "koi_{}_{}",
+            koi_id,
+            pool_session_id.as_deref().unwrap_or("default")
+        );
+        let journal = std::sync::Arc::new(
+            piscis_kernel::agent::file_journal::FileJournal::open(
+                &workspace_root,
+                std::path::Path::new(&workspace_root)
+                    .join(".piscis")
+                    .join("journal.db"),
+            )?,
+        );
+        journal.begin_turn(&koi_session_id);
+        let hooks = std::sync::Arc::new(
+            crate::runtime::ide_notify_hooks::JournalWithIdeNotify::new_with_artifact_session(
+                journal.clone(),
+                self.app.clone(),
+                parent_session_id.clone(),
+            ),
+        );
         let agent = HarnessConfig::for_koi(
             model,
             vec![],
@@ -552,15 +573,12 @@ impl CallKoiTool {
             Some(state.db.clone()),
             Some(state.plan_state.clone()),
         )
+        .with_hooks(hooks)
         .into_agent_loop(client, notification_rx, None);
 
         let koi_ctx = ToolContext {
             // Include pool_session_id so each project gets an isolated session context
-            session_id: format!(
-                "koi_{}_{}",
-                koi_id,
-                pool_session_id.as_deref().unwrap_or("default")
-            ),
+            session_id: koi_session_id,
             workspace_root: std::path::PathBuf::from(&workspace_root),
             bypass_permissions: false,
             settings: tool_settings,

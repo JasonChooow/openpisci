@@ -649,7 +649,10 @@ impl SkillLoader {
         if chunks.is_empty() {
             String::new()
         } else {
-            format!("\n## Bundled supporting skill files\n{}\n", chunks.join("\n"))
+            format!(
+                "\n## Bundled supporting skill files\n{}\n",
+                chunks.join("\n")
+            )
         }
     }
 
@@ -737,7 +740,7 @@ impl SkillLoader {
 }
 
 fn parse_frontmatter(content: &str) -> Result<(serde_yaml::Value, String)> {
-    let content = content.trim();
+    let content = content.trim().trim_start_matches('\u{feff}');
     if let Some(stripped) = content.strip_prefix("---") {
         if let Some(end) = stripped.find("---") {
             let yaml_str = &stripped[..end];

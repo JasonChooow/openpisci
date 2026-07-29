@@ -21,11 +21,11 @@
     "bytes": 4080
   },
   {
-    "slug": "ppt-generator-skill",
-    "name": "ppt-generator",
-    "description": "Generate designed PPT presentations from a topic, industry, style, language, and optional template. Use for making PPT decks, slide decks, or presentation files.",
-    "url": "https://skillhub.cn/skills/ppt-generator-skill",
-    "bytes": 15795
+    "slug": "ppt-master",
+    "name": "ppt-master",
+    "description": "AI-driven presentation workflow for generating editable PPTX decks, creating reusable Brand/Layout/Deck workspaces, filling native PPTX templates, and enhancing finished PPTX files. Use when the user asks to create, regenerate, template, fill, or enhance a presentation, or mentions ppt-master.",
+    "url": "https://github.com/hugohe3/ppt-master/tree/main/skills/ppt-master",
+    "bytes": 3975
   },
   {
     "slug": "pdf-convert-compdf",

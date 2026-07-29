@@ -28,6 +28,9 @@ export default function Nav() {
           <NavLink to="/models" className={({ isActive }) => (isActive ? 'active' : '')}>
             模型
           </NavLink>
+          <NavLink to="/docs" className={({ isActive }) => (isActive ? 'active' : '')}>
+            文档
+          </NavLink>
         </nav>
         <div className="nav-actions">
           <a className="nav-login" href={modelHubLoginUrl}>
