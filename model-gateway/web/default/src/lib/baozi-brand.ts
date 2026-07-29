@@ -19,8 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { DEFAULT_SYSTEM_NAME } from '@/lib/constants'
 
 export const BAOZI_BRAND = {
-  systemName: '包子',
-  productName: '包子模型服务',
+  systemName: '模型服务',
+  productName: '模型服务',
   productLine: '9X bot',
   logo: '/baozi-logo.png',
   mainSiteUrl: import.meta.env.VITE_MAIN_SITE_URL || 'http://127.0.0.1:5173/',
@@ -28,10 +28,25 @@ export const BAOZI_BRAND = {
 
 export function resolveBaoziSystemName(value?: string | null): string {
   const name = value?.trim()
-  if (!name || name === DEFAULT_SYSTEM_NAME) return BAOZI_BRAND.systemName
+  if (
+    !name ||
+    name === DEFAULT_SYSTEM_NAME ||
+    name === 'New API' ||
+    name === '包子'
+  ) {
+    return BAOZI_BRAND.systemName
+  }
   return name
 }
 
 export function resolveBaoziLogo(value?: string | null): string {
   return value?.trim() || BAOZI_BRAND.logo
+}
+
+export function resolveBaoziDocsUrl(value?: string | null): string {
+  const url = value?.trim()
+  if (!url || url.toLowerCase().includes('docs.newapi.pro')) {
+    return new URL('docs', BAOZI_BRAND.mainSiteUrl).toString()
+  }
+  return url
 }

@@ -66,8 +66,8 @@ interface Props {
 }
 
 const PANCAKE_DASHBOARD_URL = 'https://pancake.waffo.ai/merchant/dashboard'
-const DEFAULT_NEW_STORE_NAME = 'new-api-store'
-const DEFAULT_NEW_PRODUCT_NAME = 'new-api-charge-product'
+const DEFAULT_NEW_STORE_NAME = 'baozi-model-service'
+const DEFAULT_NEW_PRODUCT_NAME = 'baozi-wallet-topup'
 const DEFAULT_NEW_PAIR_NAME = `${DEFAULT_NEW_STORE_NAME} + ${DEFAULT_NEW_PRODUCT_NAME}`
 
 export function WaffoPancakeSettingsSection({
@@ -481,12 +481,12 @@ export function WaffoPancakeSettingsSection({
             <ul className='list-inside list-disc space-y-1'>
               <li>
                 {t(
-                  'The bound Store is the parent container for every Pancake product new-api creates from this admin — both the wallet top-up product and any subscription-plan products. One store is enough; pin a different one only if you genuinely run separate Pancake catalogs.'
+                  'The bound Store contains wallet top-up and subscription products created from this admin. One store is enough unless you intentionally operate separate Pancake catalogs.'
                 )}
               </li>
               <li>
                 {t(
-                  'The bound Product powers wallet top-ups: when a user enters any amount, new-api runs the checkout against this single Pancake product and overrides the price per session — no need to pre-create $1 / $5 / $10 SKUs.'
+                  'The bound Product powers wallet top-ups. The checkout uses this product and applies the amount entered by the user, so fixed-price SKUs are not required.'
                 )}
               </li>
               <li>

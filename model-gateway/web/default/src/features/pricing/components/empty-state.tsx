@@ -31,6 +31,18 @@ export function EmptyState(props: EmptyStateProps) {
   const { t } = useTranslation()
   const hasSearch = Boolean(props.searchQuery?.trim())
   const isCatalogEmpty = !hasSearch && !props.hasActiveFilters
+  let description = t(
+    'Available models will appear here after they are published.'
+  )
+
+  if (hasSearch) {
+    description = t(
+      'No results for "{{query}}". Try adjusting your search or filters.',
+      { query: props.searchQuery }
+    )
+  } else if (props.hasActiveFilters) {
+    description = t('No models match your current filters.')
+  }
 
   return (
     <div className='flex min-h-[320px] flex-col items-center justify-center rounded-lg border border-dashed px-6 py-12 text-center'>
@@ -41,16 +53,7 @@ export function EmptyState(props: EmptyStateProps) {
       </h3>
 
       <p className='text-muted-foreground mb-5 max-w-md text-sm'>
-        {hasSearch
-          ? t(
-              'No results for "{{query}}". Try adjusting your search or filters.',
-              { query: props.searchQuery }
-            )
-          : props.hasActiveFilters
-            ? t('No models match your current filters.')
-            : t(
-                'Available models will appear here automatically after an administrator connects an upstream provider.'
-              )}
+        {description}
       </p>
 
       {(props.hasActiveFilters || hasSearch) && (

@@ -26,6 +26,7 @@ import {
   LayoutDashboard,
   ListTodo,
   MessageSquare,
+  PanelsTopLeft,
   Radio,
   ServerCog,
   Settings,
@@ -36,7 +37,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-import { type SidebarData } from '@/components/layout/types'
+import type { SidebarData } from '@/components/layout/types'
 import { ROLE } from '@/lib/roles'
 
 /**
@@ -68,15 +69,20 @@ export function useSidebarData(): SidebarData {
       },
       {
         id: 'general',
-        title: t('General'),
+        title: t('Model Services'),
         items: [
           {
-            title: t('Overview'),
+            title: t('Model Square'),
+            url: '/pricing',
+            icon: PanelsTopLeft,
+          },
+          {
+            title: t('Service Overview'),
             url: '/dashboard/overview',
             icon: Activity,
           },
           {
-            title: t('Dashboard'),
+            title: t('Usage Dashboard'),
             url: '/dashboard/models',
             icon: LayoutDashboard,
           },
@@ -101,10 +107,10 @@ export function useSidebarData(): SidebarData {
       },
       {
         id: 'personal',
-        title: t('Personal'),
+        title: t('Account'),
         items: [
           {
-            title: t('Wallet'),
+            title: t('Balance & Billing'),
             url: '/wallet',
             icon: Wallet,
           },
@@ -117,20 +123,20 @@ export function useSidebarData(): SidebarData {
       },
       {
         id: 'admin',
-        title: t('Admin'),
+        title: t('Admin Console'),
         items: [
           {
-            title: t('Channels'),
+            title: t('Upstream Management'),
             url: '/channels',
             icon: Radio,
           },
           {
-            title: t('Models'),
+            title: t('Models & Pricing'),
             url: '/models/metadata',
             icon: Box,
           },
           {
-            title: t('Users'),
+            title: t('User Management'),
             url: '/users',
             icon: Users,
           },

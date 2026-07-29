@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/sidebar'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
-import { resolveBaoziSystemName } from '@/lib/baozi-brand'
+import { BAOZI_BRAND, resolveBaoziSystemName } from '@/lib/baozi-brand'
 import { cn } from '@/lib/utils'
 
 type SystemBrandProps = {
@@ -53,7 +53,7 @@ export function SystemBrand(props: SystemBrandProps) {
 
   const variant = props.variant ?? 'sidebar'
   const name = resolveBaoziSystemName(
-    status?.system_name || props.defaultName || 'New API'
+    status?.system_name || props.defaultName || BAOZI_BRAND.systemName
   )
   const version =
     status?.version || props.defaultVersion || t('Unknown version')

@@ -22,6 +22,7 @@ import {
   ArrowRight,
   AlertCircle,
   Boxes,
+  Building2,
   CheckCircle2,
   Circle,
   ClipboardPaste,
@@ -695,6 +696,32 @@ export function ChannelMutateDrawer({
     defaultValues: CHANNEL_FORM_DEFAULT_VALUES,
   })
 
+  const applyChinaMobilePreset = useCallback(() => {
+    form.setValue('name', '中国移动模型服务', {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    form.setValue('type', 1, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    form.setValue('base_url', '', {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    form.setValue('tag', 'china-mobile', {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    form.setValue('upstream_model_update_check_enabled', true, {
+      shouldDirty: true,
+    })
+    form.setValue('upstream_model_update_auto_sync_enabled', false, {
+      shouldDirty: true,
+    })
+    toast.success(t('China Mobile upstream preset applied'))
+  }, [form, t])
+
   // Watch form values for conditional rendering
   const multiKeyMode = form.watch('multi_key_mode')
   const multiKeyType = form.watch('multi_key_type')
@@ -1288,7 +1315,7 @@ export function ChannelMutateDrawer({
     const timer = setTimeout(() => {
       toast.warning(
         t(
-          'Warning: Base URL should not end with /v1. New API will handle it automatically. This may cause request failures.'
+          'Warning: Base URL should not end with /v1. The gateway appends the compatible API path automatically. This may cause request failures.'
         ),
         { duration: 5000 }
       )
@@ -1844,16 +1871,26 @@ export function ChannelMutateDrawer({
                 </SheetDescription>
               </div>
               {!isEditing && (
-                <Button
-                  type='button'
-                  variant='outline'
-                  size='sm'
-                  className='shrink-0'
-                  onClick={pasteConnectionInfoFromClipboard}
-                >
-                  <ClipboardPaste className='size-4' />
-                  <span>{t('Paste Connection Info')}</span>
-                </Button>
+                <div className='flex shrink-0 flex-wrap items-center gap-2'>
+                  <Button
+                    type='button'
+                    variant='secondary'
+                    size='sm'
+                    onClick={applyChinaMobilePreset}
+                  >
+                    <Building2 />
+                    <span>{t('Use China Mobile preset')}</span>
+                  </Button>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    onClick={pasteConnectionInfoFromClipboard}
+                  >
+                    <ClipboardPaste />
+                    <span>{t('Paste Connection Info')}</span>
+                  </Button>
+                </div>
               )}
             </div>
           </SheetHeader>
@@ -2743,7 +2780,7 @@ export function ChannelMutateDrawer({
                                     </FormControl>
                                     <FormDescription>
                                       {t(
-                                        'Custom API base URL. For official channels, New API has built-in addresses. Only fill this for third-party proxy sites or special endpoints. Do not add /v1 or trailing slash.'
+                                        'Custom API base URL. Official providers use built-in addresses. Only fill this for partner services or special endpoints. Do not add /v1 or a trailing slash.'
                                       )}
                                     </FormDescription>
                                     <FormMessage />

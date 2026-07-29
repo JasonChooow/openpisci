@@ -22,7 +22,6 @@ import {
 const modelHubBaseUrl =
   import.meta.env.VITE_MODEL_HUB_URL || 'http://127.0.0.1:3000';
 const normalizedModelHubUrl = modelHubBaseUrl.replace(/\/$/, '');
-const modelHubUrl = `${normalizedModelHubUrl}/pricing`;
 const modelHubLoginUrl = `${normalizedModelHubUrl}/sign-in`;
 
 const scenes = [
@@ -372,7 +371,7 @@ export default function App() {
         <nav aria-label="主导航">
           <Link to="/">9X bot</Link>
           <Link to="/marketplace">市场</Link>
-          <a href={modelHubUrl}>模型</a>
+          <a href={`${normalizedModelHubUrl}/pricing`}>模型</a>
           <Link to="/docs">文档</Link>
         </nav>
         <div className="header-actions">

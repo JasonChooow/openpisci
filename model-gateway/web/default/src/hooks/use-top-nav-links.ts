@@ -20,7 +20,7 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useStatus } from '@/hooks/use-status'
-import { BAOZI_BRAND } from '@/lib/baozi-brand'
+import { BAOZI_BRAND, resolveBaoziDocsUrl } from '@/lib/baozi-brand'
 import { parseHeaderNavModulesFromStatus } from '@/lib/nav-modules'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -58,21 +58,18 @@ export function useTopNavLinks(): TopNavLink[] {
   }, [status])
 
   // Documentation link (may be external)
-  const docsLink: string | undefined = status?.docs_link as string | undefined
+  const docsLink = resolveBaoziDocsUrl(status?.docs_link as string | undefined)
 
   const isAuthed = !!auth?.user
 
-  const links: TopNavLink[] = []
-
-  // Home
-  if (modules?.home !== false) {
-    links.push({
+  const links: TopNavLink[] = [
+    {
       title: BAOZI_BRAND.productLine,
       href: BAOZI_BRAND.mainSiteUrl,
       external: true,
       newTab: false,
-    })
-  }
+    },
+  ]
 
   // Pricing
   const pricing = modules?.pricing
@@ -86,30 +83,14 @@ export function useTopNavLinks(): TopNavLink[] {
     links.push({ title: t('Console'), href: '/dashboard' })
   }
 
-  // Rankings
-  const rankings = modules?.rankings
-  if (rankings && typeof rankings === 'object' && rankings.enabled) {
-    const requiresAuth = rankings.requireAuth && !isAuthed
-    links.push({ title: t('Rankings'), href: '/rankings', requiresAuth })
-  }
-
   // Docs (supports external links)
   if (modules?.docs !== false) {
-    if (docsLink) {
-      links.push({
-        title: t('Docs'),
-        href: docsLink,
-        external: true,
-        newTab: true,
-      })
-    } else {
-      links.push({ title: t('Docs'), href: '/docs' })
-    }
-  }
-
-  // About
-  if (modules?.about !== false) {
-    links.push({ title: t('About'), href: '/about' })
+    links.push({
+      title: t('Docs'),
+      href: docsLink,
+      external: true,
+      newTab: true,
+    })
   }
 
   return links

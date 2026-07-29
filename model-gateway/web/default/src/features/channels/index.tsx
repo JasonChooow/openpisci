@@ -18,10 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Settings2 } from 'lucide-react'
+import { CloudCog, Settings2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import {
   Tooltip,
@@ -89,7 +90,7 @@ export function Channels() {
       <SectionPageLayout fixedContent>
         <SectionPageLayout.Title>
           <span className='flex min-w-0 items-center gap-2'>
-            <span className='truncate'>{t('Channels')}</span>
+            <span className='truncate'>{t('Upstream Management')}</span>
             {retryBadge}
           </span>
         </SectionPageLayout.Title>
@@ -97,7 +98,25 @@ export function Channels() {
           <ChannelsPrimaryButtons />
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <ChannelsTable />
+          <div className='flex h-full min-h-0 flex-col gap-3'>
+            <Alert>
+              <CloudCog />
+              <AlertTitle className='flex flex-wrap items-center gap-2'>
+                <span>{t('China Mobile upstream')}</span>
+                <Badge variant='secondary'>
+                  {t('Strategic compute partner')}
+                </Badge>
+              </AlertTitle>
+              <AlertDescription>
+                {t(
+                  'China Mobile provides upstream model and compute services. Configure the API endpoint and credential here, then read the model list and choose what to publish.'
+                )}
+              </AlertDescription>
+            </Alert>
+            <div className='min-h-0 flex-1'>
+              <ChannelsTable />
+            </div>
+          </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>
 

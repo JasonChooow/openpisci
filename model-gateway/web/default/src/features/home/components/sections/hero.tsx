@@ -24,7 +24,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
-import { BAOZI_BRAND } from '@/lib/baozi-brand'
+import { BAOZI_BRAND, resolveBaoziDocsUrl } from '@/lib/baozi-brand'
 
 import { HeroTerminalDemo } from '../hero-terminal-demo'
 
@@ -51,8 +51,7 @@ export function Hero(props: HeroProps) {
   const { t } = useTranslation()
   const { status } = useStatus()
   const { logo } = useSystemConfig()
-  const docsUrl =
-    (status?.docs_link as string | undefined) || 'https://docs.newapi.pro'
+  const docsUrl = resolveBaoziDocsUrl(status?.docs_link as string | undefined)
 
   const renderDocsButton = () => {
     const isExternal = docsUrl.startsWith('http')

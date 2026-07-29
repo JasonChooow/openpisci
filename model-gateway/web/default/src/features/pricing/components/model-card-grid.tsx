@@ -29,6 +29,14 @@ import type { PricingModel, TokenUnit } from '../types'
 import { ModelCard } from './model-card'
 import type { ModelPerfBadgeData } from './model-perf-badge'
 
+const MODEL_GRID_SPANS = [
+  'min-w-0 xl:col-span-7',
+  'min-w-0 xl:col-span-5',
+  'min-w-0 xl:col-span-5',
+  'min-w-0 xl:col-span-7',
+  'min-w-0 md:col-span-2 xl:col-span-12',
+]
+
 export interface ModelCardGridProps {
   models: PricingModel[]
   onModelClick: (modelName: string) => void
@@ -73,19 +81,23 @@ export function ModelCardGrid(props: ModelCardGridProps) {
 
   return (
     <div className='space-y-4 sm:space-y-5'>
-      <div className='grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3'>
-        {pagedModels.map((model) => (
-          <ModelCard
+      <div className='grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-12'>
+        {pagedModels.map((model, index) => (
+          <div
             key={model.id ?? model.model_name}
-            model={model}
-            tokenUnit={tokenUnit}
-            priceRate={props.priceRate}
-            usdExchangeRate={props.usdExchangeRate}
-            showRechargePrice={props.showRechargePrice}
-            selectedGroup={props.selectedGroup}
-            perf={perfMap.get(model.model_name || '')}
-            onClick={() => props.onModelClick(model.model_name || '')}
-          />
+            className={MODEL_GRID_SPANS[index % MODEL_GRID_SPANS.length]}
+          >
+            <ModelCard
+              model={model}
+              tokenUnit={tokenUnit}
+              priceRate={props.priceRate}
+              usdExchangeRate={props.usdExchangeRate}
+              showRechargePrice={props.showRechargePrice}
+              selectedGroup={props.selectedGroup}
+              perf={perfMap.get(model.model_name || '')}
+              onClick={() => props.onModelClick(model.model_name || '')}
+            />
+          </div>
         ))}
       </div>
 

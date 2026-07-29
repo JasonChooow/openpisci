@@ -18,11 +18,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
+import { BadgeDollarSign, Plus } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -46,7 +47,7 @@ const route = getRouteApi('/_authenticated/models/$section')
 
 const SECTION_META: Record<ModelsSectionId, { titleKey: string }> = {
   metadata: {
-    titleKey: 'Metadata',
+    titleKey: 'Models & Pricing',
   },
   deployments: {
     titleKey: 'Deployments',
@@ -99,6 +100,17 @@ function ModelsContent() {
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
           <div className='flex h-full min-h-0 flex-col gap-4'>
+            {activeSection === 'metadata' && (
+              <Alert>
+                <BadgeDollarSign />
+                <AlertTitle>{t('Publish models and set prices')}</AlertTitle>
+                <AlertDescription>
+                  {t(
+                    'Configure model metadata, visibility, input and output pricing, cache, image and audio ratios.'
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
             <Tabs value={activeSection} onValueChange={handleSectionChange}>
               <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
                 {MODELS_SECTION_IDS.map((section) => (
