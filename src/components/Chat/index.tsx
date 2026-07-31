@@ -60,15 +60,34 @@ const CHAT_SCENE_HEADLINES: Record<ChatScene, string> = {
 function formatChatError(error: unknown): string {
   const raw = String(error ?? "").trim();
   const lower = raw.toLowerCase();
+  const isQuotaOrRateLimit =
+    /\b429\b/.test(lower) ||
+    lower.includes("too many requests") ||
+    lower.includes("rate limit") ||
+    lower.includes("current quota") ||
+    lower.includes("exceeded your") ||
+    lower.includes("额度") ||
+    lower.includes("限流");
   const isTimeout =
     lower.includes("timed out") ||
     lower.includes("timeout") ||
     lower.includes("operation timed out");
+  const isMissingApiKey =
+    lower.includes("api key not configured") ||
+    lower.includes("configure your api key");
   const isModelRequest =
     lower.includes("chat/completions") ||
     lower.includes("openai-compatible") ||
     lower.includes("aiyuanbaohub") ||
     lower.includes("llm");
+
+  if (isQuotaOrRateLimit) {
+    return "当前模型通道额度不足或请求过多，包子这次没能继续。请稍后重试，或切换到可用模型并检查中转站额度。";
+  }
+
+  if (isMissingApiKey) {
+    return "还没有配置可用的模型接口。请先在模型配置里填好 API 信息，再让包子执行任务。";
+  }
 
   if (isTimeout && isModelRequest) {
     return "这次模型请求等待超时了，常见原因是中转站响应慢、模型排队或任务内容较长。包子已停止等待，你可以稍后重试，或换一个响应更快的模型继续。";
@@ -76,6 +95,122 @@ function formatChatError(error: unknown): string {
 
   if (raw) return raw;
   return "请求失败，请稍后重试。";
+}
+
+const INTERNAL_SKILL_LEAK_FALLBACK = "包子已读取技能说明，正在按你的需求处理。";
+
+function stripInternalSkillInstructionLeak(content: string): string {
+  if (!content) return content;
+  const markers = [
+    "Mandatory selected skill instructions",
+    "The selected skill instructions are embedded in this message",
+    "Auto-selected skill routing:",
+    "User-selected skill routing:",
+  ];
+  if (!markers.some((marker) => content.includes(marker))) return content;
+
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const kept: string[] = [];
+  let dropping = false;
+  let droppedAny = false;
+  let sawRoutingBoundary = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const startsInternalBlock =
+      trimmed.includes("Mandatory selected skill instructions") ||
+      trimmed.includes("The selected skill instructions are embedded in this message") ||
+      trimmed.includes("Auto-selected skill routing:") ||
+      trimmed.includes("User-selected skill routing:") ||
+      trimmed.startsWith("## Skill:") ||
+      trimmed.startsWith("Skill: ");
+
+    if (startsInternalBlock) {
+      dropping = true;
+      droppedAny = true;
+      if (trimmed.includes("routing:")) {
+        sawRoutingBoundary = true;
+      }
+      continue;
+    }
+
+    if (dropping) {
+      if (sawRoutingBoundary && trimmed === "") {
+        dropping = false;
+        continue;
+      }
+      if (trimmed.includes("routing:")) {
+        sawRoutingBoundary = true;
+        continue;
+      }
+      const looksLikeUserFacingSection =
+        /^#{1,3}\s+/.test(trimmed) &&
+        !trimmed.startsWith("## Skill:") &&
+        !/^(source|path|permissions)\s*:/i.test(trimmed);
+      const looksLikeFinalAnswerStart =
+        /^(好的|可以|已|下面|这是|我已经|包子)/.test(trimmed);
+
+      if (looksLikeUserFacingSection || looksLikeFinalAnswerStart) {
+        dropping = false;
+      } else {
+        continue;
+      }
+    }
+
+    kept.push(line);
+  }
+
+  if (!droppedAny) return content;
+  const cleaned = kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return cleaned || INTERNAL_SKILL_LEAK_FALLBACK;
+}
+
+function readableToolAction(name: string): string {
+  const normalized = name.toLowerCase();
+  if (normalized.includes("file_read")) return "正在读取文件";
+  if (normalized.includes("file_write") || normalized.includes("file_edit")) return "正在整理生成文件";
+  if (normalized.includes("shell") || normalized.includes("code_run") || normalized.includes("powershell")) return "正在执行任务步骤";
+  if (normalized.includes("web") || normalized.includes("browser")) return "正在查看网页信息";
+  if (normalized.includes("screenshot") || normalized.includes("screen")) return "正在处理截图";
+  if (normalized.includes("koi") || normalized.includes("fish")) return "正在召唤专家协作";
+  if (normalized.includes("artifact")) return "正在登记结果文件";
+  if (normalized.includes("skill")) return "正在使用已选技能";
+  return "正在处理任务";
+}
+
+function buildLiveProgressMessage(steps: ToolStep[], plan: PlanTodoItem[]): string {
+  const currentPlan = plan.find((item) => item.status === "in_progress");
+  if (currentPlan) {
+    return `包子正在处理：${currentPlan.content}`;
+  }
+  const activeStep = [...steps].reverse().find((step) => !step.completed) ?? steps[steps.length - 1];
+  if (activeStep) {
+    return `包子${readableToolAction(activeStep.name)}，请稍等。`;
+  }
+  return "包子正在处理，请稍等。";
+}
+
+function buildThinkingFlashItems(steps: ToolStep[], plan: PlanTodoItem[]): Array<{ id: string; text: string; status: "running" | "done" }> {
+  const planItems = plan
+    .filter((item) => item.status === "in_progress" || item.status === "completed")
+    .slice(-3)
+    .map((item) => ({
+      id: `plan-${item.id}`,
+      text: item.status === "completed" ? `完成：${item.content}` : `正在：${item.content}`,
+      status: item.status === "completed" ? "done" as const : "running" as const,
+    }));
+
+  if (planItems.length > 0) return planItems;
+
+  return steps
+    .slice(-3)
+    .map((step) => ({
+      id: `tool-${step.id}`,
+      text: step.completed
+        ? `${readableToolAction(step.name).replace(/^正在/, "已完成")}`
+        : `${readableToolAction(step.name)}`,
+      status: step.completed ? "done" as const : "running" as const,
+    }));
 }
 
 const CHAT_WELCOME_ACTIONS: Record<ChatScene, Array<{ label: string; prompt: string }>> = {
@@ -1069,6 +1204,10 @@ export default function Chat({
     // Keep assistant messages that have actual text content even if they also have tool_calls_json.
     // BUT keep chat_ui tool calls since they render as interactive cards.
     .filter((m) => !(m.role === "assistant" && !m.content.trim() && m.tool_calls_json && !chatUiToolCallIds.has(m.id)))
+    .map((m) => {
+      const cleaned = stripInternalSkillInstructionLeak(m.content);
+      return cleaned === m.content ? m : { ...m, content: cleaned };
+    })
     // Filter out duplicate consecutive messages with same role and content
     .filter((m, i, arr) => {
       if (i === 0) return true;
@@ -1107,6 +1246,15 @@ export default function Chat({
   const running = displaySessionId ? isRunning[displaySessionId] ?? false : false;
   const steps = displaySessionId ? toolSteps[displaySessionId] ?? [] : [];
   const activePlan = displaySessionId ? planBySession[displaySessionId] ?? [] : [];
+  const safeStreamingCurrent = stripInternalSkillInstructionLeak(streamingCurrent);
+  const liveProgressMessage = useMemo(
+    () => buildLiveProgressMessage(steps, activePlan),
+    [steps, activePlan],
+  );
+  const thinkingFlashItems = useMemo(
+    () => buildThinkingFlashItems(steps, activePlan),
+    [steps, activePlan],
+  );
   const [activeArtifacts, setActiveArtifacts] = useState<SessionArtifact[]>([]);
 
   const hasTaskPanel = activePlan.length > 0 || steps.length > 0 || activeArtifacts.length > 0;
@@ -1444,6 +1592,10 @@ export default function Chat({
           break;
         case "tool_start":
           dispatch(chatActions.addToolStep({ sessionId: sid, id: event.id, name: event.name, input: event.input }));
+          if (activeSessionIdRef.current === boundSessionId) {
+            setTaskPanelOpen(true);
+            setTaskPanelTab("tools");
+          }
           break;
         case "tool_end":
           // Mark the step as completed — it stays visible for the user to review
@@ -1456,6 +1608,10 @@ export default function Chat({
           break;
         case "plan_update":
           dispatch(chatActions.setPlan({ sessionId: sid, items: event.items }));
+          if (activeSessionIdRef.current === boundSessionId && event.items.length > 0) {
+            setTaskPanelOpen(true);
+            setTaskPanelTab("todo");
+          }
           break;
         case "permission_request":
           setPermissionRequest({
@@ -2959,15 +3115,29 @@ export default function Chat({
                 <div className="message message-assistant streaming-bubble">
                   <div className="message-role">{t("chat.piscis")}</div>
                   <div className="message-content">
-                    {streamingCurrent ? (
+                    {safeStreamingCurrent ? (
                       <>
-                        <MessageContent content={streamingCurrent} />
+                        <MessageContent content={safeStreamingCurrent} />
                         <span className="cursor-blink">▋</span>
                       </>
                     ) : (
-                      <span className="thinking-dots">
-                        <span /><span /><span />
+                      <span className="streaming-progress-line">
+                        {liveProgressMessage}
+                        <span className="thinking-dots inline">
+                          <span /><span /><span />
+                        </span>
                       </span>
+                    )}
+                    {thinkingFlashItems.length > 0 && (
+                      <div className="thinking-flash" aria-label="包子正在处理的步骤">
+                        <div className="thinking-flash-title">思考闪回</div>
+                        {thinkingFlashItems.map((item) => (
+                          <div key={item.id} className={`thinking-flash-item ${item.status}`}>
+                            <span className="thinking-flash-dot" />
+                            <span className="thinking-flash-text">{item.text}</span>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>

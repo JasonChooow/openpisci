@@ -903,6 +903,7 @@ pub async fn execute_task(
 
     let mut attempt = 0usize;
     let run_success;
+    let mut last_error: Option<String> = None;
     let mut final_messages: Vec<LlmMessage> = Vec::new();
     loop {
         match agent
@@ -921,6 +922,7 @@ pub async fn execute_task(
             }
             Err(e) => {
                 attempt += 1;
+                last_error = Some(e.to_string());
                 warn!(
                     "Scheduled task {} failed (attempt {}/{}): {}",
                     task_id, attempt, TASK_MAX_RETRIES, e
@@ -1016,10 +1018,15 @@ pub async fn execute_task(
         let db_lock = db.lock().await;
         let final_status = if run_success { "success" } else { "failed" };
         let _ = db_lock.update_task_run_status(&task_id, final_status);
-        let _ = app.emit(
-            &format!("task_status_{}", task_id),
-            serde_json::json!({ "status": final_status }),
-        );
+        let payload = if run_success {
+            serde_json::json!({ "status": final_status })
+        } else {
+            serde_json::json!({
+                "status": final_status,
+                "error": last_error.as_deref().unwrap_or("Task run failed"),
+            })
+        };
+        let _ = app.emit(&format!("task_status_{}", task_id), payload);
     }
 
     let _ = forward_handle.await;

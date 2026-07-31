@@ -6,6 +6,25 @@ import { RootState, schedulerActions } from "../../store";
 import { schedulerApi, ScheduledTask } from "../../services/tauri";
 import ConfirmDialog from "../ConfirmDialog";
 
+function formatSchedulerRunError(error: unknown): string {
+  const raw = String(error ?? "").trim();
+  const lower = raw.toLowerCase();
+  if (lower.includes("api key not configured") || lower.includes("configure your api key")) {
+    return "还没有配置可用的模型接口，请先完成模型 API 配置。";
+  }
+  if (
+    /\b429\b/.test(lower) ||
+    lower.includes("too many requests") ||
+    lower.includes("rate limit") ||
+    lower.includes("quota") ||
+    lower.includes("额度") ||
+    lower.includes("限流")
+  ) {
+    return "当前模型通道额度不足或请求过多，请稍后重试，或切换到可用模型并检查中转站额度。";
+  }
+  return raw || "任务运行失败，请稍后重试。";
+}
+
 export default function Scheduler() {
   const { t } = useTranslation();
   const dispatch = useDispatch();
@@ -19,6 +38,7 @@ export default function Scheduler() {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [taskErrors, setTaskErrors] = useState<Record<string, string>>({});
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -86,23 +106,40 @@ export default function Scheduler() {
 
   const handleRunNow = async (id: string) => {
     try {
+      setTaskErrors((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       // Optimistically mark as running
       dispatch(schedulerActions.setTasks(
         tasks.map((t) => t.id === id ? { ...t, last_run_status: "running" } : t)
       ));
       await schedulerApi.runNow(id);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatSchedulerRunError(e));
     }
   };
 
   // Listen for real-time status updates from backend
   useEffect(() => {
     const unlisteners = tasks.map((task) =>
-      listen<{ status: string }>(`task_status_${task.id}`, (e) => {
+      listen<{ status: string; error?: string }>(`task_status_${task.id}`, (e) => {
         dispatch(schedulerActions.setTasks(
           tasks.map((t) => t.id === task.id ? { ...t, last_run_status: e.payload.status } : t)
         ));
+        if (e.payload.error) {
+          setTaskErrors((prev) => ({
+            ...prev,
+            [task.id]: formatSchedulerRunError(e.payload.error),
+          }));
+        } else if (e.payload.status === "running" || e.payload.status === "success") {
+          setTaskErrors((prev) => {
+            const next = { ...prev };
+            delete next[task.id];
+            return next;
+          });
+        }
       })
     );
     return () => {
@@ -189,6 +226,11 @@ export default function Scheduler() {
                     </div>
                     {task.description && (
                       <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 6 }}>{task.description}</p>
+                    )}
+                    {taskErrors[task.id] && (
+                      <p style={{ fontSize: 12, color: "var(--error)", marginBottom: 6 }}>
+                        {taskErrors[task.id]}
+                      </p>
                     )}
                     <div style={{ display: "flex", gap: 12, fontSize: 12, color: "var(--text-muted)" }}>
                       <span style={{ fontFamily: "var(--font-mono)" }}>⏱ {task.cron_expression}</span>

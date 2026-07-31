@@ -1453,6 +1453,72 @@
 .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
 .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
 
+.streaming-progress-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+
+.thinking-dots.inline {
+  vertical-align: middle;
+}
+
+.thinking-flash {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-primary) 52%, transparent);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.thinking-flash-title {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.thinking-flash-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.thinking-flash-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--text-muted);
+}
+
+.thinking-flash-item.running .thinking-flash-dot {
+  background: var(--accent);
+  animation: thinking-pulse 1.2s ease-in-out infinite;
+}
+
+.thinking-flash-item.done .thinking-flash-dot {
+  background: var(--success);
+}
+
+.thinking-flash-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes thinking-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
 @keyframes thinking-bounce {
   0%, 80%, 100% { transform: translateY(0);    opacity: 0.4; }
   40%           { transform: translateY(-6px); opacity: 1;   }

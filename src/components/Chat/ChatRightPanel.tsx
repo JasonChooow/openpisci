@@ -3,6 +3,7 @@ import { Download, ExternalLink, GripVertical, Maximize2, Minimize2, X } from "l
 import { useTranslation } from "react-i18next";
 import { openPath, type SessionArtifact } from "../../services/tauri";
 import ArtifactPreview from "./ArtifactPreview";
+import { uriToNativePath } from "../../utils/linkify";
 
 interface ChatRightPanelProps {
   artifact: SessionArtifact | null;
@@ -11,6 +12,10 @@ interface ChatRightPanelProps {
 
 function isWebUri(value: string): boolean {
   return /^https?:\/\//i.test(value);
+}
+
+function toOpenableLocalPath(value: string): string {
+  return value.startsWith("file://") ? uriToNativePath(value) : value;
 }
 
 const PANEL_WIDTH_KEY = "9xbot-preview-panel-width";
@@ -45,7 +50,7 @@ export default function ChatRightPanel({ artifact, onClose }: ChatRightPanelProp
   const openExternal = () => {
     if (!uri) return;
     if (isWebUri(uri)) window.open(uri, "_blank");
-    else void openPath(uri);
+    else void openPath(toOpenableLocalPath(uri));
   };
 
   const startResize = (event: MouseEvent<HTMLButtonElement>) => {

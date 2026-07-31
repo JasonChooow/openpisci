@@ -9,6 +9,7 @@ import { ExternalLink, Download, FileText } from "lucide-react";
 import { openPath, type SessionArtifact } from "../../services/tauri";
 import { ideApi } from "../../services/tauri/ide";
 import type { FileContent } from "../Pond/IDE/types";
+import { uriToNativePath } from "../../utils/linkify";
 import "highlight.js/styles/github-dark.min.css";
 import "./ArtifactPreview.css";
 
@@ -61,6 +62,7 @@ export default function ArtifactPreview({
   const { t } = useTranslation();
   const kind = classify(artifact);
   const uri = artifact.uri || "";
+  const localUri = uri && !isWebUri(uri) && uri.startsWith("file://") ? uriToNativePath(uri) : uri;
   const ext = extOf(uri || artifact.name || "");
   const [text, setText] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -70,11 +72,11 @@ export default function ArtifactPreview({
 
   useEffect(() => {
     let cancelled = false;
-    if (needsFileContent && uri && !isWebUri(uri)) {
+    if (needsFileContent && localUri && !isWebUri(localUri)) {
       setLoading(true);
       setError(null);
       ideApi
-        .readFile(uri)
+        .readFile(localUri)
         .then((fc: FileContent) => {
           if (cancelled) return;
           if (fc.is_binary) {
@@ -98,7 +100,7 @@ export default function ArtifactPreview({
     return () => {
       cancelled = true;
     };
-  }, [uri, kind, needsFileContent, t]);
+  }, [localUri, kind, needsFileContent, t]);
 
   const highlightedCode = useMemo(() => {
     if (kind !== "code" || !text) return null;
@@ -112,7 +114,7 @@ export default function ArtifactPreview({
   const openExternal = () => {
     if (!uri) return;
     if (isWebUri(uri)) window.open(uri, "_blank");
-    else void openPath(uri);
+    else void openPath(localUri);
   };
 
   let body: JSX.Element;
@@ -121,11 +123,11 @@ export default function ArtifactPreview({
   } else if (kind === "image") {
     body = (
       <div className="artifact-preview-image-wrap">
-        <img className="artifact-preview-image" src={convertFileSrc(uri)} alt={artifact.name} />
+        <img className="artifact-preview-image" src={convertFileSrc(localUri)} alt={artifact.name} />
       </div>
     );
   } else if (kind === "pdf") {
-    body = <iframe className="artifact-preview-frame" src={convertFileSrc(uri)} title={artifact.name} />;
+    body = <iframe className="artifact-preview-frame" src={convertFileSrc(localUri)} title={artifact.name} />;
   } else if (kind === "html") {
     body = loading ? (
       <div className="artifact-preview-status">{t("common.loading")}</div>
