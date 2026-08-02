@@ -405,7 +405,18 @@ pub async fn fetch_marketplace_aggregated(
     }
 
     // 2) Official cloud marketplace (public index; no auth required to browse).
-    if let Some(base) = cloud_base_url.filter(|s| !s.trim().is_empty()) {
+    //
+    // Skipped outright when discovery says the store is down: the alternative
+    // is every marketplace open blocking on a request we already know will time
+    // out, and the local sources above are perfectly usable meanwhile.
+    let store_reachable =
+        crate::commands::platform::discovery::is_healthy(
+            crate::commands::platform::discovery::SERVICE_STORE,
+        );
+    if let Some(base) = cloud_base_url
+        .filter(|s| !s.trim().is_empty())
+        .filter(|_| store_reachable)
+    {
         let base = base.trim_end_matches('/').to_string();
         let profile = desktop_client_profile_query("stable");
         let url = format!("{base}/api/marketplace/index?{profile}");

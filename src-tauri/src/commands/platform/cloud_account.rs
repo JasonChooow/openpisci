@@ -48,6 +48,8 @@ pub fn load_store(app: &AppHandle) -> CloudAccountStore {
         .unwrap_or_default();
     if !store.access_token.is_empty() {
         // Ignore legacy caller-controlled endpoints persisted by older builds.
+        // The address comes from the signed discovery document now, so a stored
+        // one is at best stale and at worst something a local attacker wrote.
         store.base_url = crate::commands::platform::cloud_url::get_cloud_url();
     }
     store
@@ -79,6 +81,26 @@ pub(crate) fn http_client() -> Result<reqwest::Client, String> {
 
 fn trim_base(url: &str) -> String {
     url.trim().trim_end_matches('/').to_string()
+}
+
+/// Where identity lives, per the discovery document.
+///
+/// Resolved per call rather than cached in a `static`: the document refreshes
+/// in the background, and a value read once at startup would keep pointing at
+/// a service that has since moved.
+fn auth_base() -> String {
+    trim_base(&crate::commands::platform::cloud_url::service_url(
+        crate::commands::platform::discovery::SERVICE_AUTH,
+    ))
+}
+
+/// Where the model gateway lives. Separate from `auth_base` because these
+/// genuinely can be different hosts — the router is the one service we would
+/// most want to move or scale independently.
+fn router_base() -> String {
+    trim_base(&crate::commands::platform::cloud_url::service_url(
+        crate::commands::platform::discovery::SERVICE_ROUTER,
+    ))
 }
 
 // ─── Public account view ─────────────────────────────────────────────────────
@@ -202,7 +224,7 @@ async fn post_json_auth(
     path: &str,
     body: serde_json::Value,
 ) -> Result<(reqwest::StatusCode, serde_json::Value), String> {
-    let base = trim_base(&crate::commands::platform::cloud_url::get_cloud_url());
+    let base = auth_base();
     let client = http_client()?;
     let resp = client
         .post(format!("{base}{path}"))
@@ -234,7 +256,7 @@ pub async fn cloud_sign_in(
     username: String,
     password: String,
 ) -> Result<CloudAccountInfo, String> {
-    let base = trim_base(&crate::commands::platform::cloud_url::get_cloud_url());
+    let base = auth_base();
     let client = http_client()?;
 
     // 1) Try the long-lived device token endpoint.
@@ -272,7 +294,7 @@ pub async fn cloud_sign_in(
 
 #[tauri::command]
 pub async fn cloud_create_captcha() -> Result<serde_json::Value, String> {
-    let base = trim_base(&crate::commands::platform::cloud_url::get_cloud_url());
+    let base = auth_base();
     let client = http_client()?;
     let resp = client
         .get(format!("{base}/api/auth/captcha"))
@@ -328,7 +350,7 @@ pub async fn cloud_wechat_poll_session(
     app: AppHandle,
     session_id: String,
 ) -> Result<WechatLoginResult, String> {
-    let base = trim_base(&crate::commands::platform::cloud_url::get_cloud_url());
+    let base = auth_base();
     let client = http_client()?;
     let resp = client
         .get(format!(
@@ -398,7 +420,7 @@ pub async fn cloud_sign_in_sms(
     phone: String,
     code: String,
 ) -> Result<CloudAccountInfo, String> {
-    let base = trim_base(&crate::commands::platform::cloud_url::get_cloud_url());
+    let base = auth_base();
     let (status, json) = post_json_auth(
         "/api/auth/sms/login",
         serde_json::json!({
@@ -439,7 +461,7 @@ pub async fn cloud_reset_password(
 
 #[tauri::command]
 pub async fn cloud_wechat_login(app: AppHandle, code: String) -> Result<WechatLoginResult, String> {
-    let base = trim_base(&crate::commands::platform::cloud_url::get_cloud_url());
+    let base = auth_base();
     let (status, json) = post_json_auth(
         "/api/auth/wechat/login",
         serde_json::json!({
@@ -495,7 +517,7 @@ pub async fn cloud_wechat_complete_profile(
     sms_code: String,
     password: Option<String>,
 ) -> Result<CloudAccountInfo, String> {
-    let base = trim_base(&crate::commands::platform::cloud_url::get_cloud_url());
+    let base = auth_base();
     let mut body = serde_json::json!({
         "pending_token": pending_token,
         "username": username.trim(),
@@ -676,8 +698,7 @@ pub async fn sync_cloud_llm_config(
         return Ok(vec![]);
     }
 
-    let base = trim_base(&crate::commands::platform::cloud_url::get_cloud_url());
-    let gateway_base = format!("{base}/api/llm/v1");
+    let gateway_base = format!("{}/api/llm/v1", router_base());
     let models = fetch_models(&gateway_base, &store.access_token).await;
     let primary = models.first().cloned().unwrap_or_default();
 
@@ -778,7 +799,7 @@ fn build_usage_http_request(
         return Err("cloud session is not authenticated".to_string());
     }
 
-    let base = trim_base(&crate::commands::platform::cloud_url::get_cloud_url());
+    let base = auth_base();
     let url = format!("{base}{}", request.path);
     let builder = if request.method.eq_ignore_ascii_case("POST") {
         client.post(url)

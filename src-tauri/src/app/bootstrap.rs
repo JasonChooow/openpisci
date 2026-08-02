@@ -1572,6 +1572,7 @@ fn run_impl() {
             commands::platform::agentos::agentos_unbind,
             commands::platform::agentos::agentos_handoff,
             commands::platform::cloud_url::get_cloud_base_url,
+            commands::platform::cloud_url::get_platform_discovery,
             commands::platform::extras::list_team_templates,
             commands::platform::marketplace::fetch_marketplace_index,
             commands::platform::marketplace::fetch_marketplace_aggregated,

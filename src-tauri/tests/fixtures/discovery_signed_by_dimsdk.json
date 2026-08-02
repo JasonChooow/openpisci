@@ -1,0 +1,39 @@
+{
+  "public_key": "v3NXrzrqnM9go6SCSpjRxNkMVMGmfgNeKg1BRlkkzBo=",
+  "envelope": {
+    "payload": {
+      "version": 1,
+      "issued_at": 1900000000,
+      "expires_at": 1900000900,
+      "environment": "生产",
+      "services": [
+        {
+          "name": "dimauth",
+          "url": "https://auth.dimnuo.com",
+          "min_client_version": "0.1.0",
+          "status": "healthy"
+        },
+        {
+          "name": "dimstore",
+          "url": "https://store.dimnuo.com",
+          "min_client_version": null,
+          "status": "down"
+        },
+        {
+          "name": "dimrouter",
+          "url": "https://router.dimnuo.com",
+          "min_client_version": null,
+          "status": "healthy"
+        }
+      ],
+      "features": {
+        "registration_open": true,
+        "wechat_login": false,
+        "注释": "非 ASCII 也要能验过"
+      }
+    },
+    "signature": "OQtH9N3FWnkJ6g6OPlgPO3hY+zVbCMvkeyKH2a8mDF3zNATMIGcXnHTv5HkUPxoU2s21UwxQJ+rqeI7HZuCQCw==",
+    "alg": "Ed25519",
+    "key_id": "v1"
+  }
+}

@@ -15,6 +15,7 @@ pub mod cloud;
 pub mod cloud_account;
 pub mod agentos;
 pub mod cloud_url;
+pub mod discovery;
 pub mod extras;
 pub mod interactive;
 pub mod marketplace;

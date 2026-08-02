@@ -1,25 +1,29 @@
-//! Compile-time encrypted Cloud gateway URL and its frontend command.
+//! The platform edge address, and the service addresses discovery resolves.
+//!
+//! This used to AES-decrypt a URL baked into the binary at compile time. The
+//! build emitted the decryption key alongside the ciphertext, so anyone holding
+//! the binary held both halves — it hid the hostname from `strings` and from
+//! nothing else, while the hostname travelled in plaintext in the TLS SNI of
+//! every connection. The cost was real though: the address *was* the binary, so
+//! moving a service meant shipping a release.
+//!
+//! Now the binary carries a bootstrap address and a pinned Ed25519 key, and the
+//! addresses come from a signed document. See `discovery.rs`.
 
-use aes_gcm::{
-    aead::{Aead, KeyInit},
-    Aes256Gcm, Nonce,
-};
+use super::discovery;
 
-const ENCRYPTED_CLOUD_URL: &str = env!("ENCRYPTED_CLOUD_URL");
-const CLOUD_URL_NONCE: &str = env!("CLOUD_URL_NONCE");
-const CLOUD_URL_KEY: &str = env!("CLOUD_URL_KEY");
-
-/// Return the official Cloud gateway URL.
+/// The platform edge.
 ///
-/// Debug builds may use a compile-time `VITE_CLOUD_BASE_URL` override for
-/// local integration. Release builds always decrypt the embedded official URL.
+/// Kept as the fallback for every caller: everything is reachable through the
+/// edge today, so a discovery failure degrades to exactly the previous
+/// behaviour rather than to a client that cannot talk to anything.
 pub fn get_cloud_url() -> String {
     #[cfg(debug_assertions)]
     if let Some(url) = debug_cloud_url_override(option_env!("VITE_CLOUD_BASE_URL")) {
         return url;
     }
 
-    decrypt_embedded_cloud_url()
+    discovery::edge_url().to_string()
 }
 
 #[cfg(debug_assertions)]
@@ -30,31 +34,18 @@ fn debug_cloud_url_override(value: Option<&str>) -> Option<String> {
         .map(str::to_owned)
 }
 
-fn decrypt_cloud_url(
-    ciphertext: &[u8],
-    key: &[u8; 32],
-    nonce: &[u8; 12],
-) -> Result<Vec<u8>, aes_gcm::Error> {
-    let cipher = Aes256Gcm::new_from_slice(key).expect("AES-256-GCM key must be exactly 32 bytes");
-    cipher.decrypt(Nonce::from_slice(nonce), ciphertext)
-}
+/// Address of one platform service, falling back to the edge.
+///
+/// A local override wins over discovery: a developer pointing at their own
+/// stack means it, and having the document silently redirect them to production
+/// would be a confusing afternoon.
+pub fn service_url(service: &str) -> String {
+    #[cfg(debug_assertions)]
+    if let Some(url) = debug_cloud_url_override(option_env!("VITE_CLOUD_BASE_URL")) {
+        return url;
+    }
 
-fn decrypt_embedded_cloud_url() -> String {
-    let encrypted = hex::decode(ENCRYPTED_CLOUD_URL)
-        .expect("embedded Cloud URL ciphertext must be valid hexadecimal");
-    let nonce: [u8; 12] = hex::decode(CLOUD_URL_NONCE)
-        .expect("embedded Cloud URL nonce must be valid hexadecimal")
-        .try_into()
-        .expect("embedded Cloud URL nonce must be 12 bytes");
-    let key: [u8; 32] = hex::decode(CLOUD_URL_KEY)
-        .expect("embedded Cloud URL key must be valid hexadecimal")
-        .try_into()
-        .expect("embedded Cloud URL key must be 32 bytes");
-
-    let plaintext = decrypt_cloud_url(&encrypted, &key, &nonce)
-        .expect("embedded Cloud URL authentication or decryption failed");
-
-    String::from_utf8(plaintext).expect("decrypted Cloud URL must be valid UTF-8")
+    discovery::url_for(service).unwrap_or_else(|| discovery::edge_url().to_string())
 }
 
 #[tauri::command]
@@ -62,44 +53,43 @@ pub fn get_cloud_base_url() -> String {
     get_cloud_url()
 }
 
+/// What the frontend needs to decide what to render before anything is called:
+/// where each service is, which are down, and which features are on.
+#[tauri::command]
+pub async fn get_platform_discovery() -> Result<serde_json::Value, String> {
+    if discovery::needs_refresh() {
+        // A refresh failure is not fatal — a document already in hand stays
+        // usable, and a client with none still has the edge to fall back to.
+        if let Err(error) = discovery::refresh().await {
+            tracing::warn!("platform discovery refresh failed: {error}");
+        }
+    }
+
+    match discovery::cached() {
+        Some(payload) => {
+            serde_json::to_value(payload).map_err(|error| error.to_string())
+        }
+        None => Ok(serde_json::json!({
+            "available": false,
+            "edge_url": discovery::edge_url(),
+        })),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::{prelude::*, string::string_regex};
 
-    fn valid_cloud_url() -> impl Strategy<Value = String> {
-        (
-            prop_oneof![Just("http"), Just("https")],
-            prop::collection::vec(
-                string_regex("[a-z][a-z0-9]{0,15}").expect("host label regex must be valid"),
-                2..=4,
-            ),
-            prop::collection::vec(
-                string_regex("[A-Za-z0-9._~-]{1,24}").expect("path segment regex must be valid"),
-                0..=4,
-            ),
-            prop::option::of(
-                string_regex("[A-Za-z0-9._~=&-]{1,24}").expect("query regex must be valid"),
-            ),
-        )
-            .prop_map(|(scheme, host_labels, path_segments, query)| {
-                let mut url = format!("{scheme}://{}", host_labels.join("."));
-                for segment in path_segments {
-                    url.push('/');
-                    url.push_str(&segment);
-                }
-                if let Some(query) = query {
-                    url.push('?');
-                    url.push_str(&query);
-                }
-                url
-            })
+    #[test]
+    fn the_edge_address_is_a_url() {
+        assert!(get_cloud_url().starts_with("http"));
     }
 
     #[test]
-    fn embedded_cloud_url_decrypts_to_official_endpoint() {
-        assert_eq!(decrypt_embedded_cloud_url(), "https://www.dimnuo.com");
-        assert!(!ENCRYPTED_CLOUD_URL.contains("dimnuo"));
+    fn an_unresolved_service_falls_back_to_the_edge() {
+        // Everything is reachable through the edge, so this degrades to the
+        // behaviour that existed before discovery rather than to a dead client.
+        assert_eq!(service_url("not-a-real-service"), get_cloud_url());
     }
 
     #[cfg(debug_assertions)]
@@ -111,29 +101,5 @@ mod tests {
             debug_cloud_url_override(Some("  http://127.0.0.1:8787/  ")),
             Some("http://127.0.0.1:8787/".to_string())
         );
-    }
-
-    proptest! {
-        #![proptest_config(ProptestConfig::with_cases(100))]
-
-        /// Feature: cloud-locked-llm-gateway, Property 1: Cloud URL 加密解密往返一致
-        /// **Validates: Requirements 1.1, 1.2**
-        #[test]
-        fn cloud_url_encryption_decryption_round_trip(
-            url in valid_cloud_url(),
-            key in prop::array::uniform32(any::<u8>()),
-            nonce in prop::array::uniform12(any::<u8>()),
-        ) {
-            let cipher = Aes256Gcm::new_from_slice(&key)
-                .expect("generated AES-256-GCM key must be 32 bytes");
-            let ciphertext = cipher
-                .encrypt(Nonce::from_slice(&nonce), url.as_bytes())
-                .expect("encryption of a valid URL must succeed");
-
-            let plaintext = decrypt_cloud_url(&ciphertext, &key, &nonce)
-                .expect("ciphertext encrypted with the same key and nonce must decrypt");
-
-            prop_assert_eq!(plaintext.as_slice(), url.as_bytes());
-        }
     }
 }

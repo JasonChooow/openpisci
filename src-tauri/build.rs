@@ -1,13 +1,15 @@
-use aes_gcm::{
-    aead::{Aead, KeyInit},
-    Aes256Gcm, Nonce,
-};
+/// Where the client looks for the platform. Not a secret, and never was: the
+/// hostname is in the TLS SNI of the first packet and in any capture.
+const DEFAULT_EDGE_URL: &str = "https://www.dimnuo.com";
 
-const CLOUD_URL: &str = "https://www.dimnuo.com";
-const CLOUD_URL_KEY_ENV: &str = "PISCIS_CLOUD_URL_KEY_HEX";
+/// Ed25519 public key, base64, that the discovery document must verify against.
+/// This is the pin — the one thing in the binary that actually has to be right,
+/// because it is what stops a tampered document redirecting the client to
+/// somebody else's backend.
+const DISCOVERY_PUBLIC_KEY_ENV: &str = "DIM_DISCOVERY_PUBLIC_KEY";
 
 fn main() {
-    encrypt_cloud_url();
+    embed_platform_config();
 
     for icon in [
         "icons/32x32.png",
@@ -34,42 +36,45 @@ fn main() {
     tauri_build::build()
 }
 
-fn encrypt_cloud_url() {
-    println!("cargo:rerun-if-env-changed={CLOUD_URL_KEY_ENV}");
+/// Embed the bootstrap address and the discovery signing key.
+///
+/// This replaces AES-encrypting the cloud URL into the binary. That scheme
+/// emitted the decryption key alongside the ciphertext, so anyone holding the
+/// binary held both halves — it hid the URL from `strings`, and from nothing
+/// else. Meanwhile it cost a release every time an address moved, because the
+/// address *was* the binary.
+///
+/// The property worth having is integrity, not concealment: a tampered
+/// discovery document must not be able to point the client at someone else's
+/// backend. That is what pinning the verification key below buys, and it is
+/// the reason a missing key fails the build rather than defaulting.
+fn embed_platform_config() {
+    println!("cargo:rerun-if-env-changed={DISCOVERY_PUBLIC_KEY_ENV}");
+    println!("cargo:rerun-if-env-changed=DIM_EDGE_URL");
     println!("cargo:rerun-if-env-changed=VITE_CLOUD_BASE_URL");
 
-    let key = cloud_url_key();
-    let mut nonce = [0_u8; 12];
-    getrandom::getrandom(&mut nonce).expect("failed to generate Cloud URL nonce");
+    let edge_url = std::env::var("DIM_EDGE_URL")
+        .map(|value| value.trim().to_owned())
+        .ok()
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| DEFAULT_EDGE_URL.to_owned());
+    println!("cargo:rustc-env=DIM_EDGE_URL={edge_url}");
 
-    let cipher = Aes256Gcm::new_from_slice(&key).expect("AES-256-GCM key must be 32 bytes");
-    let ciphertext = cipher
-        .encrypt(Nonce::from_slice(&nonce), CLOUD_URL.as_bytes())
-        .expect("failed to encrypt Cloud URL");
+    let key = std::env::var(DISCOVERY_PUBLIC_KEY_ENV)
+        .map(|value| value.trim().to_owned())
+        .unwrap_or_default();
 
-    println!(
-        "cargo:rustc-env=ENCRYPTED_CLOUD_URL={}",
-        hex::encode(ciphertext)
-    );
-    println!("cargo:rustc-env=CLOUD_URL_NONCE={}", hex::encode(nonce));
-    println!("cargo:rustc-env=CLOUD_URL_KEY={}", hex::encode(key));
-}
-
-fn cloud_url_key() -> [u8; 32] {
-    if let Ok(encoded) = std::env::var(CLOUD_URL_KEY_ENV) {
-        let decoded = hex::decode(encoded.trim())
-            .unwrap_or_else(|_| panic!("{CLOUD_URL_KEY_ENV} must be valid hexadecimal"));
-        return decoded.try_into().unwrap_or_else(|bytes: Vec<u8>| {
-            panic!(
-                "{CLOUD_URL_KEY_ENV} must decode to 32 bytes, got {}",
-                bytes.len()
-            )
-        });
+    // A release build with no pin would accept any document the network hands
+    // it, which is strictly worse than the scheme this replaces. Debug builds
+    // are allowed to run unpinned so a developer can point at a local stack.
+    if key.is_empty() && std::env::var("PROFILE").as_deref() == Ok("release") {
+        panic!(
+            "{DISCOVERY_PUBLIC_KEY_ENV} must be set for a release build; without the \
+             pin the client would accept any discovery document it is handed. Get it \
+             from the gateway operator, not from the gateway itself."
+        );
     }
-
-    let mut key = [0_u8; 32];
-    getrandom::getrandom(&mut key).expect("failed to generate Cloud URL encryption key");
-    key
+    println!("cargo:rustc-env=DIM_DISCOVERY_PUBLIC_KEY={key}");
 }
 
 #[cfg(target_os = "windows")]

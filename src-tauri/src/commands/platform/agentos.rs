@@ -28,10 +28,15 @@ pub struct AgentosHandoff {
 }
 
 fn cloud_base() -> String {
-    crate::commands::platform::cloud_url::get_cloud_url()
-        .trim()
-        .trim_end_matches('/')
-        .to_string()
+    // Resolved through discovery so moving the runtime is a document change
+    // rather than a desktop release. Falls back to the edge, which is where it
+    // used to point unconditionally.
+    crate::commands::platform::cloud_url::service_url(
+        crate::commands::platform::discovery::SERVICE_AGENTOS,
+    )
+    .trim()
+    .trim_end_matches('/')
+    .to_string()
 }
 
 async fn authed_request(
