@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from .base import Base
 from .billing import AdminUser, BillingConfig, UsageRecord
+from .binding import ExternalAccountBinding
 from .model import Model, ProviderModel
 from .provider import LlmProvider
 from .routing import ModelRoutingConfig, RoutingStrategy
@@ -17,6 +18,7 @@ from .user import User
 __all__ = [
     "Base",
     "User",
+    "ExternalAccountBinding",
     "LlmProvider",
     "Model",
     "ProviderModel",

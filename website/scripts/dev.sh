@@ -52,7 +52,7 @@ start_backend() {
 }
 
 start_frontend() {
-  echo "[dev.sh] starting vite dev server on :5173"
+  echo "[dev.sh] starting vite dev server on :5273"
   (
     cd "$ROOT"
     exec npm run dev

@@ -211,6 +211,26 @@ export const cloudAccountApi = {
   syncLlm: () => invoke<string[]>("sync_cloud_llm_config"),
 };
 
+export type AgentosStatus = {
+  bound: boolean;
+  externalUsername?: string | null;
+  webUrl?: string | null;
+};
+
+export type AgentosHandoff = {
+  url: string;
+  externalUsername?: string | null;
+};
+
+export const agentosApi = {
+  status: () => invoke<AgentosStatus>("agentos_status"),
+  bind: (username: string, password: string) =>
+    invoke<AgentosStatus>("agentos_bind", { username, password }),
+  unbind: () => invoke<AgentosStatus>("agentos_unbind"),
+  /** Fresh SSO URL for theAgentOS web UI; errors: "NOT_BOUND" | "REBIND_REQUIRED". */
+  handoff: () => invoke<AgentosHandoff>("agentos_handoff"),
+};
+
 export type {
   TeamTemplate,
   TeamExpertSnapshot,

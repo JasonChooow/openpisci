@@ -89,13 +89,28 @@ const en = {
     browser: "Cloud Browser",
     glamoonMall: "Glamoon Shop",
     glamoonMallSub: "Cross-border ecommerce mini-program shop",
-    qinchuangOpc: "Qinchuang OPC",
-    qinchuangOpcSub: "Self-operated office OPC park",
+    agentComputer: "My Cloud Agent PC",
+    agentComputerSub: "Bind once, straight into theAgentOS",
     tasks: "Tasks",
     space: "Space",
     guide: "Getting Started",
     usage: "Usage",
     usageSub: "Balance & consumption stats",
+  },
+
+  // My Cloud Agent PC (theAgentOS single sign-on)
+  agentComputer: {
+    bindTitle: "Bind your Cloud Agent PC",
+    bindDesc: "Enter your theAgentOS account once to bind. After that, this entry takes you straight in — no login required.",
+    usernamePlaceholder: "theAgentOS username",
+    passwordPlaceholder: "theAgentOS password",
+    bindButton: "Bind & enter",
+    bindNote: "Credentials are only used for this one-time verification and are never stored",
+    rebindRequired: "Binding expired — please verify your account once more",
+    entering: "Entering your Cloud Agent PC…",
+    refresh: "Reload",
+    openExternal: "Open in browser",
+    unbind: "Unbind",
   },
 
   // Usage dashboard

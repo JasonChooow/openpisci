@@ -10,7 +10,8 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5174,
+    // 5274: the 9xBot desktop dev server already occupies 5174.
+    port: 5274,
     proxy: {
       '/api': {
         target: 'http://localhost:8137',

@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .admin import management_router as admin_mgmt_router
 from .admin import router as admin_router
-from .api import auth, auth_social, health, marketplace
+from .api import auth, auth_agentos, auth_social, health, marketplace
 from .billing.router import router as billing_router
 from .config import get_settings
 from .core.repository import get_marketplace_repository
@@ -74,6 +74,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(marketplace.router)
     app.include_router(auth.router)
+    app.include_router(auth_agentos.router)
     app.include_router(auth_social.router)
     app.include_router(billing_router)
     app.include_router(usage_router)

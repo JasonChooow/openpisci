@@ -70,7 +70,7 @@ fn clear_store(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn http_client() -> Result<reqwest::Client, String> {
+pub(crate) fn http_client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .user_agent(format!("{PRODUCT_NAME}-Cloud/1.0"))
         .build()

@@ -57,6 +57,11 @@ class Settings:
     # Echo SQL statements to logs (debug only).
     db_echo: bool = False
 
+    # theAgentOS integration ("我的云Agent电脑"): API base for device
+    # token/refresh calls, and the web UI origin used to build sso_session URLs.
+    agentos_api_base: str = "http://localhost:8138"
+    agentos_web_url: str = "http://localhost:3137"
+
 
 def _resolve_path(env_key: str, default: Path) -> Path:
     val = os.environ.get(env_key, "").strip()
@@ -89,6 +94,8 @@ def load_settings() -> Settings:
             f"sqlite+aiosqlite:///{BACKEND_ROOT / 'var' / 'gateway.db'}",
         ),
         db_echo=os.environ.get("MARKET_DB_ECHO", "0").lower() in ("1", "true", "yes"),
+        agentos_api_base=os.environ.get("AGENTOS_API_BASE", "http://localhost:8138").rstrip("/"),
+        agentos_web_url=os.environ.get("AGENTOS_WEB_URL", "http://localhost:3137").rstrip("/"),
     )
 
 

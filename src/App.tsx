@@ -14,7 +14,7 @@ import {
   BookOpen,
   ChevronRight,
   ShoppingBag,
-  Building2,
+  MonitorCloud,
   Wallet,
 } from "lucide-react";
 import { store, RootState, settingsActions, sessionsActions, chatActions, poolActions } from "./store";
@@ -31,7 +31,7 @@ import MyFiles from "./components/MyFiles";
 import Inspiration, { type InspirationAction } from "./components/Inspiration";
 import CloudFiles from "./components/CloudFiles";
 import CloudBrowser from "./components/CloudBrowser";
-import QinchuangOpcPage from "./components/QinchuangOpcPage";
+import AgentComputerPage from "./components/AgentComputerPage";
 import TaskList from "./components/Sidebar/TaskList";
 import SidebarHeader from "./components/Sidebar/SidebarHeader";
 import AccountMenu from "./components/Sidebar/AccountMenu";
@@ -701,10 +701,10 @@ function AppContent() {
             type="button"
             className={`nav-item ${activeTab === "browser" && activeSpaceLink === "qinchuang" ? "active" : ""}`}
             onClick={() => openSpaceLink("qinchuang")}
-            title={t("nav.qinchuangOpcSub")}
+            title={t("nav.agentComputerSub")}
           >
-            <span className="nav-icon"><Building2 size={ICON} strokeWidth={1.5} /></span>
-            <span className="nav-label">{t("nav.qinchuangOpc")}</span>
+            <span className="nav-icon"><MonitorCloud size={ICON} strokeWidth={1.5} /></span>
+            <span className="nav-label">{t("nav.agentComputer")}</span>
           </button>
           <button type="button" className="nav-item" data-tour-target="guide" onClick={handleGuide} title={t("nav.guide")}>
             <span className="nav-icon"><BookOpen size={ICON} strokeWidth={1.5} /></span>
@@ -789,7 +789,7 @@ function AppContent() {
           {mountedTabs.has("browser") && (
             <div className="tab-panel" hidden={activeTab !== "browser"}>
               {activeSpaceLink === "qinchuang" ? (
-                <QinchuangOpcPage />
+                <AgentComputerPage />
               ) : (
                 <CloudBrowser
                   visible={activeTab === "browser"}

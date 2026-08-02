@@ -89,13 +89,28 @@ const zh = {
     browser: "云端浏览",
     glamoonMall: "菓然有品",
     glamoonMallSub: "跨境电商小程序商城",
-    qinchuangOpc: "秦创OPC",
-    qinchuangOpcSub: "自营办公 OPC 园区",
+    agentComputer: "我的云Agent电脑",
+    agentComputerSub: "绑定账号，免密直达 theAgentOS",
     tasks: "任务",
     space: "空间",
     guide: "新手指引",
     usage: "用量",
     usageSub: "余额与消费统计",
+  },
+
+  // 我的云Agent电脑（theAgentOS 免密直达）
+  agentComputer: {
+    bindTitle: "绑定云 Agent 电脑",
+    bindDesc: "输入 theAgentOS 账号完成一次绑定，之后从此入口免登录直达你的云 Agent 电脑。",
+    usernamePlaceholder: "theAgentOS 用户名",
+    passwordPlaceholder: "theAgentOS 密码",
+    bindButton: "绑定并进入",
+    bindNote: "账号凭据仅用于本次绑定验证，不会被保存",
+    rebindRequired: "绑定已过期，请重新验证一次账号",
+    entering: "正在进入云 Agent 电脑…",
+    refresh: "重新加载",
+    openExternal: "在浏览器中打开",
+    unbind: "解除绑定",
   },
 
   // 用量看板
