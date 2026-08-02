@@ -100,12 +100,33 @@ def test_public_models_no_auth(models_client: TestClient):
 
 def test_public_models_sanitized(models_client: TestClient):
     body = models_client.get("/api/marketplace/models").json()
-    allowed = {"id", "display_name", "description", "category", "providers", "pricing"}
+    allowed = {"id", "display_name", "description", "category", "route_count", "pricing"}
     for m in body["models"]:
         assert set(m.keys()) == allowed
         assert "base_url" not in str(m).lower()
         assert "api_key" not in str(m).lower()
         assert "secret" not in str(m).lower()
+
+
+def test_public_models_do_not_name_the_upstreams(models_client: TestClient):
+    """上游是可替换的供应商。
+
+    写在定价页上，一次换线就变成一次要通知用户的变更，议价空间也一并交出去了。
+    运营侧要看这张映射表，走网关的 admin 接口。
+    """
+    body = models_client.get("/api/marketplace/models").json()
+    rendered = str(body).lower()
+    for vendor in ("openai", "anthropic", "bayesdl", "算龙头", "aiyuanbao", "中国移动"):
+        assert vendor.lower() not in rendered, f"目录里泄露了上游 {vendor}"
+
+
+def test_public_models_still_say_whether_there_is_a_fallback(models_client: TestClient):
+    """访客真正想从供应商列表里得到的信息是「这个模型有没有备用线路」。
+
+    条数说得了这件事，且不泄露任何东西。
+    """
+    body = models_client.get("/api/marketplace/models").json()
+    assert all(m["route_count"] >= 1 for m in body["models"])
 
 
 def test_public_models_category_filter(models_client: TestClient):

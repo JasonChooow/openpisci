@@ -126,11 +126,11 @@ export default function ModelsPage() {
                   </div>
                   <div className="models-page-foot">
                     <div className="model-meta">
-                      {(m.providers || []).slice(0, 2).map((p) => (
-                        <span key={p} className="chip">
-                          {p}
-                        </span>
-                      ))}
+                      {/* 只说有几条线路，不说是哪几家：上游是可替换的供应商，
+                          写在定价页上会让一次换线变成一次要通知用户的变更。 */}
+                      {m.route_count > 1 && (
+                        <span className="chip">{m.route_count} 条线路</span>
+                      )}
                     </div>
                     <Link to="/#download" className="models-use-link">
                       在桌面端使用

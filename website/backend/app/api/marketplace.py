@@ -114,6 +114,11 @@ async def list_public_models(
     Returns sanitized fields only — no provider base_url / api_key / internal
     routing config. Anonymous visitors must be able to browse which models the
     gateway offers before signing up.
+
+    **Upstream identity is not part of that.** Which vendor serves a model is a
+    supply decision: naming it on a public pricing page turns a routing change
+    into a customer-visible change, and hands our sourcing to anyone who reads
+    it. Operators see the mapping through the gateway's admin API instead.
     """
     stmt = (
         select(
@@ -121,7 +126,6 @@ async def list_public_models(
             Model.display_name,
             Model.description,
             Model.category,
-            LlmProvider.name,
             ProviderModel.cost_input_per_1k,
             ProviderModel.cost_output_per_1k,
         )
@@ -137,7 +141,7 @@ async def list_public_models(
     rows = (await session.execute(stmt)).all()
 
     grouped: Dict[str, Dict[str, Any]] = {}
-    for name, display, desc, cat, provider_name, cin, cout in rows:
+    for name, display, desc, cat, cin, cout in rows:
         if category and cat != category:
             continue
         entry = grouped.setdefault(
@@ -147,7 +151,10 @@ async def list_public_models(
                 "display_name": display,
                 "description": desc,
                 "category": cat,
-                "providers": [],
+                # How many upstreams can serve this, without saying which. It is
+                # what a visitor actually wants to know from the vendor list —
+                # whether the model has a fallback — and it leaks nothing.
+                "route_count": 0,
                 "pricing": {
                     "input_per_1k": cin,
                     "output_per_1k": cout,
@@ -155,8 +162,7 @@ async def list_public_models(
                 },
             },
         )
-        if provider_name not in entry["providers"]:
-            entry["providers"].append(provider_name)
+        entry["route_count"] += 1
         # Keep the cheapest pricing across providers.
         if cin < entry["pricing"]["input_per_1k"]:
             entry["pricing"]["input_per_1k"] = cin
