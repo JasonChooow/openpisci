@@ -144,7 +144,7 @@ const BENTO = [
     icon: Route,
     title: '云端模型服务',
     desc: '一个账户接入多家模型，网关按成本与可用性自动选路，用量与余额实时可见。',
-    link: '/model',
+    link: '/models',
     linkText: '查看可用模型',
   },
   {
@@ -338,7 +338,7 @@ export default function App() {
         {error && (
           <div className="wrap">
             <p className="status-line status-line--error">
-              无法连接市场后端（{error}）——请确认后端正在 :8137 运行。
+              无法连接市场后端（{error}）——请确认门户 API（/api）可用。
             </p>
           </div>
         )}
