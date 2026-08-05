@@ -1,10 +1,87 @@
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsForm } from "../../SettingsHub/useSettingsForm";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
+import { chatApi } from "../../../services/tauri";
+
+function providerName(provider: string): string {
+  switch (provider) {
+    case "anthropic": return "Anthropic";
+    case "openai": return "OpenAI";
+    case "deepseek": return "DeepSeek";
+    case "qwen": return "Qwen";
+    case "minimax": return "MiniMax";
+    case "zhipu": return "智谱";
+    case "kimi": return "Kimi";
+    case "custom": return "自定义";
+    default: return provider || "模型";
+  }
+}
+
+function uniqueModels(models: Array<string | undefined | null>): string[] {
+  return Array.from(new Set(models.map((model) => model?.trim()).filter(Boolean) as string[]));
+}
 
 export default function ChannelsSection() {
   const { t } = useTranslation();
-  const { form, update, showKeys, setShowKeys, gatewayStatus, gatewayMsg, gatewayConnecting, gatewayDisconnecting, handleGatewayConnect, handleGatewayDisconnect, statusBadge, wechatQr, wechatBindState, wechatBindError, handleWechatBind, renderEnterpriseCapabilityPanel } = useSettingsForm();
+  const { form, update, showKeys, setShowKeys, gatewayStatus, gatewayMsg, gatewayConnecting, gatewayDisconnecting, handleGatewayConnect, handleGatewayDisconnect, statusBadge, wechatQr, wechatBindState, wechatBindError, handleWechatBind, renderEnterpriseCapabilityPanel, llmProviders } = useSettingsForm();
+  const [providerModelsById, setProviderModelsById] = useState<Record<string, string[]>>({});
+  const imToolConfig = (form.user_tool_configs?.im ?? {}) as Record<string, unknown>;
+  const imModelProviderId = typeof imToolConfig.model_provider_id === "string" ? imToolConfig.model_provider_id : "";
+
+  useEffect(() => {
+    const providers = llmProviders.filter((provider) => provider.base_url?.trim());
+    if (!providers.length) {
+      setProviderModelsById({});
+      return;
+    }
+    let cancelled = false;
+    Promise.allSettled(
+      providers.map(async (provider) => {
+        const result = await chatApi.listLlmProviderModels(provider.id);
+        return { providerId: provider.id, models: result.models };
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+      const next: Record<string, string[]> = {};
+      results.forEach((result, idx) => {
+        const providerId = providers[idx]?.id;
+        if (!providerId || result.status !== "fulfilled") return;
+        next[providerId] = result.value.models;
+      });
+      setProviderModelsById(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [llmProviders]);
+
+  const imModelOptions = useMemo(() => {
+    return llmProviders.flatMap((provider) => {
+      const displayProvider = provider.label || providerName(provider.provider);
+      const models = uniqueModels([provider.model, ...(providerModelsById[provider.id] ?? [])]);
+      if (!models.length) {
+        return [{
+          value: provider.id,
+          label: `${displayProvider}（${t("settings.imReplyModelNoModel")}）`,
+        }];
+      }
+      return models.map((modelName) => ({
+        value: modelName === provider.model ? provider.id : `${provider.id}::${modelName}`,
+        label: `${displayProvider} · ${modelName}`,
+      }));
+    });
+  }, [llmProviders, providerModelsById, t]);
+
+  const updateImModelProviderId = (value: string) => {
+    update("user_tool_configs", {
+      ...(form.user_tool_configs ?? {}),
+      im: {
+        ...((form.user_tool_configs?.im as Record<string, unknown> | undefined) ?? {}),
+        model_provider_id: value,
+      },
+    });
+  };
 
   return (
     <>
@@ -45,6 +122,28 @@ export default function ChannelsSection() {
                   </select>
                   <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, lineHeight: 1.5 }}>
                     {t("settings.imMessageModeHint")}
+                  </p>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 16, padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-secondary)" }}>
+                  <label className="label" style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, display: "block" }}>
+                    {t("settings.imReplyModel")}
+                  </label>
+                  <select
+                    className="input"
+                    value={imModelProviderId}
+                    onChange={(e) => updateImModelProviderId(e.target.value)}
+                    style={{ width: "100%" }}
+                  >
+                    <option value="">{t("settings.imReplyModelDefault")}</option>
+                    {imModelOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, lineHeight: 1.5 }}>
+                    {llmProviders.length > 0
+                      ? t("settings.imReplyModelHint")
+                      : t("settings.imReplyModelEmptyHint")}
                   </p>
                 </div>
       

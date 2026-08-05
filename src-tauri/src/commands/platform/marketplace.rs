@@ -409,10 +409,9 @@ pub async fn fetch_marketplace_aggregated(
     // Skipped outright when discovery says the store is down: the alternative
     // is every marketplace open blocking on a request we already know will time
     // out, and the local sources above are perfectly usable meanwhile.
-    let store_reachable =
-        crate::commands::platform::discovery::is_healthy(
-            crate::commands::platform::discovery::SERVICE_STORE,
-        );
+    let store_reachable = crate::commands::platform::discovery::is_healthy(
+        crate::commands::platform::discovery::SERVICE_STORE,
+    );
     if let Some(base) = cloud_base_url
         .filter(|s| !s.trim().is_empty())
         .filter(|_| store_reachable)
@@ -578,5 +577,6 @@ pub async fn install_market_skill(
         .await
         .map_err(|e| format!("Failed to fetch SKILL.md from {}: {}", skill_md_url, e))?;
 
-    install_skill_from_content_sourced(&state, content, "openpisci-market", Some(skill_md_url)).await
+    install_skill_from_content_sourced(&state, content, "openpisci-market", Some(skill_md_url))
+        .await
 }

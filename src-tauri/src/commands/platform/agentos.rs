@@ -107,10 +107,7 @@ pub async fn agentos_bind(
         return Err(error_message(&json, "绑定云 Agent 电脑账号失败"));
     }
     Ok(AgentosStatus {
-        bound: json
-            .get("bound")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(true),
+        bound: json.get("bound").and_then(|v| v.as_bool()).unwrap_or(true),
         external_username: json
             .get("external_username")
             .and_then(|v| v.as_str())
@@ -121,8 +118,13 @@ pub async fn agentos_bind(
 
 #[tauri::command]
 pub async fn agentos_unbind(app: AppHandle) -> Result<AgentosStatus, String> {
-    let (status, json) =
-        authed_request(&app, reqwest::Method::DELETE, "/api/auth/agentos/bind", None).await?;
+    let (status, json) = authed_request(
+        &app,
+        reqwest::Method::DELETE,
+        "/api/auth/agentos/bind",
+        None,
+    )
+    .await?;
     if !status.is_success() {
         return Err(error_message(&json, "解绑失败"));
     }
@@ -135,8 +137,13 @@ pub async fn agentos_unbind(app: AppHandle) -> Result<AgentosStatus, String> {
 
 #[tauri::command]
 pub async fn agentos_handoff(app: AppHandle) -> Result<AgentosHandoff, String> {
-    let (status, json) =
-        authed_request(&app, reqwest::Method::POST, "/api/auth/agentos/handoff", None).await?;
+    let (status, json) = authed_request(
+        &app,
+        reqwest::Method::POST,
+        "/api/auth/agentos/handoff",
+        None,
+    )
+    .await?;
     if status == reqwest::StatusCode::NOT_FOUND {
         return Err("NOT_BOUND".to_string());
     }

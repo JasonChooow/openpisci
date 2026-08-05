@@ -59,10 +59,7 @@ pub fn market_summaries() -> Result<Vec<BuiltinQinchuangSummary>, String> {
         .collect())
 }
 
-pub fn install_expert_by_slug(
-    db: &crate::store::Database,
-    slug: &str,
-) -> Result<String, String> {
+pub fn install_expert_by_slug(db: &crate::store::Database, slug: &str) -> Result<String, String> {
     let experts = parse_experts()?;
     let expert = experts
         .into_iter()
@@ -110,8 +107,8 @@ fn upsert_one(
         .iter()
         .find(|koi| koi.system_prompt.contains(&source_marker))
         .cloned();
-    let experts: Vec<BuiltinQinchuangExpert> =
-        serde_json::from_str(EXPERTS_JSON).map_err(|e| format!("invalid qinchuang experts: {e}"))?;
+    let experts: Vec<BuiltinQinchuangExpert> = serde_json::from_str(EXPERTS_JSON)
+        .map_err(|e| format!("invalid qinchuang experts: {e}"))?;
     let expected_names = expected_seed_names(&experts);
     let clean_name = normalize_koi_name(&expert.name);
     let legacy_name = normalize_koi_name(&expert.original_name);
@@ -124,11 +121,11 @@ fn upsert_one(
         existing_by_name
             .get(&target_name)
             .or_else(|| {
-            if target_name == clean_name {
-                existing_by_name.get(&legacy_name)
-            } else {
-                None
-            }
+                if target_name == clean_name {
+                    existing_by_name.get(&legacy_name)
+                } else {
+                    None
+                }
             })
             .cloned()
     });
@@ -193,8 +190,12 @@ fn remove_obsolete_experts(
         if should_keep_existing_expert(&koi, active_sources) {
             continue;
         }
-        db.delete_koi(&koi.id)
-            .map_err(|e| format!("failed to remove obsolete qinchuang expert {}: {e}", koi.name))?;
+        db.delete_koi(&koi.id).map_err(|e| {
+            format!(
+                "failed to remove obsolete qinchuang expert {}: {e}",
+                koi.name
+            )
+        })?;
         removed += 1;
     }
     Ok(removed)
@@ -222,8 +223,7 @@ fn should_keep_existing_expert(
         return false;
     }
 
-    active_sources.contains(source_path)
-        || koi.system_prompt.contains(USER_INSTALLED_MARKER)
+    active_sources.contains(source_path) || koi.system_prompt.contains(USER_INSTALLED_MARKER)
 }
 
 fn is_curated_installed_slug(slug: &str) -> bool {

@@ -11,9 +11,12 @@ use async_trait::async_trait;
 use piscis_kernel::agent::tool::{Tool, ToolContext, ToolResult};
 use piscis_kernel::proc::tokio_command;
 use serde_json::{json, Value};
+use std::fs::File;
+use std::io::Write;
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::time::timeout;
+use zip::write::SimpleFileOptions;
 
 const OFFICE_TIMEOUT_SECS: u64 = 120;
 
@@ -36,6 +39,7 @@ impl Tool for OfficeTool {
          \n\
          **Word** (app=\"word\"):\n\
            create, open, close, save, save_as,\n\
+           create_basic_docx (built-in fallback; creates a simple .docx without Python or Office),\n\
            read_document, write_document (replace all content),\n\
            add_paragraph (append styled paragraph),\n\
            add_table (insert table from 2D array),\n\
@@ -56,6 +60,9 @@ impl Tool for OfficeTool {
          \n\
          For complex Excel tasks (regression, charts), use write_cells with a cells array,\n\
          then add_chart. For PowerPoint decks, use add_slides with a slides array.\n\
+         If Microsoft Office COM is unavailable and the user only needs a new basic Word document,\n\
+         use app=\"word\", action=\"create_basic_docx\". It writes a real OOXML .docx package\n\
+         internally and can be opened by Microsoft Word or WPS without Python.\n\
          \n\
          **IMPORTANT for add_chart**: always pass chart_type explicitly.\n\
          折线图=line, 柱状图=column, 条形图=bar, 饼图=pie, 散点图=scatter, 面积图=area.\n\
@@ -227,6 +234,10 @@ impl Tool for OfficeTool {
         let path = input["path"].as_str().unwrap_or("");
         tracing::info!("office tool: app={} action={} path={}", app, action, path);
 
+        if app.eq_ignore_ascii_case("word") && action.eq_ignore_ascii_case("create_basic_docx") {
+            return self.create_basic_docx(&input);
+        }
+
         let script = match self.build_script(app, action, &input) {
             Ok(s) => s,
             Err(e) => {
@@ -266,6 +277,98 @@ impl Tool for OfficeTool {
 }
 
 impl OfficeTool {
+    fn create_basic_docx(&self, input: &Value) -> Result<ToolResult> {
+        let path = input["path"]
+            .as_str()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or("C:\\Users\\Public\\document.docx");
+        let title = input["title"].as_str().unwrap_or("");
+        let text = input["text"].as_str().unwrap_or("");
+        let rows = input["rows"].as_array();
+
+        let target = std::path::Path::new(path);
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let file = File::create(target)?;
+        let mut zip = zip::ZipWriter::new(file);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+
+        zip.start_file("[Content_Types].xml", options)?;
+        zip.write_all(
+            br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>"#,
+        )?;
+
+        zip.add_directory("_rels/", options)?;
+        zip.start_file("_rels/.rels", options)?;
+        zip.write_all(
+            br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>"#,
+        )?;
+
+        zip.add_directory("docProps/", options)?;
+        zip.start_file("docProps/core.xml", options)?;
+        zip.write_all(
+            format!(
+                r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:title>{}</dc:title>
+  <dc:creator>9X bot</dc:creator>
+</cp:coreProperties>"#,
+                escape_xml(title)
+            )
+            .as_bytes(),
+        )?;
+
+        zip.start_file("docProps/app.xml", options)?;
+        zip.write_all(
+            br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+  <Application>9X bot</Application>
+</Properties>"#,
+        )?;
+
+        zip.add_directory("word/", options)?;
+        zip.add_directory("word/_rels/", options)?;
+        zip.start_file("word/_rels/document.xml.rels", options)?;
+        zip.write_all(
+            br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>"#,
+        )?;
+
+        zip.start_file("word/styles.xml", options)?;
+        zip.write_all(
+            br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:pPr><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:sz w:val="32"/></w:rPr></w:style>
+</w:styles>"#,
+        )?;
+
+        zip.start_file("word/document.xml", options)?;
+        zip.write_all(build_basic_docx_document(title, text, rows).as_bytes())?;
+        zip.finish()?;
+
+        Ok(ToolResult::ok(format!(
+            "Created basic DOCX: {}. This built-in fallback does not require Python or Microsoft Office and should open in Word/WPS.",
+            path
+        )))
+    }
+
     fn build_script(&self, app: &str, action: &str, input: &Value) -> Result<String, String> {
         match (app, action) {
 
@@ -1216,7 +1319,7 @@ $result | ConvertTo-Json -Depth 3
             _ => Err(format!(
                 "Unknown action '{}' for app '{}'. \
                  Excel: create/open/close/save/save_as/write_cells/set_formula/read_range/get_sheet_names/add_sheet/add_chart/auto_fit/run_macro. \
-                 Word: create/open/close/save/save_as/read_document/write_document/add_paragraph/append_text/add_table/add_picture/set_header_footer/find_replace. \
+                 Word: create/open/close/save/save_as/create_basic_docx/read_document/write_document/add_paragraph/append_text/add_table/add_picture/set_header_footer/find_replace. \
                  PowerPoint: create/open/close/save/save_as/read_document/read_slides/add_slide/add_slides/set_slide_text/add_image/get_slide_count/export_pdf. \
                  Outlook: send_email/read_emails/get_calendar.",
                 action, app
@@ -1271,12 +1374,15 @@ $result | ConvertTo-Json -Depth 3
                 );
                 if !output.status.success() && stdout.is_empty() {
                     return Ok(ToolResult::err(format!(
-                        "Office operation failed:\n{}",
+                        "Office operation failed:\n{}\n\nIf the user is creating a new basic Word document, retry with office app=\"word\" action=\"create_basic_docx\" using the same path/title/text/rows. Do not ask the user to install Python, and do not create DOCX by hand with shell ZIP commands. If the task requires advanced Office editing, explain that the local Office/WPS automation interface is unavailable and offer RTF, HTML, Markdown, or CSV as a fallback.",
                         stderr
                     )));
                 }
                 if !stderr.is_empty() && stdout.is_empty() {
-                    return Ok(ToolResult::err(stderr));
+                    return Ok(ToolResult::err(format!(
+                        "{}\n\nIf the user is creating a new basic Word document, retry with office app=\"word\" action=\"create_basic_docx\" using the same path/title/text/rows. Do not ask the user to install Python, and do not create DOCX by hand with shell ZIP commands.",
+                        stderr
+                    )));
                 }
                 let mut result = stdout;
                 if !stderr.is_empty() {
@@ -1296,6 +1402,84 @@ fn ps_str(s: &str) -> String {
     format!("'{}'", s.replace('\'', "''"))
 }
 
+fn escape_xml(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
+fn docx_paragraph(text: &str, style_id: Option<&str>) -> String {
+    let style = style_id
+        .map(|id| format!(r#"<w:pPr><w:pStyle w:val="{}"/></w:pPr>"#, id))
+        .unwrap_or_default();
+    format!(
+        "<w:p>{}<w:r><w:t xml:space=\"preserve\">{}</w:t></w:r></w:p>",
+        style,
+        escape_xml(text)
+    )
+}
+
+fn docx_table(rows: &[serde_json::Value]) -> String {
+    if rows.is_empty() {
+        return String::new();
+    }
+    let mut xml = String::from(
+        r#"<w:tbl><w:tblPr><w:tblStyle w:val="TableGrid"/><w:tblW w:w="0" w:type="auto"/><w:tblBorders><w:top w:val="single" w:sz="4"/><w:left w:val="single" w:sz="4"/><w:bottom w:val="single" w:sz="4"/><w:right w:val="single" w:sz="4"/><w:insideH w:val="single" w:sz="4"/><w:insideV w:val="single" w:sz="4"/></w:tblBorders></w:tblPr>"#,
+    );
+    for row in rows {
+        let Some(cells) = row.as_array() else {
+            continue;
+        };
+        xml.push_str("<w:tr>");
+        for cell in cells {
+            let value = cell
+                .as_str()
+                .map(str::to_string)
+                .unwrap_or_else(|| cell.to_string());
+            xml.push_str("<w:tc><w:tcPr><w:tcW w:w=\"2400\" w:type=\"dxa\"/></w:tcPr>");
+            xml.push_str(&docx_paragraph(&value, None));
+            xml.push_str("</w:tc>");
+        }
+        xml.push_str("</w:tr>");
+    }
+    xml.push_str("</w:tbl>");
+    xml
+}
+
+fn build_basic_docx_document(
+    title: &str,
+    text: &str,
+    rows: Option<&Vec<serde_json::Value>>,
+) -> String {
+    let mut body = String::new();
+    if !title.trim().is_empty() {
+        body.push_str(&docx_paragraph(title, Some("Heading1")));
+    }
+    for line in text.replace("\r\n", "\n").split('\n') {
+        if line.trim().is_empty() {
+            body.push_str("<w:p/>");
+        } else {
+            body.push_str(&docx_paragraph(line, None));
+        }
+    }
+    if let Some(rows) = rows {
+        body.push_str(&docx_table(rows));
+    }
+    if body.is_empty() {
+        body.push_str(&docx_paragraph("新建文档", Some("Heading1")));
+    }
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>{}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body>
+</w:document>"#,
+        body
+    )
+}
+
 /// Generate the PowerShell condition for selecting a worksheet.
 /// Returns "$true" (use ActiveSheet) when sheet name is empty,
 /// "$false" (use named sheet) when a sheet name is provided.
@@ -1304,5 +1488,47 @@ fn sheet_check(sheet: &str) -> String {
         "$true".into()
     } else {
         "$false".into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::OfficeTool;
+    use serde_json::json;
+    use std::fs::File;
+    use std::io::Read;
+
+    #[test]
+    fn create_basic_docx_writes_openxml_package_without_office_or_python() {
+        let path = std::env::temp_dir().join(format!(
+            "9xbot-basic-docx-test-{}.docx",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        let tool = OfficeTool;
+        let input = json!({
+            "path": path.to_string_lossy(),
+            "title": "测试文档",
+            "text": "第一段\n第二段",
+            "rows": [["项目", "状态"], ["Word/WPS", "可打开"]]
+        });
+
+        tool.create_basic_docx(&input).expect("create docx");
+
+        let file = File::open(&path).expect("open generated docx");
+        let mut archive = zip::ZipArchive::new(file).expect("read generated docx as zip");
+        assert!(archive.by_name("[Content_Types].xml").is_ok());
+        assert!(archive.by_name("_rels/.rels").is_ok());
+        assert!(archive.by_name("word/styles.xml").is_ok());
+        let mut document = String::new();
+        archive
+            .by_name("word/document.xml")
+            .expect("document xml")
+            .read_to_string(&mut document)
+            .expect("read document xml");
+        assert!(document.contains("测试文档"));
+        assert!(document.contains("Word/WPS"));
+
+        let _ = std::fs::remove_file(path);
     }
 }

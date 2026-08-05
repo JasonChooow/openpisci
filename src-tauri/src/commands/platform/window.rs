@@ -187,8 +187,8 @@ pub async fn set_window_theme_border(_app: AppHandle, theme: String) -> Result<(
 
         // COLORREF = 0x00BBGGRR
         let color: u32 = match theme.as_str() {
-            "violet" => 0x00F76A7C, // #7c6af7
-            "gold" => 0x004CA8C9,   // #c9a84c
+            "violet" => 0x00F76A7C,  // #7c6af7
+            "gold" => 0x004CA8C9,    // #c9a84c
             "minimal" => 0x00FFFFFF, // #ffffff
             _ => return Ok(()),
         };

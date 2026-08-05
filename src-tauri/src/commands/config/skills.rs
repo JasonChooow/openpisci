@@ -88,7 +88,9 @@ pub async fn list_skills(state: State<'_, AppState>) -> Result<SkillList, String
                 .replace("善春AI·", "")
                 .replace("善春AI", "")
                 .trim()
-                .trim_start_matches(|ch| matches!(ch, '·' | '|' | '-' | '—' | '：' | ':' | '，' | ',' | ' '))
+                .trim_start_matches(|ch| {
+                    matches!(ch, '·' | '|' | '-' | '—' | '：' | ':' | '，' | ',' | ' ')
+                })
                 .to_string();
             s
         })

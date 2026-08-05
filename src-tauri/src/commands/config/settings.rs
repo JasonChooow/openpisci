@@ -299,7 +299,7 @@ pub async fn save_settings(state: State<'_, AppState>, updates: Value) -> Result
         settings.compaction_full_percent = v.min(100) as u8;
     }
     if let Some(v) = updates["max_tool_result_tokens"].as_u64() {
-        settings.max_tool_result_tokens = v as u32;
+        settings.max_tool_result_tokens = (v as u32).max(1_000);
     }
     if let Some(v) = updates["summary_model"].as_str() {
         settings.summary_model = if v.is_empty() {
@@ -325,7 +325,7 @@ pub async fn save_settings(state: State<'_, AppState>, updates: Value) -> Result
         settings.piscis_personal_prompt = v.to_string();
     }
     if let Some(v) = updates["llm_read_timeout_secs"].as_u64() {
-        settings.llm_read_timeout_secs = v.max(30) as u32; // minimum 30s
+        settings.llm_read_timeout_secs = v.max(300) as u32; // minimum 300s
     }
     if let Some(v) = updates["koi_timeout_secs"].as_u64() {
         settings.koi_timeout_secs = v.max(60) as u32; // minimum 60s

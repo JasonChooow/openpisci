@@ -355,3 +355,18 @@ export const interactiveApi = {
 export function openPath(path: string): Promise<void> {
   return invoke<void>("open_path", { path });
 }
+
+/**
+ * Show the system "Open with" chooser for a local file when supported.
+ */
+export function openWithPath(path: string): Promise<void> {
+  return invoke<void>("open_with_path", { path });
+}
+
+/**
+ * Reveal a local file or directory in the system file manager.
+ * On Windows this selects files in Explorer.
+ */
+export function revealPath(path: string): Promise<void> {
+  return invoke<void>("reveal_path", { path });
+}

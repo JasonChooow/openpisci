@@ -32,6 +32,23 @@ fn should_migrate_default_workspace(path: &str) -> bool {
         .unwrap_or(false)
 }
 
+fn migrate_long_task_defaults(settings: &mut Settings) -> bool {
+    let mut changed = false;
+    if settings.auto_compact_input_tokens_threshold == 200_000 {
+        settings.auto_compact_input_tokens_threshold = 400_000;
+        changed = true;
+    }
+    if settings.max_tool_result_tokens == 8_000 {
+        settings.max_tool_result_tokens = 16_000;
+        changed = true;
+    }
+    if settings.llm_read_timeout_secs < 600 {
+        settings.llm_read_timeout_secs = 600;
+        changed = true;
+    }
+    changed
+}
+
 /// Global application state managed by Tauri
 #[derive(Clone)]
 pub struct AppState {
@@ -110,6 +127,9 @@ impl AppState {
             settings.save().map_err(|e| anyhow::anyhow!("{e}"))?;
         }
         if crate::commands::config::bundled_mcp::strip_legacy_robotz_mcp_server(&mut settings) {
+            settings.save().map_err(|e| anyhow::anyhow!("{e}"))?;
+        }
+        if migrate_long_task_defaults(&mut settings) {
             settings.save().map_err(|e| anyhow::anyhow!("{e}"))?;
         }
 

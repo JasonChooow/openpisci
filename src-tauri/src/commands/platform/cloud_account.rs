@@ -337,8 +337,8 @@ pub async fn cloud_send_sms_code(
 
 #[tauri::command]
 pub async fn cloud_wechat_start_session() -> Result<serde_json::Value, String> {
-    let (status, json) = post_json_auth("/api/auth/wechat/desktop-session", serde_json::json!({}))
-        .await?;
+    let (status, json) =
+        post_json_auth("/api/auth/wechat/desktop-session", serde_json::json!({})).await?;
     if !status.is_success() {
         return Err(api_error_message(&json, "创建微信登录会话失败"));
     }
@@ -398,8 +398,8 @@ pub async fn cloud_wechat_poll_session(
                 .map(str::to_string),
         }),
         "authorized" => {
-            let parsed: DeviceTokenResponse = serde_json::from_value(json)
-                .map_err(|e| format!("微信登录响应无效: {e}"))?;
+            let parsed: DeviceTokenResponse =
+                serde_json::from_value(json).map_err(|e| format!("微信登录响应无效: {e}"))?;
             let account = persist_token_response(&app, &base, parsed, "微信用户".into()).await?;
             Ok(WechatLoginResult {
                 status: "authorized".into(),

@@ -315,7 +315,10 @@ mod tests {
     fn canonical_encoding_is_stable_across_key_order() {
         let one: serde_json::Value = serde_json::from_str(r#"{"a":1,"b":2}"#).unwrap();
         let two: serde_json::Value = serde_json::from_str(r#"{"b":2,"a":1}"#).unwrap();
-        assert_eq!(canonical_bytes(&one).unwrap(), canonical_bytes(&two).unwrap());
+        assert_eq!(
+            canonical_bytes(&one).unwrap(),
+            canonical_bytes(&two).unwrap()
+        );
     }
 
     #[test]
@@ -333,10 +336,7 @@ mod tests {
                 signature: String::new(),
                 alg: "none".into(),
             };
-            assert!(matches!(
-                verify(&envelope),
-                Err(DiscoveryError::NotPinned)
-            ));
+            assert!(matches!(verify(&envelope), Err(DiscoveryError::NotPinned)));
         }
     }
 
@@ -416,8 +416,7 @@ mod tests {
     fn tampering_with_the_python_signed_document_is_caught() {
         let mut envelope: DiscoveryEnvelope =
             serde_json::from_value(dimsdk_fixture()["envelope"].clone()).unwrap();
-        envelope.payload["services"][0]["url"] =
-            serde_json::json!("https://auth.attacker.example");
+        envelope.payload["services"][0]["url"] = serde_json::json!("https://auth.attacker.example");
 
         assert!(matches!(
             verify_with(&envelope, &fixture_key()),

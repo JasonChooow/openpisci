@@ -24,6 +24,45 @@ For each meaningful adjustment, record:
 
 ## Changes So Far
 
+### 2026-08-05. Stabilize long-task history loading and automatic context protection
+
+- Problem: Long or tool-heavy conversations could occasionally show "历史消息加载失败，请稍后再试" when loading older messages. Users also perceived long tasks as stopping early when the effective context or tool result budget was too tight.
+- Files changed:
+  - `src-tauri/src/commands/chat.rs`
+  - `src-tauri/src/commands/config/settings.rs`
+  - `src-tauri/src/store/mod.rs`
+  - `src/components/Chat/index.tsx`
+  - `src/components/Settings/settingsDefaults.ts`
+  - `src/components/Settings/sections/AgentConfigSection.tsx`
+  - `src/components/SettingsHub/useSettingsForm.tsx`
+- Summary:
+  - Compacted oversized persisted tool-call/tool-result JSON only for frontend history loading, while keeping the full local database record intact.
+  - Fixed the chat history pagination offset so frontend trimming does not move the DB-row cursor backwards after long tool-heavy turns.
+  - Added richer console diagnostics for older-history load failures.
+  - Raised long-task defaults: cumulative auto-compaction threshold `200000 -> 400000`, single tool-result budget `8000 -> 16000`, and LLM read timeout `300s -> 600s`.
+  - Added startup migration so old local configs still using the previous defaults are lifted to the safer long-task defaults automatically.
+- Verification:
+  - `npx tsc --noEmit` passed.
+  - `cargo test --manifest-path src-tauri\Cargo.toml commands::chat::tests::` passed.
+  - `cargo check --manifest-path src-tauri\Cargo.toml` passed.
+  - Tauri dev app launched successfully at `http://127.0.0.1:5174/`.
+- Upstream value: Upstream-worthy reliability improvement. It separates UI history payload size from the full persisted history and makes automatic context compaction safer for ordinary non-technical users.
+
+### 2026-08-05. Windows installer hides bundled skill file details
+
+- Problem: Windows install and uninstall progress could expose bundled skill directory names while copying/removing large resources, making the app look like a single PPT or skill-specific tool instead of 9X bot.
+- Files changed:
+  - `src-tauri/tauri.conf.json`
+  - `src-tauri/nsis/installer.nsi`
+- Summary:
+  - Added a tracked NSIS template based on the Tauri 2.10 default installer template.
+  - Configured Windows NSIS builds to use the tracked template.
+  - Set install and uninstall detail panes to `nevershow`, so users see general 9X bot progress instead of internal bundled resource paths.
+- Verification:
+  - Static config check passed for `bundle.windows.nsis.template` and the required detail-hiding directives.
+  - `npm run tauri -- build --bundles nsis` reached release compilation after `build:web` passed, then stopped because `DIM_DISCOVERY_PUBLIC_KEY` was not set for release builds.
+- Upstream value: Mostly 9X bot product polish. The pattern may be useful for any white-label build that bundles large skill directories and wants installer output to stay product-level.
+
 ### 2026-07-10. Space demo links and Qinchuang OPC embedded site
 
 - Problem: The sidebar needed simple demo entries for partner surfaces, the Glamoon H5 mall was designed for phone viewing, and the Qinchuang OPC WeChat article could not be embedded reliably inside the app.

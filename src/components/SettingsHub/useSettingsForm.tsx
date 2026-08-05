@@ -365,7 +365,9 @@ export function useSettingsFormInternal({ theme, setTheme, onOpenTools }: UseSet
         compaction_micro_percent: micro,
         compaction_auto_percent: auto,
         compaction_full_percent: full,
-        max_tool_result_tokens: Math.max(1000, Number(form.max_tool_result_tokens) || 8000),
+        auto_compact_input_tokens_threshold:
+          Number(form.auto_compact_input_tokens_threshold) || 400000,
+        max_tool_result_tokens: Math.max(1000, Number(form.max_tool_result_tokens) || 16000),
         summary_model: (form.summary_model ?? "").trim() || null,
         ssh_servers: sshServers,
         llm_providers: nextLlmProviders,

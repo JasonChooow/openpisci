@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
-import { settingsApi, sessionsApi, chatApi, skillsApi, schedulerApi, memoryApi, auditApi } from ".";
+import { settingsApi, sessionsApi, chatApi, skillsApi, schedulerApi, memoryApi, auditApi, openWithPath, revealPath } from ".";
 
 const mockInvoke = vi.mocked(invoke);
 
@@ -35,6 +35,24 @@ describe("settingsApi", () => {
 });
 
 // ─── sessionsApi ──────────────────────────────────────────────────────────────
+
+describe("path helpers", () => {
+  it("openWithPath() calls open_with_path with path", async () => {
+    mockInvoke.mockResolvedValueOnce(null);
+    await openWithPath("C:\\Users\\ZHOU\\Desktop\\report.md");
+    expect(mockInvoke).toHaveBeenCalledWith("open_with_path", {
+      path: "C:\\Users\\ZHOU\\Desktop\\report.md",
+    });
+  });
+
+  it("revealPath() calls reveal_path with path", async () => {
+    mockInvoke.mockResolvedValueOnce(null);
+    await revealPath("C:\\Users\\ZHOU\\Desktop\\report.md");
+    expect(mockInvoke).toHaveBeenCalledWith("reveal_path", {
+      path: "C:\\Users\\ZHOU\\Desktop\\report.md",
+    });
+  });
+});
 
 describe("sessionsApi", () => {
   it("list() calls list_sessions with pagination defaults", async () => {

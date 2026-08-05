@@ -9,7 +9,7 @@ import { RootState, chatActions, sessionsActions, skillsActions, poolActions, To
 import { artifactsApi, chatApi, journalApi, sessionsApi, gatewayApi, koiApi, AgentEventType, ChannelInfo, type ChatMessage, type SessionArtifact, type JournalChange, type KoiWithStats } from "../../services/tauri";
 import { skillsApi, type Skill, type ComposerMode } from "../../services/tauri";
 import RoundedSearch from "../ui/RoundedSearch";
-import { Search, History, Share2, Mic, PanelRight, ChevronDown, ChevronUp, SendHorizontal } from "lucide-react";
+import { Search, History, Share2, Mic, PanelRight, ChevronDown, ChevronUp, SendHorizontal, ChevronRight, CheckCircle2, ExternalLink, FileText, LoaderCircle } from "lucide-react";
 import { PlanPanel, ArtifactsPanel, ToolStepCard } from "./ChatPanels";
 import ChatRightPanel from "./ChatRightPanel";
 import TeamCollabPanel from "./TeamCollabPanel";
@@ -38,6 +38,18 @@ import {
   resetInputHistoryNav,
   seedInputHistory,
 } from "../../utils/inputHistory";
+import { isChatUiToolCallMessage, normalizeVisibleChatMessages } from "../../utils/chatMessageDisplay";
+import { stripInternalPromptLeak } from "../../utils/internalPromptSanitizer";
+import {
+  buildChatActivityItems,
+  getInlineArtifactsForMessage,
+  getUnattachedLatestTurnArtifacts,
+  isFrozenActivityMessage,
+  type ChatActivityItem,
+  type ChatActivityKind,
+} from "../../utils/chatActivity";
+import { getArtifactOpenTarget, getArtifactRevealTarget } from "../../utils/artifactOpen";
+import { useArtifactActionMenu } from "./ArtifactActionMenu";
 import "./Chat.css";
 
 type ChatScene = "office" | "code" | "design";
@@ -97,120 +109,188 @@ function formatChatError(error: unknown): string {
   return "请求失败，请稍后重试。";
 }
 
-const INTERNAL_SKILL_LEAK_FALLBACK = "包子已读取技能说明，正在按你的需求处理。";
+function activityKindLabel(kind: ChatActivityKind): string {
+  switch (kind) {
+    case "plan":
+      return "计划";
+    case "file":
+      return "文件";
+    case "command":
+      return "命令";
+    case "web":
+      return "网页";
+    case "image":
+      return "图片";
+    case "artifact":
+      return "产物";
+    case "expert":
+      return "专家";
+    case "skill":
+      return "技能";
+    default:
+      return "步骤";
+  }
+}
 
-function stripInternalSkillInstructionLeak(content: string): string {
-  if (!content) return content;
-  const markers = [
-    "Mandatory selected skill instructions",
-    "The selected skill instructions are embedded in this message",
-    "Auto-selected skill routing:",
-    "User-selected skill routing:",
-  ];
-  if (!markers.some((marker) => content.includes(marker))) return content;
+function ActivityStatusIcon({ item }: { item: ChatActivityItem }) {
+  if (item.status === "running") {
+    return <LoaderCircle size={13} strokeWidth={1.8} className="activity-status-spin" />;
+  }
+  if (item.status === "error") {
+    return <span className="activity-status-error" aria-hidden="true">!</span>;
+  }
+  return <CheckCircle2 size={13} strokeWidth={1.8} />;
+}
 
-  const lines = content.replace(/\r\n/g, "\n").split("\n");
-  const kept: string[] = [];
-  let dropping = false;
-  let droppedAny = false;
-  let sawRoutingBoundary = false;
+function ActivityStream({ items }: { items: ChatActivityItem[] }) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  if (items.length === 0) return null;
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    const startsInternalBlock =
-      trimmed.includes("Mandatory selected skill instructions") ||
-      trimmed.includes("The selected skill instructions are embedded in this message") ||
-      trimmed.includes("Auto-selected skill routing:") ||
-      trimmed.includes("User-selected skill routing:") ||
-      trimmed.startsWith("## Skill:") ||
-      trimmed.startsWith("Skill: ");
+  return (
+    <div className="activity-stream" aria-label="包子正在处理的动态">
+      <div className="activity-stream-head">
+        <span>包子正在处理</span>
+        <span className="thinking-dots inline" aria-hidden="true">
+          <span /><span /><span />
+        </span>
+      </div>
+      <div className="activity-event-list">
+        {items.map((item) => {
+          const hasDetail = Boolean(item.detail);
+          const row = (
+            <>
+              <span className={`activity-status activity-status-${item.status}`}>
+                <ActivityStatusIcon item={item} />
+              </span>
+              <span className="activity-event-main">
+                <span className="activity-kind">{activityKindLabel(item.kind)}</span>
+                <span className="activity-label">{item.label}</span>
+              </span>
+              {hasDetail && <ChevronRight size={13} strokeWidth={1.7} className={`activity-chevron ${expanded[item.id] ? "open" : ""}`} />}
+            </>
+          );
+          return (
+            <div key={item.id} className={`activity-event activity-event-${item.status}`}>
+              {hasDetail ? (
+                <button
+                  type="button"
+                  className="activity-event-row"
+                  onClick={() => setExpanded((state) => ({ ...state, [item.id]: !state[item.id] }))}
+                  aria-expanded={Boolean(expanded[item.id])}
+                >
+                  {row}
+                </button>
+              ) : (
+                <div className="activity-event-row">{row}</div>
+              )}
+              {hasDetail && expanded[item.id] && (
+                <div className="activity-event-detail">{item.detail}</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-    if (startsInternalBlock) {
-      dropping = true;
-      droppedAny = true;
-      if (trimmed.includes("routing:")) {
-        sawRoutingBoundary = true;
-      }
-      continue;
+function CompletedActivitySummary({ content }: { content: string }) {
+  const [open, setOpen] = useState(false);
+  if (!content.trim()) return null;
+
+  return (
+    <div className="message-activity-summary">
+      <button
+        type="button"
+        className="activity-complete-toggle"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        <ChevronRight size={14} strokeWidth={1.7} className={`activity-chevron ${open ? "open" : ""}`} />
+        <span>已处理，可展开查看过程</span>
+      </button>
+      {open && (
+        <div className="activity-complete-body">
+          <MessageContent content={content} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function artifactTypeLabel(type: string): string {
+  switch (type.toLowerCase()) {
+    case "image":
+      return "图片";
+    case "link":
+    case "url":
+      return "链接";
+    case "report":
+      return "报告";
+    case "document":
+      return "文档";
+    default:
+      return "文件";
+  }
+}
+
+function InlineMessageArtifacts({
+  artifacts,
+  onPreview,
+}: {
+  artifacts: SessionArtifact[];
+  onPreview: (artifact: SessionArtifact) => void;
+}) {
+  const { openArtifactMenu, artifactActionMenu } = useArtifactActionMenu();
+
+  const handleOpenArtifact = (artifact: SessionArtifact) => {
+    const target = getArtifactOpenTarget(artifact);
+    if (target.kind === "local") {
+      void openPath(target.target).catch(console.error);
+      return;
     }
-
-    if (dropping) {
-      if (sawRoutingBoundary && trimmed === "") {
-        dropping = false;
-        continue;
-      }
-      if (trimmed.includes("routing:")) {
-        sawRoutingBoundary = true;
-        continue;
-      }
-      const looksLikeUserFacingSection =
-        /^#{1,3}\s+/.test(trimmed) &&
-        !trimmed.startsWith("## Skill:") &&
-        !/^(source|path|permissions)\s*:/i.test(trimmed);
-      const looksLikeFinalAnswerStart =
-        /^(好的|可以|已|下面|这是|我已经|包子)/.test(trimmed);
-
-      if (looksLikeUserFacingSection || looksLikeFinalAnswerStart) {
-        dropping = false;
-      } else {
-        continue;
-      }
+    if (target.kind === "web") {
+      window.open(target.target, "_blank", "noopener,noreferrer");
+      return;
     }
+    onPreview(artifact);
+  };
 
-    kept.push(line);
-  }
+  const handleArtifactContextMenu = (event: Parameters<typeof openArtifactMenu>[0], artifact: SessionArtifact) => {
+    const target = getArtifactRevealTarget(artifact);
+    if (!target) return;
+    openArtifactMenu(event, target);
+  };
 
-  if (!droppedAny) return content;
-  const cleaned = kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
-  return cleaned || INTERNAL_SKILL_LEAK_FALLBACK;
-}
-
-function readableToolAction(name: string): string {
-  const normalized = name.toLowerCase();
-  if (normalized.includes("file_read")) return "正在读取文件";
-  if (normalized.includes("file_write") || normalized.includes("file_edit")) return "正在整理生成文件";
-  if (normalized.includes("shell") || normalized.includes("code_run") || normalized.includes("powershell")) return "正在执行任务步骤";
-  if (normalized.includes("web") || normalized.includes("browser")) return "正在查看网页信息";
-  if (normalized.includes("screenshot") || normalized.includes("screen")) return "正在处理截图";
-  if (normalized.includes("koi") || normalized.includes("fish")) return "正在召唤专家协作";
-  if (normalized.includes("artifact")) return "正在登记结果文件";
-  if (normalized.includes("skill")) return "正在使用已选技能";
-  return "正在处理任务";
-}
-
-function buildLiveProgressMessage(steps: ToolStep[], plan: PlanTodoItem[]): string {
-  const currentPlan = plan.find((item) => item.status === "in_progress");
-  if (currentPlan) {
-    return `包子正在处理：${currentPlan.content}`;
-  }
-  const activeStep = [...steps].reverse().find((step) => !step.completed) ?? steps[steps.length - 1];
-  if (activeStep) {
-    return `包子${readableToolAction(activeStep.name)}，请稍等。`;
-  }
-  return "包子正在处理，请稍等。";
-}
-
-function buildThinkingFlashItems(steps: ToolStep[], plan: PlanTodoItem[]): Array<{ id: string; text: string; status: "running" | "done" }> {
-  const planItems = plan
-    .filter((item) => item.status === "in_progress" || item.status === "completed")
-    .slice(-3)
-    .map((item) => ({
-      id: `plan-${item.id}`,
-      text: item.status === "completed" ? `完成：${item.content}` : `正在：${item.content}`,
-      status: item.status === "completed" ? "done" as const : "running" as const,
-    }));
-
-  if (planItems.length > 0) return planItems;
-
-  return steps
-    .slice(-3)
-    .map((step) => ({
-      id: `tool-${step.id}`,
-      text: step.completed
-        ? `${readableToolAction(step.name).replace(/^正在/, "已完成")}`
-        : `${readableToolAction(step.name)}`,
-      status: step.completed ? "done" as const : "running" as const,
-    }));
+  if (artifacts.length === 0) return null;
+  return (
+    <div className="message-artifacts" aria-label="本轮输出文件">
+      <div className="message-artifacts-head">
+        <FileText size={14} strokeWidth={1.7} />
+        <span>输出文件</span>
+      </div>
+      <div className="message-artifacts-list">
+        {artifacts.map((artifact) => (
+          <button
+            key={artifact.id}
+            type="button"
+            className="message-artifact-link"
+            onClick={() => handleOpenArtifact(artifact)}
+            onContextMenu={(event) => handleArtifactContextMenu(event, artifact)}
+            title={artifact.uri || artifact.name}
+          >
+            <span className="message-artifact-type">{artifactTypeLabel(artifact.artifact_type)}</span>
+            <span className="message-artifact-main">
+              <span className="message-artifact-name">{artifact.name}</span>
+              {artifact.content_summary && <span className="message-artifact-summary">{artifact.content_summary}</span>}
+            </span>
+            <ExternalLink size={13} strokeWidth={1.7} />
+          </button>
+        ))}
+      </div>
+      {artifactActionMenu}
+    </div>
+  );
 }
 
 const CHAT_WELCOME_ACTIONS: Record<ChatScene, Array<{ label: string; prompt: string }>> = {
@@ -319,8 +399,9 @@ function getGuidanceMessageText(content: string): string | null {
 }
 
 function getDisplayMessageContent(message: Pick<ChatMessage, "role" | "content">): string {
-  if (message.role !== "user") return message.content;
-  return getGuidanceMessageText(message.content) ?? message.content;
+  const content = stripInternalPromptLeak(message.content);
+  if (message.role !== "user") return content;
+  return getGuidanceMessageText(content) ?? content;
 }
 
 function isImageGenerationModel(model: string): boolean {
@@ -1181,81 +1262,34 @@ export default function Chat({
     });
   }, []);
 
-  // Check if a message is a chat_ui tool call or its result (should be rendered as a card, not filtered entirely)
-  const chatUiToolCallIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const m of rawMessages) {
-      if (m.role === "assistant" && m.tool_calls_json) {
-        try {
-          const calls = JSON.parse(m.tool_calls_json);
-          for (const c of Array.isArray(calls) ? calls : []) {
-            if (c.name === "chat_ui") ids.add(m.id);
-          }
-        } catch { /* ignore */ }
-      }
-    }
-    return ids;
-  }, [rawMessages]);
-
-  const activeMessages = rawMessages
-    // Filter out tool-result carrier messages (role=user, no text content, only tool_results_json)
-    .filter((m) => !(m.role === "user" && !m.content.trim() && m.tool_results_json))
-    // Filter out pure tool-call assistant messages (no text content, only tool_calls_json).
-    // Keep assistant messages that have actual text content even if they also have tool_calls_json.
-    // BUT keep chat_ui tool calls since they render as interactive cards.
-    .filter((m) => !(m.role === "assistant" && !m.content.trim() && m.tool_calls_json && !chatUiToolCallIds.has(m.id)))
-    .map((m) => {
-      const cleaned = stripInternalSkillInstructionLeak(m.content);
-      return cleaned === m.content ? m : { ...m, content: cleaned };
-    })
-    // Filter out duplicate consecutive messages with same role and content
-    .filter((m, i, arr) => {
-      if (i === 0) return true;
-      const prev = arr[i - 1];
-      return !(prev.role === m.role && prev.content === m.content);
-    })
-    // Merge consecutive assistant pure-text messages sharing the same turn_index into
-    // a single bubble. History would otherwise render each iteration of a single user
-    // turn as its own short bubble, which differs from the live streaming view where
-    // all iteration output is accumulated into one bubble.
-    .reduce<ChatMessage[]>((acc, msg) => {
-      const prev = acc[acc.length - 1];
-      const canMerge =
-        prev != null &&
-        prev.role === "assistant" &&
-        msg.role === "assistant" &&
-        !chatUiToolCallIds.has(prev.id) &&
-        !chatUiToolCallIds.has(msg.id) &&
-        prev.turn_index != null &&
-        msg.turn_index != null &&
-        prev.turn_index === msg.turn_index &&
-        prev.content.trim().length > 0 &&
-        msg.content.trim().length > 0;
-      if (canMerge && prev) {
-        acc[acc.length - 1] = {
-          ...prev,
-          content: `${prev.content.trimEnd()}\n\n${msg.content.trimStart()}`,
-        };
-      } else {
-        acc.push(msg);
-      }
-      return acc;
-    }, []);
+  const activeMessages = useMemo(() => normalizeVisibleChatMessages(rawMessages), [rawMessages]);
   const streamingState: StreamingState | null = displaySessionId ? streaming[displaySessionId] ?? null : null;
   const streamingCurrent = streamingState?.current ?? "";
   const running = displaySessionId ? isRunning[displaySessionId] ?? false : false;
   const steps = displaySessionId ? toolSteps[displaySessionId] ?? [] : [];
   const activePlan = displaySessionId ? planBySession[displaySessionId] ?? [] : [];
-  const safeStreamingCurrent = stripInternalSkillInstructionLeak(streamingCurrent);
-  const liveProgressMessage = useMemo(
-    () => buildLiveProgressMessage(steps, activePlan),
-    [steps, activePlan],
+  const safeStreamingCurrent = stripInternalPromptLeak(streamingCurrent);
+  const activityItems = useMemo(
+    () => buildChatActivityItems(steps, activePlan, { running, limit: 5 }),
+    [steps, activePlan, running],
   );
-  const thinkingFlashItems = useMemo(
-    () => buildThinkingFlashItems(steps, activePlan),
-    [steps, activePlan],
+  const currentActivityLabel = useMemo(
+    () => activityItems.find((item) => item.status === "running")?.label ?? "包子正在处理",
+    [activityItems],
   );
   const [activeArtifacts, setActiveArtifacts] = useState<SessionArtifact[]>([]);
+  const inlineArtifactsByMessageId = useMemo(() => {
+    const map = new Map<string, SessionArtifact[]>();
+    for (const message of activeMessages) {
+      const artifacts = getInlineArtifactsForMessage(message, activeMessages, activeArtifacts);
+      if (artifacts.length > 0) map.set(message.id, artifacts);
+    }
+    return map;
+  }, [activeMessages, activeArtifacts]);
+  const unattachedLatestTurnArtifacts = useMemo(
+    () => getUnattachedLatestTurnArtifacts(activeMessages, activeArtifacts),
+    [activeMessages, activeArtifacts],
+  );
 
   const hasTaskPanel = activePlan.length > 0 || steps.length > 0 || activeArtifacts.length > 0;
   const [taskPanelOpen, setTaskPanelOpen] = useState(true);
@@ -1263,6 +1297,20 @@ export default function Chat({
   const [toolStepsExpanded, setToolStepsExpanded] = useState(false);
   const visibleToolSteps = toolStepsExpanded || steps.length <= 3 ? steps : steps.slice(-3);
   const hiddenToolStepCount = Math.max(0, steps.length - visibleToolSteps.length);
+  const visibleTaskPanelTab =
+    taskPanelTab === "todo" && activePlan.length === 0
+      ? steps.length > 0
+        ? "tools"
+        : "artifacts"
+      : taskPanelTab === "tools" && steps.length === 0
+        ? activePlan.length > 0
+          ? "todo"
+          : "artifacts"
+        : taskPanelTab === "artifacts" && activeArtifacts.length === 0
+          ? activePlan.length > 0
+            ? "todo"
+            : "tools"
+          : taskPanelTab;
   // Top-bar task tab click: toggle the panel when re-selecting the active tab,
   // otherwise switch to the tab and make sure the panel is open.
   const selectTaskTab = useCallback(
@@ -1482,7 +1530,13 @@ export default function Chat({
         setHasMoreHistory(false);
         finishHistoryLoadAfterPaint();
       }
-    }).catch(() => {
+    }).catch((error) => {
+      console.error("[Chat] failed to load older history:", {
+        sessionId: displaySessionId,
+        limit: CHAT_LAZY_STEP,
+        offset,
+        error,
+      });
       setSendError("历史消息加载失败，请稍后再试。");
       finishHistoryLoadAfterPaint();
     });
@@ -1828,15 +1882,13 @@ export default function Chat({
       }
       return;
     }
+    if (!lastId.startsWith("optimistic_")) {
+      loadedDbCountRef.current += 1;
+    }
     // FIFO trim: evict oldest messages beyond current capacity
     if (displaySessionId && rawMessages.length > capacity) {
       dispatch(chatActions.trimChatMessages({ sessionId: displaySessionId, capacity }));
       setHasMoreHistory(true);
-      // After trim the oldest loaded row sits at `capacity` from the newest end,
-      // so the next "load more" must continue paginating from there.
-      if (loadedDbCountRef.current > capacity) {
-        loadedDbCountRef.current = capacity;
-      }
     }
     if (isNearBottomRef.current) {
       scrollToBottom();
@@ -2801,36 +2853,39 @@ export default function Chat({
 
           {hasTaskPanel && variant !== "im" && chatViewTab === "main" && (
             <div className="chat-topbar-tasks" role="tablist" aria-label="Task panel tabs">
-              <button
-                className={`chat-topbar-task-tab ${taskPanelTab === "todo" && taskPanelOpen ? "active" : ""}`}
-                onClick={() => selectTaskTab("todo")}
-                disabled={activePlan.length === 0}
-                role="tab"
-                aria-selected={taskPanelTab === "todo"}
-              >
-                Todo
-                {activePlan.length > 0 && <span className="chat-topbar-task-count">{activePlan.length}</span>}
-              </button>
-              <button
-                className={`chat-topbar-task-tab ${taskPanelTab === "tools" && taskPanelOpen ? "active" : ""}`}
-                onClick={() => selectTaskTab("tools")}
-                disabled={steps.length === 0}
-                role="tab"
-                aria-selected={taskPanelTab === "tools"}
-              >
-                Tools
-                {steps.length > 0 && <span className="chat-topbar-task-count">{steps.length}</span>}
-              </button>
-              <button
-                className={`chat-topbar-task-tab ${taskPanelTab === "artifacts" && taskPanelOpen ? "active" : ""}`}
-                onClick={() => selectTaskTab("artifacts")}
-                disabled={activeArtifacts.length === 0}
-                role="tab"
-                aria-selected={taskPanelTab === "artifacts"}
-              >
-                Artifacts
-                {activeArtifacts.length > 0 && <span className="chat-topbar-task-count">{activeArtifacts.length}</span>}
-              </button>
+              {activePlan.length > 0 && (
+                <button
+                  className={`chat-topbar-task-tab ${visibleTaskPanelTab === "todo" && taskPanelOpen ? "active" : ""}`}
+                  onClick={() => selectTaskTab("todo")}
+                  role="tab"
+                  aria-selected={visibleTaskPanelTab === "todo"}
+                >
+                  Todo
+                  <span className="chat-topbar-task-count">{activePlan.length}</span>
+                </button>
+              )}
+              {steps.length > 0 && (
+                <button
+                  className={`chat-topbar-task-tab ${visibleTaskPanelTab === "tools" && taskPanelOpen ? "active" : ""}`}
+                  onClick={() => selectTaskTab("tools")}
+                  role="tab"
+                  aria-selected={visibleTaskPanelTab === "tools"}
+                >
+                  Tools
+                  <span className="chat-topbar-task-count">{steps.length}</span>
+                </button>
+              )}
+              {activeArtifacts.length > 0 && (
+                <button
+                  className={`chat-topbar-task-tab ${visibleTaskPanelTab === "artifacts" && taskPanelOpen ? "active" : ""}`}
+                  onClick={() => selectTaskTab("artifacts")}
+                  role="tab"
+                  aria-selected={visibleTaskPanelTab === "artifacts"}
+                >
+                  Artifacts
+                  <span className="chat-topbar-task-count">{activeArtifacts.length}</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -2984,12 +3039,12 @@ export default function Chat({
             {hasTaskPanel && taskPanelOpen && (
               <div className="session-task-panel">
                 <div className="session-task-panel-content">
-                      {taskPanelTab === "todo" && activePlan.length > 0 && (
+                      {visibleTaskPanelTab === "todo" && activePlan.length > 0 && (
                         <div className="tool-steps-scroll">
                           <PlanPanel items={activePlan} />
                         </div>
                       )}
-                      {taskPanelTab === "tools" && steps.length > 0 && (
+                      {visibleTaskPanelTab === "tools" && steps.length > 0 && (
                         <div
                           className={`tool-steps-scroll ${toolStepsExpanded ? "tool-steps-expanded" : "tool-steps-compact"}`}
                           ref={toolStepsScrollRef}
@@ -3046,7 +3101,7 @@ export default function Chat({
                           ))}
                         </div>
                       )}
-                      {taskPanelTab === "artifacts" && activeArtifacts.length > 0 && (
+                      {visibleTaskPanelTab === "artifacts" && activeArtifacts.length > 0 && (
                         <div className="tool-steps-scroll">
                           <ArtifactsPanel artifacts={activeArtifacts} onPreview={handleArtifactPreview} />
                         </div>
@@ -3066,9 +3121,9 @@ export default function Chat({
                   {loadingMoreHistory ? t("common.loading") : t("chat.loadMoreHistory")}
                 </button>
               )}
-              {activeMessages.map((msg) => {
+              {activeMessages.map((msg, index) => {
                 // Render historical chat_ui tool calls as interactive cards
-                if (chatUiToolCallIds.has(msg.id)) {
+                if (isChatUiToolCallMessage(msg)) {
                   const cards = Object.values(historicalCards).filter((c) => c.afterMessageId === msg.id);
                   if (cards.length > 0) {
                     return cards.map((card) => (
@@ -3091,7 +3146,14 @@ export default function Chat({
                     ));
                   }
                 }
+                const hasLaterAssistantSummary = activeMessages
+                  .slice(index + 1)
+                  .some((m) => m.role === "assistant" && m.content.trim() && !m.tool_calls_json);
+                if (isFrozenActivityMessage(msg) && hasLaterAssistantSummary) {
+                  return <CompletedActivitySummary key={msg.id} content={msg.content} />;
+                }
                 const guidanceText = msg.role === "user" ? getGuidanceMessageText(msg.content) : null;
+                const inlineArtifacts = inlineArtifactsByMessageId.get(msg.id) ?? [];
                 return (
                   <div
                     key={msg.id}
@@ -3103,10 +3165,24 @@ export default function Chat({
                     </div>
                     <div className="message-content">
                       <MessageContent content={guidanceText ?? msg.content} />
+                      {msg.role === "assistant" && inlineArtifacts.length > 0 && (
+                        <InlineMessageArtifacts artifacts={inlineArtifacts} onPreview={handleArtifactPreview} />
+                      )}
                     </div>
                   </div>
                 );
               })}
+              {unattachedLatestTurnArtifacts.length > 0 && (
+                <div className="message message-assistant">
+                  <div className="message-role">{t("chat.piscis")}</div>
+                  <div className="message-content">
+                    <InlineMessageArtifacts
+                      artifacts={unattachedLatestTurnArtifacts}
+                      onPreview={handleArtifactPreview}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Single streaming bubble — shows thinking dots until first text arrives,
                   then displays the latest streamed text. Disappears when running stops.
@@ -3122,23 +3198,13 @@ export default function Chat({
                       </>
                     ) : (
                       <span className="streaming-progress-line">
-                        {liveProgressMessage}
+                        {currentActivityLabel}
                         <span className="thinking-dots inline">
                           <span /><span /><span />
                         </span>
                       </span>
                     )}
-                    {thinkingFlashItems.length > 0 && (
-                      <div className="thinking-flash" aria-label="包子正在处理的步骤">
-                        <div className="thinking-flash-title">思考闪回</div>
-                        {thinkingFlashItems.map((item) => (
-                          <div key={item.id} className={`thinking-flash-item ${item.status}`}>
-                            <span className="thinking-flash-dot" />
-                            <span className="thinking-flash-text">{item.text}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <ActivityStream items={activityItems} />
                   </div>
                 </div>
               )}
@@ -4112,6 +4178,7 @@ import { linkifyPaths, stripSendMarkers, isLocalPath, uriToNativePath } from "..
 // Renders message content with full Markdown support (GFM: tables, strikethrough, task lists, etc.)
 function MessageContent({ content }: { content: string }) {
   const processed = linkifyPaths(stripSendMarkers(content));
+  const { openArtifactMenu, artifactActionMenu } = useArtifactActionMenu();
   const fallback = (
     <pre className="code-block">
       <span className="code-lang">text</span>
@@ -4128,6 +4195,7 @@ function MessageContent({ content }: { content: string }) {
             // Local paths → shell.open(); web URLs → new tab
             a: ({ href, children }) => {
               if (isLocalPath(href)) {
+                const nativePath = uriToNativePath(href!);
                 return (
                   <a
                     href="#"
@@ -4135,7 +4203,10 @@ function MessageContent({ content }: { content: string }) {
                     style={{ cursor: "pointer" }}
                     onClick={(e) => {
                       e.preventDefault();
-                      openPath(uriToNativePath(href!)).catch(console.error);
+                      openPath(nativePath).catch(console.error);
+                    }}
+                    onContextMenu={(e) => {
+                      openArtifactMenu(e, nativePath);
                     }}
                   >
                     {children}
@@ -4164,6 +4235,7 @@ function MessageContent({ content }: { content: string }) {
               const text = String(children);
               if (isLocalPath(text)) {
                 const uri = `file:///${text.replace(/\\/g, "/").replace(/^\//, "")}`;
+                const nativePath = uriToNativePath(uri);
                 return (
                   <a
                     href="#"
@@ -4171,7 +4243,10 @@ function MessageContent({ content }: { content: string }) {
                     style={{ cursor: "pointer" }}
                     onClick={(e) => {
                       e.preventDefault();
-                      openPath(uriToNativePath(uri)).catch(console.error);
+                      openPath(nativePath).catch(console.error);
+                    }}
+                    onContextMenu={(e) => {
+                      openArtifactMenu(e, nativePath);
                     }}
                   >
                     {text}
@@ -4209,6 +4284,7 @@ function MessageContent({ content }: { content: string }) {
           {processed}
         </ReactMarkdown>
       </RenderErrorBoundary>
+      {artifactActionMenu}
     </div>
   );
 }

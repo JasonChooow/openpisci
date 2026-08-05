@@ -156,6 +156,71 @@ async fn resolve_im_outbound_route(
     }
 }
 
+fn format_im_agent_error(error: &str) -> String {
+    let lower = error.to_lowercase();
+    if lower.contains("402")
+        || lower.contains("payment required")
+        || lower.contains("insufficient balance")
+    {
+        return "包子暂时无法回复：当前模型接口余额不足，请联系管理员充值，或切换到可用的模型接口后再试。".to_string();
+    }
+    if lower.contains("api key not configured") || lower.contains("api key") {
+        return "包子暂时无法回复：模型接口还没有配置好，请联系管理员检查 API 配置。".to_string();
+    }
+    if lower.contains("no model is selected")
+        || lower.contains("model name not configured")
+        || lower.contains("no model selected")
+    {
+        return "包子暂时无法回复：IM 回复模型还没有选好，请在设置里选择可用模型。".to_string();
+    }
+    if lower.contains("timeout")
+        || lower.contains("connection")
+        || lower.contains("network")
+        || lower.contains("连接")
+    {
+        return "包子暂时无法回复：模型接口连接超时或网络不稳定，请稍后再试。".to_string();
+    }
+    "包子暂时无法回复：模型接口返回异常，请联系管理员检查配置或稍后再试。".to_string()
+}
+
+async fn send_im_error_reply(
+    state_ref: &store::AppState,
+    gw: &gateway::GatewayManager,
+    session_id: &str,
+    msg: &gateway::InboundMessage,
+    error: &str,
+) {
+    let friendly = format_im_agent_error(error);
+    {
+        let db = state_ref.db.lock().await;
+        let _ = db.append_message(session_id, "assistant", &friendly);
+        let _ = db.update_session_status(session_id, "idle");
+    }
+
+    let (recipient, routing_state) = resolve_im_outbound_route(
+        &state_ref.db,
+        session_id,
+        &msg.channel,
+        &msg.reply_target,
+        msg.routing_state.clone(),
+    )
+    .await;
+
+    let outbound = gateway::OutboundMessage {
+        channel: msg.channel.clone(),
+        recipient: recipient.clone(),
+        content: friendly,
+        reply_to: Some(msg.id.clone()),
+        media: None,
+        routing_state,
+    };
+    match gw.send(&outbound).await {
+        Ok(()) => info!("IM error reply sent successfully via {}", msg.channel),
+        Err(e) => tracing::warn!("Failed to send IM error reply via {}: {}", msg.channel, e),
+    }
+    let _ = state_ref.app_handle.emit("im_session_done", session_id);
+}
+
 /// Run the headless agent for a single inbound message and send the reply
 /// back through the IM gateway.  This is the shared body used by both
 /// cancel-mode and queue-mode processing.
@@ -177,10 +242,10 @@ async fn run_im_agent_and_send_reply(
 
     if let Err(e) = &response {
         info!(
-            "run_agent_headless returned error for {}, emitting im_session_done: {}",
+            "run_agent_headless returned error for {}, sending IM error reply: {}",
             session_id, e
         );
-        let _ = state_ref.app_handle.emit("im_session_done", session_id);
+        send_im_error_reply(state_ref, gw, session_id, msg, e).await;
         return;
     }
 
@@ -295,6 +360,72 @@ fn open_path(path: String) -> Result<(), String> {
             .arg(&path)
             .spawn()
             .map_err(|e| format!("Failed to open path: {e}"))?;
+        Ok(())
+    }
+}
+
+/// Show the system "Open with" chooser for a local file when the platform supports it.
+#[tauri::command]
+fn open_with_path(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let p = std::path::Path::new(&path);
+        if p.is_dir() {
+            piscis_kernel::proc::std_command("explorer")
+                .arg(&path)
+                .spawn()
+                .map_err(|e| format!("Failed to open directory in Explorer: {e}"))?;
+        } else {
+            piscis_kernel::proc::std_command("rundll32.exe")
+                .args(["shell32.dll,OpenAs_RunDLL", &path])
+                .spawn()
+                .map_err(|e| format!("Failed to show Open with dialog: {e}"))?;
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        open_path(path)
+    }
+}
+
+/// Reveal a local file or directory in the system file manager.
+/// On Windows, files are selected in Explorer so users can find generated outputs quickly.
+#[tauri::command]
+fn reveal_path(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let p = std::path::Path::new(&path);
+        if p.is_dir() {
+            piscis_kernel::proc::std_command("explorer")
+                .arg(&path)
+                .spawn()
+                .map_err(|e| format!("Failed to open directory in Explorer: {e}"))?;
+        } else {
+            piscis_kernel::proc::std_command("explorer")
+                .arg(format!("/select,{}", path))
+                .spawn()
+                .map_err(|e| format!("Failed to reveal file in Explorer: {e}"))?;
+        }
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let p = std::path::Path::new(&path);
+        let target = if p.is_dir() {
+            p
+        } else {
+            p.parent().unwrap_or(p)
+        };
+        let cmd = if cfg!(target_os = "macos") {
+            "open"
+        } else {
+            "xdg-open"
+        };
+        piscis_kernel::proc::std_command(cmd)
+            .arg(target)
+            .spawn()
+            .map_err(|e| format!("Failed to reveal path: {e}"))?;
         Ok(())
     }
 }
@@ -724,10 +855,11 @@ fn run_impl() {
 
                                     if let Err(e) = &response {
                                         info!(
-                                            "run_agent_headless returned error for {}, emitting im_session_done: {}",
+                                            "run_agent_headless returned error for {}, sending IM error reply: {}",
                                             session_id, e
                                         );
-                                        let _ = state_ref.app_handle.emit("im_session_done", &session_id);
+                                        send_im_error_reply(&state_ref, &gw, &session_id, &msg, e)
+                                            .await;
                                         return;
                                     }
 
@@ -1364,6 +1496,8 @@ fn run_impl() {
         })
         .invoke_handler(tauri::generate_handler![
             open_path,
+            open_with_path,
+            reveal_path,
             // config/
             commands::config::settings::get_settings,
             commands::config::settings::get_default_workspace,
@@ -1586,7 +1720,7 @@ fn run_impl() {
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_im_outbound_route, resolve_or_create_im_binding};
+    use super::{format_im_agent_error, resolve_im_outbound_route, resolve_or_create_im_binding};
     use crate::{gateway, store};
     use serde_json::json;
     use std::sync::Arc;
@@ -1670,5 +1804,16 @@ mod tests {
             routing_state.expect("routing state")["context_token"],
             "ctx-1"
         );
+    }
+
+    #[test]
+    fn im_agent_error_translates_insufficient_balance_for_coworkers() {
+        let message = r#"OpenAI API error 402 Payment Required: {"error":{"message":"Insufficient Balance"}}"#;
+
+        let friendly = format_im_agent_error(message);
+
+        assert!(friendly.contains("余额不足"));
+        assert!(friendly.contains("联系管理员"));
+        assert!(!friendly.contains("OpenAI API error"));
     }
 }

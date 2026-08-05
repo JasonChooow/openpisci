@@ -66,9 +66,7 @@ pub async fn get_platform_discovery() -> Result<serde_json::Value, String> {
     }
 
     match discovery::cached() {
-        Some(payload) => {
-            serde_json::to_value(payload).map_err(|error| error.to_string())
-        }
+        Some(payload) => serde_json::to_value(payload).map_err(|error| error.to_string()),
         None => Ok(serde_json::json!({
             "available": false,
             "edge_url": discovery::edge_url(),

@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, Eye } from "lucide-react";
 import { ToolStep, PlanTodoItem } from "../../store";
 import { openPath, type SessionArtifact } from "../../services/tauri";
 import ArtifactPreview from "./ArtifactPreview";
 import { uriToNativePath } from "../../utils/linkify";
+import { getArtifactRevealTarget } from "../../utils/artifactOpen";
+import { useArtifactActionMenu } from "./ArtifactActionMenu";
 
 const TOOL_ICONS: Record<string, string> = {
   shell: "💻", powershell: "💻", powershell_query: "💻",
@@ -118,7 +120,14 @@ export function ArtifactsPanel({
 }) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { openArtifactMenu, artifactActionMenu } = useArtifactActionMenu();
   const selected = !onPreview && selectedId ? artifacts.find((a) => a.id === selectedId) ?? null : null;
+
+  const showArtifactMenu = (event: MouseEvent, artifact: SessionArtifact) => {
+    const target = getArtifactRevealTarget(artifact);
+    if (!target) return;
+    openArtifactMenu(event, target);
+  };
 
   if (selected) {
     return (
@@ -142,6 +151,7 @@ export function ArtifactsPanel({
           role="button"
           tabIndex={0}
           onClick={() => (onPreview ? onPreview(artifact) : setSelectedId(artifact.id))}
+          onContextMenu={(event) => showArtifactMenu(event, artifact)}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               if (onPreview) onPreview(artifact);
@@ -177,6 +187,7 @@ export function ArtifactsPanel({
           </div>
         </div>
       ))}
+      {artifactActionMenu}
     </div>
   );
 }

@@ -543,14 +543,12 @@ impl CallKoiTool {
             koi_id,
             pool_session_id.as_deref().unwrap_or("default")
         );
-        let journal = std::sync::Arc::new(
-            piscis_kernel::agent::file_journal::FileJournal::open(
-                &workspace_root,
-                std::path::Path::new(&workspace_root)
-                    .join(".piscis")
-                    .join("journal.db"),
-            )?,
-        );
+        let journal = std::sync::Arc::new(piscis_kernel::agent::file_journal::FileJournal::open(
+            &workspace_root,
+            std::path::Path::new(&workspace_root)
+                .join(".piscis")
+                .join("journal.db"),
+        )?);
         journal.begin_turn(&koi_session_id);
         let hooks = std::sync::Arc::new(
             crate::runtime::ide_notify_hooks::JournalWithIdeNotify::new_with_artifact_session(

@@ -82,6 +82,7 @@
       },
       "nsis": {
         "installMode": "currentUser",
+        "template": "nsis/installer.nsi",
         "installerIcon": "icons/installer.ico",
         "languages": [
           "SimpChinese",

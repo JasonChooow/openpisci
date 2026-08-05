@@ -31,7 +31,7 @@ export default function AgentConfigSection() {
                     type="number"
                     min={0}
                     max={10000000}
-                    value={form.auto_compact_input_tokens_threshold ?? 200000}
+                    value={form.auto_compact_input_tokens_threshold ?? 400000}
                     onChange={(e) =>
                       update(
                         "auto_compact_input_tokens_threshold",
@@ -110,8 +110,8 @@ export default function AgentConfigSection() {
                       className="input"
                       type="number"
                       min={1000}
-                      max={200000}
-                      value={form.max_tool_result_tokens ?? 8000}
+                      max={400000}
+                      value={form.max_tool_result_tokens ?? 16000}
                       onChange={(e) =>
                         update("max_tool_result_tokens", Math.max(1000, Number(e.target.value) || 1000))
                       }
@@ -140,9 +140,9 @@ export default function AgentConfigSection() {
                       className="input"
                       type="number"
                       min={300}
-                      max={1200}
-                      value={form.llm_read_timeout_secs ?? 300}
-                      onChange={(e) => update("llm_read_timeout_secs", Math.min(1200, Math.max(300, Number(e.target.value))))}
+                      max={1800}
+                      value={form.llm_read_timeout_secs ?? 600}
+                      onChange={(e) => update("llm_read_timeout_secs", Math.min(1800, Math.max(300, Number(e.target.value))))}
                     />
                     <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>{t("settings.llmReadTimeoutDesc")}</p>
                   </div>

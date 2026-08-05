@@ -123,9 +123,27 @@ impl JournalWithIdeNotify {
                 .map(|ext| ext.to_ascii_lowercase())
                 .as_deref(),
             Some(
-                "md" | "markdown" | "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "pdf"
-                    | "html" | "htm" | "txt" | "csv" | "tsv" | "json" | "png" | "jpg"
-                    | "jpeg" | "gif" | "webp" | "svg" | "bmp"
+                "md" | "markdown"
+                    | "doc"
+                    | "docx"
+                    | "xls"
+                    | "xlsx"
+                    | "ppt"
+                    | "pptx"
+                    | "pdf"
+                    | "html"
+                    | "htm"
+                    | "txt"
+                    | "csv"
+                    | "tsv"
+                    | "json"
+                    | "png"
+                    | "jpg"
+                    | "jpeg"
+                    | "gif"
+                    | "webp"
+                    | "svg"
+                    | "bmp"
             )
         )
     }
@@ -291,10 +309,7 @@ impl JournalWithIdeNotify {
         Self::collect_recent_artifacts(ev.workspace_root, started_at, 0, &mut candidates);
         candidates.sort_by(|a, b| b.1.cmp(&a.1));
 
-        for (path, _) in candidates
-            .into_iter()
-            .take(MAX_INDIRECT_ARTIFACTS_PER_TOOL)
-        {
+        for (path, _) in candidates.into_iter().take(MAX_INDIRECT_ARTIFACTS_PER_TOOL) {
             self.register_artifact_path(ev, path).await;
         }
     }

@@ -32,9 +32,70 @@ use std::sync::{atomic::AtomicBool, Arc};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 const MIN_LLM_READ_TIMEOUT_SECS: u32 = 300;
+const MAX_AUTOMATIC_PLAN_CONTINUATIONS: usize = 2;
+const MAX_AUTOMATIC_TASK_CONTINUATIONS: usize = 2;
+const FRONTEND_HISTORY_JSON_COMPACT_THRESHOLD_BYTES: usize = 24 * 1024;
+const FRONTEND_HISTORY_STRING_LIMIT_CHARS: usize = 8_000;
 
 fn effective_llm_read_timeout_secs(value: u32) -> u32 {
     value.max(MIN_LLM_READ_TIMEOUT_SECS)
+}
+
+fn compact_long_json_strings_for_frontend(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::String(text) => {
+            let char_count = text.chars().count();
+            if char_count > FRONTEND_HISTORY_STRING_LIMIT_CHARS {
+                let preview: String = text
+                    .chars()
+                    .take(FRONTEND_HISTORY_STRING_LIMIT_CHARS)
+                    .collect();
+                *text = format!(
+                    "{preview}\n\n[内容过长，已为界面加载省略约 {} 字符。完整记录仍保存在本地历史中。]",
+                    char_count.saturating_sub(FRONTEND_HISTORY_STRING_LIMIT_CHARS)
+                );
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                compact_long_json_strings_for_frontend(item);
+            }
+        }
+        serde_json::Value::Object(map) => {
+            for item in map.values_mut() {
+                compact_long_json_strings_for_frontend(item);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn compact_history_json_for_frontend(raw: Option<String>) -> Option<String> {
+    let raw = raw?;
+    if raw.len() <= FRONTEND_HISTORY_JSON_COMPACT_THRESHOLD_BYTES {
+        return Some(raw);
+    }
+
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        return Some(format!(
+            "[{{\"content\":\"历史工具记录过大，已为界面加载省略。完整记录仍保存在本地历史中。\"}}]"
+        ));
+    };
+    compact_long_json_strings_for_frontend(&mut value);
+    serde_json::to_string(&value).ok().or(Some(raw))
+}
+
+fn compact_message_for_frontend_history(mut message: ChatMessage) -> ChatMessage {
+    message.tool_calls_json = compact_history_json_for_frontend(message.tool_calls_json);
+    message.tool_results_json = compact_history_json_for_frontend(message.tool_results_json);
+    message
+}
+
+fn compact_messages_for_frontend_history(messages: Vec<ChatMessage>) -> Vec<ChatMessage> {
+    messages
+        .into_iter()
+        .map(compact_message_for_frontend_history)
+        .collect()
 }
 
 /// Attachment sent from the frontend with a chat message.
@@ -495,7 +556,7 @@ async fn inject_explicit_skills_prefix(
             "User-selected skill routing: the user selected these skills for this turn. Their full instructions are already embedded below."
         }
         SkillSelectionReason::AutoPptGeneration => {
-            "Auto-selected skill routing: this request clearly asks for PPT/presentation generation, so `ppt-master` is mandatory. Follow the embedded SKILL.md and its local workflow files in order. If the user attached a .docx, .doc, .pdf, .txt, .md, .xlsx, .csv, .pptx, or image file, classify each attachment as source content, data source, template/reference style, or visual material and extract useful content first. Do not use topic-only generation when source attachments exist. For style, first infer from conversation memory, the user's stated preferences, current wording, and attachment industry. If style is still unclear, ask one concise preference question with no more than three options; if the user says to decide or to generate directly, choose the best fitting designed theme without asking. Do not ask ordinary users to install Python, Node, package managers, or command-line dependencies. Do not expose debugging/tool chatter to the user, including file-read attempts, workspace access issues, truncated output, Add-Type, COM, or Visible warnings. Do not create a plain black deck, plain white deck, default-theme deck, or text-only slides. Before final delivery, verify that no body slide is empty, no placeholder text remains, compare columns are not duplicated, and the final PPT includes deliberate visual hierarchy, colors, layouts, and styled slides."
+            "Auto-selected skill routing: this request clearly asks for PPT/presentation generation, so `ppt-master` is mandatory. Follow the embedded SKILL.md and its local workflow files in order. If `ppt-master` appears as locked, that only means its bundled files are protected from editing; the skill is still available and must be used. If the user attached a .docx, .doc, .pdf, .txt, .md, .xlsx, .csv, .pptx, or image file, classify each attachment as source content, data source, template/reference style, or visual material and extract useful content first. Do not use topic-only generation when source attachments exist. For style, first infer from conversation memory, the user's stated preferences, current wording, and attachment industry. If style is still unclear, ask one concise preference question with no more than three options; if the user says to decide or to generate directly, choose the best fitting designed theme without asking. Do not ask ordinary users to install Python, Node, package managers, or command-line dependencies. Do not expose debugging/tool chatter to the user, including file-read attempts, workspace access issues, truncated output, Add-Type, COM, or Visible warnings. Do not create a plain black deck, plain white deck, default-theme deck, or text-only slides. Before final delivery, verify that no body slide is empty, no placeholder text remains, compare columns are not duplicated, and the final PPT includes deliberate visual hierarchy, colors, layouts, and styled slides."
         }
         SkillSelectionReason::AutoPptVideo => {
             "Auto-selected skill routing: this request asks to turn presentation slides into video, so `ppt-to-video` is mandatory. Its full instructions are already embedded below."
@@ -524,6 +585,130 @@ async fn inject_explicit_skills_prefix(
     } else {
         format!("{prefix}{content}")
     }
+}
+
+fn replace_latest_user_message_content(messages: &mut [LlmMessage], content: String) -> bool {
+    for msg in messages.iter_mut().rev() {
+        if msg.role == "user" {
+            msg.content = MessageContent::Text(content);
+            return true;
+        }
+    }
+    false
+}
+
+fn apply_headless_llm_provider_fallback(
+    provider: &mut String,
+    model: &mut String,
+    api_key: &mut String,
+    base_url: &mut String,
+    max_tokens: &mut u32,
+    providers: &[piscis_kernel::store::settings::LlmProviderConfig],
+) -> Result<(), String> {
+    if !provider.trim().is_empty() && !model.trim().is_empty() && !api_key.trim().is_empty() {
+        return Ok(());
+    }
+
+    if let Some(p) = providers
+        .iter()
+        .find(|p| !p.effective_api_key().trim().is_empty() && !p.model.trim().is_empty())
+    {
+        tracing::info!(
+            "run_agent_headless: falling back to named LLM provider {} ({}/{})",
+            p.id,
+            p.provider,
+            p.model
+        );
+        *provider = p.provider.clone();
+        *model = p.model.clone();
+        *api_key = p.effective_api_key().to_string();
+        *base_url = p.base_url.clone();
+        if p.max_tokens > 0 {
+            *max_tokens = p.max_tokens;
+        }
+        return Ok(());
+    }
+
+    if providers
+        .iter()
+        .any(|p| !p.effective_api_key().trim().is_empty() && p.model.trim().is_empty())
+    {
+        return Err(
+            "IM 模型接口已配置，但还没有选择模型名称。请在设置里为自定义模型选择一个可用模型。"
+                .to_string(),
+        );
+    }
+
+    Ok(())
+}
+
+fn settings_tool_config_string(
+    configs: &HashMap<String, serde_json::Value>,
+    tool_name: &str,
+    key: &str,
+) -> Option<String> {
+    configs
+        .get(tool_name)
+        .and_then(|config| config.as_object())
+        .and_then(|config| config.get(key))
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn apply_named_llm_provider_selection(
+    provider: &mut String,
+    model: &mut String,
+    api_key: &mut String,
+    base_url: &mut String,
+    max_tokens: &mut u32,
+    providers: &[piscis_kernel::store::settings::LlmProviderConfig],
+    selection: &str,
+    source_label: &str,
+) -> Result<bool, String> {
+    let selection = selection.trim();
+    if selection.is_empty() {
+        return Ok(false);
+    }
+    let (lookup_provider_id, selected_model) = selection
+        .split_once("::")
+        .map(|(pid, model_id)| (pid, Some(model_id)))
+        .unwrap_or((selection, None));
+    let Some(p) = providers.iter().find(|p| p.id == lookup_provider_id) else {
+        return Err(format!(
+            "{}模型配置 '{}' 不存在，请在设置里重新选择。",
+            source_label, lookup_provider_id
+        ));
+    };
+    let chosen_model = selected_model.unwrap_or(&p.model).trim();
+    if chosen_model.is_empty() {
+        return Err(format!(
+            "{}模型接口 '{}' 已配置，但还没有选择模型名称。请在设置里选择一个可用模型。",
+            source_label, lookup_provider_id
+        ));
+    }
+    if p.effective_api_key().trim().is_empty() {
+        return Err(format!(
+            "{}模型接口 '{}' 没有 API Key，请在设置里检查模型配置。",
+            source_label, lookup_provider_id
+        ));
+    }
+    tracing::info!(
+        "run_agent_headless: applying {} LLM provider selection {} ({}/{})",
+        source_label,
+        lookup_provider_id,
+        p.provider,
+        chosen_model
+    );
+    *provider = p.provider.clone();
+    *model = chosen_model.to_string();
+    *api_key = p.effective_api_key().to_string();
+    *base_url = p.base_url.clone();
+    if p.max_tokens > 0 {
+        *max_tokens = p.max_tokens;
+    }
+    Ok(true)
 }
 
 fn normalize_workspace_path_for_match(path: &str) -> String {
@@ -792,6 +977,255 @@ async fn persist_session_task_contract(
             Some("active"),
         );
     }
+}
+
+fn unfinished_plan_items(items: &[PlanTodoItem]) -> Vec<PlanTodoItem> {
+    items
+        .iter()
+        .filter(|item| item.status == "pending" || item.status == "in_progress")
+        .cloned()
+        .collect()
+}
+
+async fn unfinished_plan_items_for_session(
+    plan_state: &Arc<
+        tokio::sync::Mutex<
+            std::collections::HashMap<String, Vec<piscis_kernel::agent::plan::PlanTodoItem>>,
+        >,
+    >,
+    session_id: &str,
+) -> Vec<PlanTodoItem> {
+    let plans = plan_state.lock().await;
+    plans
+        .get(session_id)
+        .map(|items| unfinished_plan_items(items))
+        .unwrap_or_default()
+}
+
+fn render_auto_plan_continuation_prompt(
+    unfinished: &[PlanTodoItem],
+    attempt: usize,
+    max_attempts: usize,
+) -> String {
+    let lines = unfinished
+        .iter()
+        .map(|item| format!("- [{}] {}", item.status, item.content))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!(
+        "Host continuation ({}/{}): the previous agent turn ended while the visible task plan still has unfinished steps.\n\
+Do not ask the user to say continue. Continue the actual work now, using tools when needed.\n\
+Before stopping, every plan_todo item must be completed or cancelled with a clear reason.\n\
+Unfinished steps:\n{}",
+        attempt, max_attempts, lines
+    )
+}
+
+fn push_auto_plan_continuation_message(
+    messages: &mut Vec<LlmMessage>,
+    unfinished: &[PlanTodoItem],
+    attempt: usize,
+    max_attempts: usize,
+) {
+    messages.push(LlmMessage {
+        role: "user".into(),
+        content: MessageContent::text(render_auto_plan_continuation_prompt(
+            unfinished,
+            attempt,
+            max_attempts,
+        )),
+    });
+}
+
+fn llm_message_has_tool_activity(message: &LlmMessage) -> bool {
+    match &message.content {
+        MessageContent::Blocks(blocks) => blocks.iter().any(|block| {
+            matches!(
+                block,
+                ContentBlock::ToolUse { .. } | ContentBlock::ToolResult { .. }
+            )
+        }),
+        MessageContent::Text(_) => false,
+    }
+}
+
+fn llm_messages_have_tool_activity(messages: &[LlmMessage]) -> bool {
+    messages.iter().any(llm_message_has_tool_activity)
+}
+
+fn last_assistant_text(messages: &[LlmMessage]) -> Option<String> {
+    messages
+        .iter()
+        .rev()
+        .find(|message| message.role == "assistant")
+        .map(|message| message.content.as_text().trim().to_string())
+        .filter(|text| !text.is_empty())
+}
+
+fn looks_like_action_task(user_text: &str) -> bool {
+    let text = user_text.trim().to_lowercase();
+    if text.is_empty() {
+        return false;
+    }
+    let action_markers = [
+        "帮我",
+        "请",
+        "写",
+        "生成",
+        "制作",
+        "整理",
+        "处理",
+        "修改",
+        "创建",
+        "新建",
+        "做",
+        "分析",
+        "查询",
+        "导出",
+        "转换",
+        "翻译",
+        "总结",
+        "提取",
+        "设计",
+        "封装",
+        "启动",
+        "修复",
+        "排查",
+        "检查",
+        "打开",
+        "保存",
+        "produce",
+        "create",
+        "generate",
+        "write",
+        "make",
+        "edit",
+        "fix",
+        "build",
+        "analyze",
+        "summarize",
+        "export",
+        "convert",
+    ];
+    action_markers.iter().any(|marker| text.contains(marker))
+}
+
+fn looks_like_completed_delivery(text: &str) -> bool {
+    let text = text.trim().to_lowercase();
+    if text.is_empty() {
+        return false;
+    }
+    let done_markers = [
+        "已完成",
+        "完成了",
+        "已经",
+        "结果",
+        "结论",
+        "如下",
+        "文件",
+        "保存",
+        "生成了",
+        "写好了",
+        "修复了",
+        "可以打开",
+        "done",
+        "completed",
+        "created",
+        "saved",
+        "result",
+        "summary",
+        "here is",
+        "here's",
+    ];
+    done_markers.iter().any(|marker| text.contains(marker))
+}
+
+fn looks_like_process_only_reply(text: &str) -> bool {
+    let text = text.trim().to_lowercase();
+    if text.is_empty() {
+        return true;
+    }
+    if looks_like_completed_delivery(&text) {
+        return false;
+    }
+    let process_markers = [
+        "let me",
+        "i will",
+        "i'll",
+        "first",
+        "next",
+        "start by",
+        "开始",
+        "我将",
+        "我会",
+        "我先",
+        "先",
+        "接下来",
+        "下一步",
+        "正在",
+        "准备",
+        "继续",
+    ];
+    let short_reply = text.chars().count() <= 180;
+    short_reply && process_markers.iter().any(|marker| text.contains(marker))
+}
+
+fn auto_task_continuation_reason(
+    visible_user_content: &str,
+    final_messages: &[LlmMessage],
+) -> Option<String> {
+    if !looks_like_action_task(visible_user_content) {
+        return None;
+    }
+
+    let has_tool_activity = llm_messages_have_tool_activity(final_messages);
+    let assistant_text = last_assistant_text(final_messages).unwrap_or_default();
+    if has_tool_activity && assistant_text.is_empty() {
+        return Some(
+            "the agent stopped right after tool work without a final user-facing result"
+                .to_string(),
+        );
+    }
+    if looks_like_process_only_reply(&assistant_text) {
+        return Some("the last assistant message only described process, not a result".to_string());
+    }
+    None
+}
+
+fn render_auto_task_continuation_prompt(
+    reason: &str,
+    original_request: &str,
+    attempt: usize,
+    max_attempts: usize,
+) -> String {
+    format!(
+        "Host continuation ({}/{}): the previous agent turn appears to have stopped before delivering the user's requested task.\n\
+Reason: {}\n\
+Original user request:\n{}\n\n\
+Continue the actual work now. Do not ask the user to say continue. If the task cannot be completed, explain the blocker clearly and provide the best partial result.",
+        attempt,
+        max_attempts,
+        reason,
+        original_request.trim()
+    )
+}
+
+fn push_auto_task_continuation_message(
+    messages: &mut Vec<LlmMessage>,
+    reason: &str,
+    original_request: &str,
+    attempt: usize,
+    max_attempts: usize,
+) {
+    messages.push(LlmMessage {
+        role: "user".into(),
+        content: MessageContent::text(render_auto_task_continuation_prompt(
+            reason,
+            original_request,
+            attempt,
+            max_attempts,
+        )),
+    });
 }
 
 async fn build_session_message_context_from_db(
@@ -1521,6 +1955,7 @@ pub async fn get_messages(
         // This ensures the frontend always sees the newest messages regardless of how many
         // tool_calls/tool_results have accumulated in the session history.
         db.get_messages_latest(&session_id, lim)
+            .map(compact_messages_for_frontend_history)
             .map_err(|e| e.to_string())
     } else {
         // Pagination: caller wants older messages (load-more-history).
@@ -1528,6 +1963,7 @@ pub async fn get_messages(
         // We skip the newest `off` rows and return the next `limit` older rows,
         // still in chronological (ascending) order.
         db.get_messages_older(&session_id, lim, off)
+            .map(compact_messages_for_frontend_history)
             .map_err(|e| e.to_string())
     }
 }
@@ -1970,9 +2406,9 @@ pub async fn chat_send(
             main_llm_vision_enabled
         }
     };
-    let (mut effective_content, media_attachments) =
+    let (visible_user_content, media_attachments) =
         resolve_attachments_for_send(&content, &merged_attachments, vision_capable);
-    let skill_selection = resolve_skill_selection(&effective_content, explicit_skills);
+    let skill_selection = resolve_skill_selection(&visible_user_content, explicit_skills);
     if let Some(selection) = &skill_selection {
         tracing::info!(
             "chat_send: skill routing selected {:?} via {:?}",
@@ -1980,10 +2416,11 @@ pub async fn chat_send(
             selection.reason
         );
     }
-    effective_content =
-        inject_explicit_skills_prefix(&app, effective_content, skill_selection).await;
+    let model_user_content =
+        inject_explicit_skills_prefix(&app, visible_user_content.clone(), skill_selection).await;
 
-    // Save user message to DB (use effective_content which may include file path annotation)
+    // Save only the user-visible text to DB. Internal skill routing is injected
+    // into the LLM context below, never persisted as a chat message.
     // clear_plan defaults to true; pass false to preserve an existing plan (continue previous tasks).
     let replace_task_contract = clear_plan.unwrap_or(true);
     if replace_task_contract {
@@ -1991,7 +2428,7 @@ pub async fn chat_send(
             &state.db,
             &state.plan_state,
             &session_id,
-            &effective_content,
+            &visible_user_content,
         )
         .await;
         let mut plans = state.plan_state.lock().await;
@@ -2001,7 +2438,7 @@ pub async fn chat_send(
 
     {
         let db = state.db.lock().await;
-        db.append_message(&session_id, "user", &effective_content)
+        db.append_message(&session_id, "user", &visible_user_content)
             .map_err(|e| e.to_string())?;
         db.update_session_status(&session_id, "running")
             .map_err(|e| e.to_string())?;
@@ -2009,7 +2446,7 @@ pub async fn chat_send(
     persist_session_task_contract(
         &state.db,
         &session_id,
-        &effective_content,
+        &visible_user_content,
         replace_task_contract,
     )
     .await;
@@ -2018,7 +2455,7 @@ pub async fn chat_send(
         let app_clone = app.clone();
         let db_arc = state.db.clone();
         let session_id_clone = session_id.clone();
-        let prompt = effective_content.clone();
+        let prompt = model_user_content.clone();
         let provider_clone = provider.clone();
         let model_clone = model.clone();
         let api_key_clone = api_key.clone();
@@ -2075,6 +2512,7 @@ pub async fn chat_send(
     let mut llm_messages = build_session_message_context(&state, &session_id, budget)
         .await?
         .llm_messages;
+    replace_latest_user_message_content(&mut llm_messages, model_user_content.clone());
 
     // For vision-capable models: inject attachment images into the last user message
     if vision_capable && !media_attachments.is_empty() {
@@ -2143,7 +2581,7 @@ pub async fn chat_send(
         &app,
         &state,
         &session_id,
-        &effective_content,
+        &visible_user_content,
         &workspace_root,
         context_window,
         max_tokens,
@@ -2283,9 +2721,11 @@ pub async fn chat_send(
     let provider_clone = provider.clone();
     let api_key_clone = api_key.clone();
     let base_url_clone = base_url.clone();
-    let effective_content_clone = effective_content.clone();
+    let visible_user_content_clone = visible_user_content.clone();
     let app_state_for_dream = state.inner().clone();
     let memory_owner_clone = ctx.memory_owner_id.clone();
+    let plan_state_clone = state.plan_state.clone();
+    let budget_clone = budget;
     tracing::info!(
         "chat_send: spawning agent background task for session={}",
         session_id
@@ -2312,10 +2752,123 @@ pub async fn chat_send(
         });
 
         // NOTE: agent.run() no longer emits Done — we do it here AFTER the DB write.
-        // Agent handles complex tasks autonomously via its own tools (call_fish, plan_todo, etc.)
-        let result = agent
-            .run(llm_messages, event_tx.clone(), cancel.clone(), ctx)
-            .await;
+        // Agent handles complex tasks autonomously via its own tools (call_fish, plan_todo, etc.).
+        // If the model stops while plan_todo still has unfinished work, continue internally
+        // instead of requiring the user to type "continue".
+        let mut next_messages = llm_messages;
+        let mut automatic_continuations = 0usize;
+        let mut accumulated_messages: Vec<LlmMessage> = Vec::new();
+        let mut accumulated_input = 0u32;
+        let mut accumulated_output = 0u32;
+        let result = loop {
+            let run_result = agent
+                .run(next_messages, event_tx.clone(), cancel.clone(), ctx.clone())
+                .await;
+            match run_result {
+                Ok((final_messages, total_in, total_out)) => {
+                    accumulated_input = accumulated_input.saturating_add(total_in);
+                    accumulated_output = accumulated_output.saturating_add(total_out);
+                    accumulated_messages.extend(final_messages);
+
+                    if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+                        break Ok((accumulated_messages, accumulated_input, accumulated_output));
+                    }
+
+                    let unfinished =
+                        unfinished_plan_items_for_session(&plan_state_clone, &session_id_clone)
+                            .await;
+                    let task_continuation_reason = if unfinished.is_empty() {
+                        auto_task_continuation_reason(
+                            &visible_user_content_clone,
+                            &accumulated_messages,
+                        )
+                    } else {
+                        None
+                    };
+
+                    if unfinished.is_empty() && task_continuation_reason.is_none() {
+                        break Ok((accumulated_messages, accumulated_input, accumulated_output));
+                    }
+
+                    let max_continuations = if unfinished.is_empty() {
+                        MAX_AUTOMATIC_TASK_CONTINUATIONS
+                    } else {
+                        MAX_AUTOMATIC_PLAN_CONTINUATIONS
+                    };
+
+                    if automatic_continuations >= max_continuations {
+                        if unfinished.is_empty() {
+                            tracing::warn!(
+                                "agent.run ended before task delivery after {} automatic continuation(s): session={} reason={:?}",
+                                automatic_continuations,
+                                session_id_clone,
+                                task_continuation_reason
+                            );
+                        } else {
+                            tracing::warn!(
+                                "agent.run ended with {} unfinished plan item(s) after {} automatic continuation(s): session={}",
+                                unfinished.len(),
+                                automatic_continuations,
+                                session_id_clone
+                            );
+                        }
+                        break Err(anyhow::anyhow!(
+                            "任务还没有完成，包子已暂停在未完成步骤。请点击发送或补充一句“继续”，包子会接着处理。"
+                        ));
+                    }
+
+                    automatic_continuations += 1;
+                    if unfinished.is_empty() {
+                        tracing::warn!(
+                            "agent.run ended before task delivery, auto-continuing ({}/{}): session={} reason={:?}",
+                            automatic_continuations,
+                            max_continuations,
+                            session_id_clone,
+                            task_continuation_reason
+                        );
+                    } else {
+                        tracing::warn!(
+                            "agent.run ended with {} unfinished plan item(s), auto-continuing ({}/{}): session={}",
+                            unfinished.len(),
+                            automatic_continuations,
+                            max_continuations,
+                            session_id_clone
+                        );
+                    }
+
+                    let mut rebuilt = match build_session_message_context_from_db(
+                        &db_arc,
+                        &session_id_clone,
+                        budget_clone,
+                        HistorySliceMode::FullRecent,
+                        &crate::headless_cli::HeadlessContextToggles::default(),
+                    )
+                    .await
+                    {
+                        Ok(context) => context.llm_messages,
+                        Err(error) => break Err(anyhow::anyhow!(error)),
+                    };
+                    if let Some(reason) = task_continuation_reason {
+                        push_auto_task_continuation_message(
+                            &mut rebuilt,
+                            &reason,
+                            &visible_user_content_clone,
+                            automatic_continuations,
+                            max_continuations,
+                        );
+                    } else {
+                        push_auto_plan_continuation_message(
+                            &mut rebuilt,
+                            &unfinished,
+                            automatic_continuations,
+                            max_continuations,
+                        );
+                    }
+                    next_messages = rebuilt;
+                }
+                Err(error) => break Err(error),
+            }
+        };
 
         tracing::info!(
             "agent.run completed for session={} ok={}",
@@ -2342,7 +2895,7 @@ pub async fn chat_send(
                     &session_id_clone,
                     "session",
                     &session_id_clone,
-                    &effective_content_clone,
+                    &visible_user_content_clone,
                 )
                 .await;
 
@@ -2427,7 +2980,7 @@ pub async fn chat_send(
                     &session_id_clone,
                     "session",
                     &session_id_clone,
-                    &effective_content_clone,
+                    &visible_user_content_clone,
                 )
                 .await;
                 // Emit error event (Done is not sent on error)
@@ -2961,12 +3514,12 @@ pub async fn run_agent_headless(
     options: Option<HeadlessRunOptions>,
 ) -> Result<(String, Option<Vec<u8>>, Option<String>), String> {
     let (
-        provider,
-        model,
-        api_key,
-        base_url,
+        mut provider,
+        mut model,
+        mut api_key,
+        mut base_url,
         mut workspace_root,
-        max_tokens,
+        mut max_tokens,
         context_window,
         policy_mode,
         tool_rate_limit_per_minute,
@@ -2984,6 +3537,8 @@ pub async fn run_agent_headless(
         auto_compact_input_tokens_threshold,
         project_instruction_budget_chars,
         enable_project_instructions,
+        llm_providers,
+        user_tool_configs,
     ) = {
         let settings = state.settings.lock().await;
         (
@@ -3012,10 +3567,58 @@ pub async fn run_agent_headless(
             settings.auto_compact_input_tokens_threshold,
             settings.project_instruction_budget_chars,
             settings.enable_project_instructions,
+            settings.llm_providers.clone(),
+            settings.user_tool_configs.clone(),
         )
     };
+    let use_im_model_config = options
+        .as_ref()
+        .and_then(|o| o.scene_kind)
+        .map(|kind| kind == SceneKind::IMHeadless)
+        .unwrap_or_else(|| {
+            options
+                .as_ref()
+                .and_then(|o| o.pool_session_id.as_deref())
+                .filter(|pool_id| !pool_id.is_empty())
+                .is_none()
+                && channel != "heartbeat"
+                && channel != "internal"
+        });
+    if use_im_model_config {
+        if let Some(selection) =
+            settings_tool_config_string(&user_tool_configs, "im", "model_provider_id")
+        {
+            apply_named_llm_provider_selection(
+                &mut provider,
+                &mut model,
+                &mut api_key,
+                &mut base_url,
+                &mut max_tokens,
+                &llm_providers,
+                &selection,
+                "IM",
+            )?;
+        }
+        apply_headless_llm_provider_fallback(
+            &mut provider,
+            &mut model,
+            &mut api_key,
+            &mut base_url,
+            &mut max_tokens,
+            &llm_providers,
+        )?;
+    }
     if api_key.is_empty() {
         return Err("API key not configured".into());
+    }
+    if model.trim().is_empty() && !use_im_model_config {
+        return Err("Model name not configured".into());
+    }
+    if model.trim().is_empty() {
+        return Err(
+            "IM 模型接口已配置，但还没有选择模型名称。请在设置里为自定义模型选择一个可用模型。"
+                .into(),
+        );
     }
     tracing::info!(
         "run_agent_headless: provider={} model={} channel={} session={}",
@@ -3962,6 +4565,11 @@ Do not start every turn by calling `skill_list`.
 → Use `file_write` only when creating a new file or replacing the entire content.
 → Use `file_diff` to preview what a change will look like before applying it.
 
+**File writing contract:**
+→ `file_write` requires BOTH `path` and `content`. `path` must be a concrete absolute path, preferably under the current workspace unless the user explicitly provided another accessible location.
+→ Never call `file_write` with only `content`, `name`, `title`, or `filename`. If the target was not specified, derive a clear filename from the user request and use the workspace path.
+→ If `file_write` fails with `Missing required parameter` / missing `path`, do not repeat the same call. Retry once with the same content and a concrete absolute path. Do not expose the raw internal tool error to ordinary users as your final answer.
+
 **Building, testing, or running code:**
 → Use `code_run` — designed for coding tasks, returns structured exit_code/stdout/stderr/duration.
 → Examples: `code_run("cargo build", cwd="C:\\myproject")`, `code_run("npm test", cwd="C:\\app")`
@@ -4021,10 +4629,19 @@ Do not start every turn by calling `skill_list`.
   `write_cells` takes a `cells` array of {{cell, value}} objects. Values starting with `=` are auto-treated as formulas.
 → **Word workflow**: create → add_paragraph (with style: 'Heading 1'..'Heading 4', 'List Bullet', 'Normal') → add_table (2D array) → add_picture → set_header_footer
   `find_replace` for template filling (replace placeholders like {{{{NAME}}}} with actual values).
+  Word fallback for normal users: If Microsoft Office COM is unavailable, or the machine uses WPS without compatible COM automation, create new basic `.docx` files with `office(app="word", action="create_basic_docx", path=..., title=..., text=..., rows=...)`. This built-in generator does not require Python, Node, Microsoft Office, or user-installed packages, and WPS/Word can open the result.
 → **PowerPoint workflow**: read_document/read_slides (extract slide text from .pptx) → create → add_slides (batch array of {{title, content, layout}}) → add_image → export_pdf
   `read_document` returns JSON `[{{slide, text}}, ...]`. `add_slides` creates multiple slides in one call. layout=1 (title only), 2 (title+content), 11 (blank).
 → Do NOT use `shell` to write Office files — always use `office` actions which handle all escaping internally.
 → Use `uia` for UI-level interaction with Office apps
+
+Additional Office rule:
+  Do not use `shell` to hand-build `.docx` ZIP packages. `.docx` is technically OOXML inside a ZIP, but ad-hoc shell ZIP generation is brittle and often produces files that Word/WPS cannot open. Use the `office` tool fallback above.
+  If the fallback is used, explain plainly: "本机没有可用的 Office/WPS 自动化接口，包子已使用内置生成器创建基础 Word 文件。" Do not ask the user to install Python or package managers.
+
+Skill routing details:
+  A skill marked `locked=true` means the bundled skill files are protected from editing, not that the skill cannot be used. Do not stop because a skill is locked. Use the embedded instructions already provided in the prompt.
+  Do not re-read a selected SKILL.md when the selected skill instructions are already embedded. If a read/modify attempt is denied for a locked skill file, continue using the embedded instructions and do not present that as a user-facing failure.
 
 ## Coding Task Workflow
 
@@ -5849,18 +6466,23 @@ pub async fn get_context_preview(
 #[cfg(test)]
 mod tests {
     use super::{
-        build_auto_session_workspace_root, build_context_messages, build_main_chat_system_prompt,
-        collapse_superseded_tool_failures, derive_headless_session_source,
-        extract_tool_minimals_from_history, minimal_tool_result_blocks,
-        paths_match_for_pool_binding, resolve_headless_memory_owner_id,
-        resolve_headless_scene_kind, resolve_pool_session_for_workspace,
-        sanitize_session_workspace_name, HeadlessRunOptions,
+        auto_task_continuation_reason, build_auto_session_workspace_root, build_context_messages,
+        build_main_chat_system_prompt, collapse_superseded_tool_failures,
+        compact_message_for_frontend_history, derive_headless_session_source,
+        extract_tool_minimals_from_history,
+        minimal_tool_result_blocks, paths_match_for_pool_binding,
+        push_auto_plan_continuation_message, push_auto_task_continuation_message,
+        render_auto_plan_continuation_prompt, replace_latest_user_message_content,
+        resolve_headless_memory_owner_id, resolve_headless_scene_kind,
+        resolve_pool_session_for_workspace, resolve_skill_selection,
+        sanitize_session_workspace_name, unfinished_plan_items, HeadlessRunOptions,
         SESSION_SOURCE_PISCIS_HEARTBEAT_GLOBAL, SESSION_SOURCE_PISCIS_POOL,
     };
     use crate::commands::config::scene::SceneKind;
     use crate::pool::PoolSession;
     use crate::store::db::ChatMessage;
     use chrono::{Local, TimeZone, Utc};
+    use piscis_kernel::agent::plan::PlanTodoItem;
     use piscis_kernel::llm::{ContentBlock, LlmMessage, MessageContent};
     use serde_json::json;
 
@@ -5880,6 +6502,28 @@ mod tests {
             tool_results_json: None,
             turn_index: Some(turn_index),
         }
+    }
+
+    #[test]
+    fn frontend_history_message_compacts_large_tool_payloads() {
+        let mut msg = make_chat_message("s1", "user", "", 1);
+        msg.tool_results_json = Some(
+            json!([{
+                "tool_use_id": "tool-1",
+                "content": "x".repeat(40_000),
+                "is_error": false
+            }])
+            .to_string(),
+        );
+
+        let compacted = compact_message_for_frontend_history(msg);
+        let payload = compacted
+            .tool_results_json
+            .expect("compacted tool results");
+
+        assert!(payload.len() < 20_000);
+        assert!(payload.contains("tool-1"));
+        assert!(payload.contains("界面加载"));
     }
 
     #[test]
@@ -5950,6 +6594,179 @@ mod tests {
             }),
             MessageContent::Text(_) => false,
         })
+    }
+
+    #[test]
+    fn internal_skill_routing_can_be_added_to_llm_context_without_changing_visible_user_text() {
+        let visible_user_text = "根据销售数据生成分析报告".to_string();
+        let internal_model_text = format!(
+            "## Mandatory selected skill instructions\n{}\n\n{}",
+            "## Skill: word-docx\n## When to Use\nCore Rules", visible_user_text
+        );
+        let mut llm_messages = vec![
+            text_msg("user", "上一轮用户消息"),
+            text_msg("assistant", "上一轮回答"),
+            text_msg("user", &visible_user_text),
+        ];
+
+        assert!(replace_latest_user_message_content(
+            &mut llm_messages,
+            internal_model_text.clone()
+        ));
+
+        assert_eq!(
+            llm_messages.last().unwrap().content.as_text(),
+            internal_model_text
+        );
+        assert_eq!(visible_user_text, "根据销售数据生成分析报告");
+        assert!(!visible_user_text.contains("Mandatory selected skill instructions"));
+        assert!(!visible_user_text.contains("When to Use"));
+    }
+
+    #[test]
+    fn ordinary_office_requests_can_still_auto_select_basic_skills() {
+        assert!(resolve_skill_selection("根据销售数据生成分析报告", None).is_some());
+        assert!(resolve_skill_selection("帮我整理一个文档", None).is_some());
+    }
+
+    #[test]
+    fn main_prompt_requires_complete_file_write_arguments_and_retry_guidance() {
+        let prompt = build_main_chat_system_prompt("", "", false);
+
+        assert!(prompt.contains("`file_write` requires BOTH"));
+        assert!(prompt.contains("Missing required parameter"));
+        assert!(prompt.contains("Retry once with the same content and a concrete absolute path"));
+        assert!(prompt.contains("Do not expose the raw internal tool error"));
+    }
+
+    #[test]
+    fn unfinished_plan_items_selects_only_active_work() {
+        let items = vec![
+            PlanTodoItem {
+                id: "a".into(),
+                content: "读取资料".into(),
+                status: "completed".into(),
+            },
+            PlanTodoItem {
+                id: "b".into(),
+                content: "生成报告".into(),
+                status: "in_progress".into(),
+            },
+            PlanTodoItem {
+                id: "c".into(),
+                content: "检查结果".into(),
+                status: "pending".into(),
+            },
+            PlanTodoItem {
+                id: "d".into(),
+                content: "无需处理".into(),
+                status: "cancelled".into(),
+            },
+        ];
+
+        let unfinished = unfinished_plan_items(&items);
+
+        assert_eq!(
+            unfinished
+                .iter()
+                .map(|item| item.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["b", "c"]
+        );
+    }
+
+    #[test]
+    fn auto_plan_continuation_prompt_preserves_unfinished_steps() {
+        let unfinished = vec![PlanTodoItem {
+            id: "step-2".into(),
+            content: "继续生成剩余页面".into(),
+            status: "in_progress".into(),
+        }];
+
+        let prompt = render_auto_plan_continuation_prompt(&unfinished, 1, 2);
+
+        assert!(prompt.contains("Host continuation (1/2)"));
+        assert!(prompt.contains("Do not ask the user to say continue"));
+        assert!(prompt.contains("[in_progress] 继续生成剩余页面"));
+    }
+
+    #[test]
+    fn auto_plan_continuation_message_is_internal_user_context() {
+        let unfinished = vec![PlanTodoItem {
+            id: "step-1".into(),
+            content: "完成验收".into(),
+            status: "pending".into(),
+        }];
+        let mut messages = vec![text_msg("user", "请制作方案")];
+
+        push_auto_plan_continuation_message(&mut messages, &unfinished, 2, 2);
+
+        assert_eq!(messages.last().unwrap().role, "user");
+        assert!(messages
+            .last()
+            .unwrap()
+            .content
+            .as_text()
+            .contains("[pending] 完成验收"));
+    }
+
+    #[test]
+    fn auto_task_continuation_detects_process_only_action_reply() {
+        let messages = vec![text_msg(
+            "assistant",
+            "Let me first check the workspace, then I will create the report.",
+        )];
+
+        let reason = auto_task_continuation_reason("请生成一份本地时间查询脚本", &messages);
+
+        assert!(reason.unwrap().contains("only described process"));
+    }
+
+    #[test]
+    fn auto_task_continuation_detects_tool_work_without_final_reply() {
+        let messages = vec![
+            assistant_tool_use(
+                "call-1",
+                "file_write",
+                serde_json::json!({ "path": "report.md", "content": "draft" }),
+            ),
+            user_tool_result("call-1", "ok", false),
+        ];
+
+        let reason = auto_task_continuation_reason("帮我生成报告文件", &messages);
+
+        assert!(reason.unwrap().contains("without a final"));
+    }
+
+    #[test]
+    fn auto_task_continuation_allows_delivered_plain_text() {
+        let messages = vec![text_msg(
+            "assistant",
+            "包子可以帮你处理文档、表格、PPT 和本地文件，适合需要落地结果的工作。",
+        )];
+
+        assert!(auto_task_continuation_reason("帮我写一段包子说明", &messages).is_none());
+    }
+
+    #[test]
+    fn auto_task_continuation_prompt_is_internal_user_context() {
+        let mut messages = vec![text_msg("user", "帮我生成报告")];
+
+        push_auto_task_continuation_message(
+            &mut messages,
+            "the last assistant message only described process, not a result",
+            "帮我生成报告",
+            1,
+            2,
+        );
+
+        assert_eq!(messages.last().unwrap().role, "user");
+        assert!(messages
+            .last()
+            .unwrap()
+            .content
+            .as_text()
+            .contains("Do not ask the user to say continue"));
     }
 
     #[test]
@@ -6249,6 +7066,33 @@ mod tests {
             "schema_correction tool=file_read"
         ));
         assert!(has_tool_result_content(&collapsed, "file content"));
+    }
+
+    #[test]
+    fn collapse_superseded_tool_failures_removes_file_write_missing_path_retry() {
+        let msgs = vec![
+            text_msg("user", "帮我生成一个 Word 文档"),
+            assistant_tool_use("call-1", "file_write", json!({"content":"draft"})),
+            user_tool_result(
+                "call-1",
+                "工具”file_write“本次调用未生效，请不要重复相同调用，先按提示调整后再试。建议：补齐工具要求的必要参数后重试，原始结果：Missing required parameter : path",
+                true,
+            ),
+            text_msg("assistant", "我补上保存路径后继续。"),
+            assistant_tool_use(
+                "call-2",
+                "file_write",
+                json!({"path":"C:\\temp\\report.md","content":"draft"}),
+            ),
+            user_tool_result("call-2", "ok", false),
+        ];
+
+        let collapsed = collapse_superseded_tool_failures(msgs);
+        assert!(!has_tool_result_content(
+            &collapsed,
+            "Missing required parameter : path"
+        ));
+        assert!(has_tool_result_content(&collapsed, "ok"));
     }
 
     #[test]
