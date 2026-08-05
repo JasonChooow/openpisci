@@ -18,7 +18,7 @@ export default function Footer() {
           <div className="footer-col">
             <h4>产品</h4>
             <Link to="/marketplace">市场</Link>
-            <Link to="/model">模型服务</Link>
+            <Link to="/models">模型服务</Link>
             <a href="/#download">下载桌面端</a>
           </div>
           <div className="footer-col">
@@ -32,9 +32,8 @@ export default function Footer() {
           </div>
           <div className="footer-col">
             <h4>账户</h4>
-            <a href="/api/auth/register" target="_blank" rel="noreferrer">
-              注册账户
-            </a>
+            <Link to="/login">登录</Link>
+            <Link to="/login?mode=register">注册账户</Link>
           </div>
         </div>
         <div className="footer-bottom">

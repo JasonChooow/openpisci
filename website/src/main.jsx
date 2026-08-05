@@ -6,6 +6,7 @@ import MarketplacePage from './pages/MarketplacePage.jsx';
 import ModelsPage from './pages/ModelsPage.jsx';
 import DocsPage from './pages/DocsPage.jsx';
 import ModelPage from './pages/ModelPage.jsx';
+import LoginPage from './pages/LoginPage.jsx';
 import './styles/index.css';
 
 createRoot(document.getElementById('root')).render(
@@ -16,6 +17,9 @@ createRoot(document.getElementById('root')).render(
       <Route path="/models" element={<ModelsPage />} />
       <Route path="/model" element={<ModelPage />} />
       <Route path="/docs" element={<DocsPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/sign-in" element={<LoginPage />} />
+      <Route path="/register" element={<LoginPage />} />
     </Routes>
   </BrowserRouter>
 );

@@ -1,0 +1,82 @@
+.auth-page {
+  display: flex;
+  justify-content: center;
+  padding: 64px 0 96px;
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  padding: 32px 28px;
+  border: 1px solid var(--line, #e8e6ef);
+  border-radius: 16px;
+  background: var(--surface, #fff);
+}
+
+.auth-card h1 {
+  margin: 0 0 8px;
+  font-size: 1.75rem;
+}
+
+.auth-sub {
+  margin: 0 0 20px;
+  color: var(--ink-3, #6b6680);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.auth-tabs button {
+  flex: 1;
+  border: 1px solid var(--line, #e8e6ef);
+  background: transparent;
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--ink-2, #3d3a4d);
+}
+
+.auth-tabs button.active {
+  background: var(--ink, #16141f);
+  color: #fff;
+  border-color: transparent;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--ink-3, #6b6680);
+}
+
+.auth-form input {
+  border: 1px solid var(--line, #e8e6ef);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--ink, #16141f);
+  background: #fff;
+}
+
+.auth-form .btn {
+  width: 100%;
+  margin-top: 4px;
+  justify-content: center;
+}
+
+.auth-foot {
+  margin: 18px 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-4, #8a849c);
+}

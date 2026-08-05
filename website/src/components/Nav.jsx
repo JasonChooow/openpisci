@@ -3,10 +3,6 @@ import { Link, NavLink } from 'react-router-dom';
 import { MonitorDown } from 'lucide-react';
 import SearchBox from './SearchBox';
 
-const modelHubBaseUrl =
-  import.meta.env.VITE_MODEL_HUB_URL || 'http://127.0.0.1:3000';
-const modelHubLoginUrl = `${modelHubBaseUrl.replace(/\/$/, '')}/sign-in`;
-
 export default function Nav() {
   return (
     <header className="nav">
@@ -28,7 +24,7 @@ export default function Nav() {
           <NavLink to="/marketplace" className={({ isActive }) => (isActive ? 'active' : '')}>
             市场
           </NavLink>
-          <NavLink to="/model" className={({ isActive }) => (isActive ? 'active' : '')}>
+          <NavLink to="/models" className={({ isActive }) => (isActive ? 'active' : '')}>
             模型
           </NavLink>
           <NavLink to="/docs" className={({ isActive }) => (isActive ? 'active' : '')}>
@@ -36,9 +32,9 @@ export default function Nav() {
           </NavLink>
         </nav>
         <div className="nav-actions">
-          <a className="nav-login" href={modelHubLoginUrl}>
+          <Link className="nav-login" to="/login">
             登录
-          </a>
+          </Link>
           <a className="btn btn-primary" href="/#download">
             <MonitorDown size={15} />
             下载
