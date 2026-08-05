@@ -179,7 +179,7 @@ export function Hero(props: HeroProps) {
           >
             <div className='mb-4 flex flex-col gap-1'>
               <span className='text-muted-foreground/50 text-[10px] font-bold tracking-[0.15em] uppercase'>
-                {t('Two ways to use Baozi')}
+                {t('Two ways to use 9X bot model service')}
               </span>
               <p className='text-muted-foreground/60 text-xs leading-relaxed'>
                 {t(

@@ -4,6 +4,7 @@ import { ChevronLeft, Eye } from "lucide-react";
 import { ToolStep, PlanTodoItem } from "../../store";
 import { openPath, type SessionArtifact } from "../../services/tauri";
 import ArtifactPreview from "./ArtifactPreview";
+import { uriToNativePath } from "../../utils/linkify";
 
 const TOOL_ICONS: Record<string, string> = {
   shell: "💻", powershell: "💻", powershell_query: "💻",
@@ -104,6 +105,10 @@ function isWebUri(value: string): boolean {
   return /^https?:\/\//i.test(value);
 }
 
+function toOpenableLocalPath(value: string): string {
+  return value.startsWith("file://") ? uriToNativePath(value) : value;
+}
+
 export function ArtifactsPanel({
   artifacts,
   onPreview,
@@ -159,7 +164,7 @@ export function ArtifactsPanel({
                   {artifact.uri}
                 </a>
               ) : (
-                <button className="artifact-uri artifact-uri-button" onClick={(e) => { e.stopPropagation(); openPath(artifact.uri!); }}>
+                <button className="artifact-uri artifact-uri-button" onClick={(e) => { e.stopPropagation(); openPath(toOpenableLocalPath(artifact.uri!)); }}>
                   {artifact.uri}
                 </button>
               )

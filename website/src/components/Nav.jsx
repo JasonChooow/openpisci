@@ -11,21 +11,24 @@ export default function Nav() {
   return (
     <header className="nav">
       <div className="wrap nav-inner">
-        <Link to="/" className="nav-brand" aria-label="包子首页">
+        <Link to="/" className="nav-brand" aria-label="9X bot 首页">
           <img src="/assets/baozi-logo.png" alt="" />
           <span>
             <strong>包子</strong>
-            <small>9X bot Agent 社区</small>
+            <small>9X bot AI 办公助手</small>
           </span>
         </Link>
         <div className="nav-search">
           <SearchBox />
         </div>
         <nav className="nav-links" aria-label="主导航">
+          <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>
+            9X bot
+          </NavLink>
           <NavLink to="/marketplace" className={({ isActive }) => (isActive ? 'active' : '')}>
             市场
           </NavLink>
-          <NavLink to="/models" className={({ isActive }) => (isActive ? 'active' : '')}>
+          <NavLink to="/model" className={({ isActive }) => (isActive ? 'active' : '')}>
             模型
           </NavLink>
           <NavLink to="/docs" className={({ isActive }) => (isActive ? 'active' : '')}>

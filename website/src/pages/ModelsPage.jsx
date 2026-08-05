@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AnimatePresence, motion } from 'motion/react';
 import { ArrowRight, Info, Route } from 'lucide-react';
 import Nav from '../components/Nav';
 import Footer from '../components/Footer';
@@ -56,7 +55,7 @@ export default function ModelsPage() {
       <Nav />
       <main className="wrap">
         <div className="page-head">
-          <h1>模型路由</h1>
+          <h1>模型服务</h1>
           <p>
             网关统一接入多家上游模型，按成本与可用性自动选路。
             桌面端登录云端账户即可使用，按用量计费。
@@ -92,56 +91,45 @@ export default function ModelsPage() {
           </p>
         )}
 
-        <motion.div layout className="models-page-grid">
-          <AnimatePresence mode="popLayout">
-            {filtered.map((m, i) => (
-              <motion.div
-                key={m.id}
-                layout
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.25, delay: i * 0.03, ease: [0.25, 0.1, 0.25, 1] }}
-              >
-                <SpotlightCard className="models-page-card">
-                  <div className="models-page-card-head">
-                    <div>
-                      <h3>{m.display_name}</h3>
-                      <span className="model-id">{m.id}</span>
-                    </div>
-                    <span className="chip chip-accent">
-                      {CATEGORY_LABEL[m.category] || m.category}
-                    </span>
-                  </div>
-                  <p className="models-page-desc">{m.description || '暂无介绍'}</p>
-                  <div className="models-page-pricing">
-                    <div>
-                      <strong>{fmtPrice(m.pricing?.input_per_1k)}</strong>
-                      输入 / 1K tokens
-                    </div>
-                    <div>
-                      <strong>{fmtPrice(m.pricing?.output_per_1k)}</strong>
-                      输出 / 1K tokens
-                    </div>
-                  </div>
-                  <div className="models-page-foot">
-                    <div className="model-meta">
-                      {/* 只说有几条线路，不说是哪几家：上游是可替换的供应商，
-                          写在定价页上会让一次换线变成一次要通知用户的变更。 */}
-                      {m.route_count > 1 && (
-                        <span className="chip">{m.route_count} 条线路</span>
-                      )}
-                    </div>
-                    <Link to="/#download" className="models-use-link">
-                      在桌面端使用
-                      <ArrowRight size={13} />
-                    </Link>
-                  </div>
-                </SpotlightCard>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+        <div className="models-page-grid">
+          {filtered.map((m) => (
+            <SpotlightCard className="models-page-card" key={m.id}>
+              <div className="models-page-card-head">
+                <div>
+                  <h3>{m.display_name}</h3>
+                  <span className="model-id">{m.id}</span>
+                </div>
+                <span className="chip chip-accent">
+                  {CATEGORY_LABEL[m.category] || m.category}
+                </span>
+              </div>
+              <p className="models-page-desc">{m.description || '暂无介绍'}</p>
+              <div className="models-page-pricing">
+                <div>
+                  <strong>{fmtPrice(m.pricing?.input_per_1k)}</strong>
+                  输入 / 1K tokens
+                </div>
+                <div>
+                  <strong>{fmtPrice(m.pricing?.output_per_1k)}</strong>
+                  输出 / 1K tokens
+                </div>
+              </div>
+              <div className="models-page-foot">
+                <div className="model-meta">
+                  {/* 只说有几条线路，不说是哪几家：上游是可替换的供应商，
+                      写在定价页上会让一次换线变成一次要通知用户的变更。 */}
+                  {m.route_count > 1 && (
+                    <span className="chip">{m.route_count} 条线路</span>
+                  )}
+                </div>
+                <Link to="/#download" className="models-use-link">
+                  在桌面端使用
+                  <ArrowRight size={13} />
+                </Link>
+              </div>
+            </SpotlightCard>
+          ))}
+        </div>
       </main>
       <Footer />
     </>

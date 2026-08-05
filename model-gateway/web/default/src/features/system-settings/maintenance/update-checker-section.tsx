@@ -61,7 +61,7 @@ export function UpdateCheckerSection({
         {
           headers: {
             Accept: 'application/vnd.github+json',
-            'User-Agent': 'baozi-model-service',
+            'User-Agent': '9xbot-model-service',
           },
         }
       )

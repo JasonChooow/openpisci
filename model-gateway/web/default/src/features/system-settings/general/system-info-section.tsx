@@ -243,7 +243,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                     <FormLabel>{t('System Name')}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder={t('Baozi Model Service')}
+                        placeholder={t('9X bot Model Service')}
                         {...field}
                       />
                     </FormControl>
@@ -351,7 +351,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                       <FormLabel>{t('Home Page Content')}</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder={t('Welcome to Baozi Model Service...')}
+                          placeholder={t('Welcome to 9X bot Model Service...')}
                           rows={6}
                           {...field}
                         />

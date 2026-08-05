@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AnimatePresence, motion } from 'motion/react';
 import {
   Bot,
   Download,
@@ -125,7 +124,7 @@ export default function MarketplacePage() {
       <Nav />
       <main className="wrap">
         <div className="page-head">
-          <h1>公共市场</h1>
+          <h1>市场</h1>
           <p>
             浏览并安装专家、技能、团队与连接器
             {assets.length > 0 ? ` — 共 ${assets.length} 项` : ''}，
@@ -183,13 +182,11 @@ export default function MarketplacePage() {
           </div>
         )}
 
-        <motion.div layout className="mp-grid">
-          <AnimatePresence mode="popLayout">
-            {pageItems.map((item) => (
-              <AssetCard key={item.id} item={item} onOpen={setSelectedAsset} />
-            ))}
-          </AnimatePresence>
-        </motion.div>
+        <div className="mp-grid">
+          {pageItems.map((item) => (
+            <AssetCard key={item.id} item={item} onOpen={setSelectedAsset} />
+          ))}
+        </div>
 
         {totalPages > 1 && (
           <div className="mp-pagination">
@@ -215,11 +212,9 @@ export default function MarketplacePage() {
       </main>
       <Footer />
 
-      <AnimatePresence>
-        {selectedAsset && (
-          <AssetDetailModal asset={selectedAsset} onClose={() => setSelectedAsset(null)} />
-        )}
-      </AnimatePresence>
+      {selectedAsset && (
+        <AssetDetailModal asset={selectedAsset} onClose={() => setSelectedAsset(null)} />
+      )}
     </>
   );
 }
@@ -251,23 +246,15 @@ function AssetDetailModal({ asset, onClose }) {
   const payload = detail?.payload || asset?.payload || asset;
 
   return (
-    <motion.div
+    <div
       className="mp-modal-backdrop"
       onClick={onClose}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.18 }}
     >
-      <motion.div
+      <div
         className="mp-modal"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        initial={{ opacity: 0, y: 24, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 16, scale: 0.98 }}
-        transition={{ duration: 0.24, ease: [0.25, 0.1, 0.25, 1] }}
       >
         <button className="mp-modal-close" type="button" onClick={onClose} aria-label="关闭">
           <X size={18} />
@@ -331,8 +318,8 @@ function AssetDetailModal({ asset, onClose }) {
             </div>
           </div>
         )}
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
 
